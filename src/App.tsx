@@ -55,7 +55,23 @@ function App() {
   }, [setAuth]);
 
   if (!isConfigured) {
-    return <Setup />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg border border-red-200 dark:border-red-900">
+          <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Environment Configuration Missing</h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            The application cannot start because the Supabase environment variables are missing.
+          </p>
+          <div className="bg-gray-100 dark:bg-gray-950 p-4 rounded-md font-mono text-sm overflow-x-auto text-gray-800 dark:text-gray-200">
+            VITE_SUPABASE_URL<br />
+            VITE_SUPABASE_ANON_KEY
+          </div>
+          <p className="text-gray-600 dark:text-gray-300 mt-4">
+            Please add these variables to your Vercel project settings and trigger a redeployment.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
