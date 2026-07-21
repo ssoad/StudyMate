@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardBody } from '../components/Card';
 import { Button } from '../components/Button';
-import { FileText, Link as LinkIcon, Upload, Plus, Download, X, Loader2, CheckCircle } from 'lucide-react';
+import { FileText, Link as LinkIcon, Upload, Download, X, Loader2 } from 'lucide-react';
 import { dataService, type StudyResource } from '../lib/dataService';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
@@ -117,7 +117,7 @@ export function Resources() {
               <h3 className="text-lg font-medium text-[var(--text-main)]">No resources found</h3>
               <p className="text-[var(--text-muted)] mt-1">Be the first to share a study resource with the community!</p>
             </div>
-            <Button onClick={() => setIsModalOpen(true)} variant="outline" className="mt-2">
+            <Button onClick={() => setIsModalOpen(true)} variant="secondary" className="mt-2">
               Upload Now
             </Button>
           </CardBody>
@@ -283,7 +283,7 @@ export function Resources() {
                 )}
                 
                 <div className="pt-4 border-t border-[var(--border)] flex justify-end gap-3">
-                  <Button type="button" variant="outline" onClick={() => { setIsModalOpen(false); resetForm(); }}>
+                  <Button type="button" variant="secondary" onClick={() => { setIsModalOpen(false); resetForm(); }}>
                     Cancel
                   </Button>
                   <Button type="submit" disabled={submitting} className="min-w-[120px]">

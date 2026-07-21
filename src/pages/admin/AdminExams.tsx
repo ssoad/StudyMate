@@ -3,7 +3,7 @@ import { Card, CardHeader, CardBody } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { PlusCircle, Edit, Trash2, Calendar, Clock, FileQuestion, X, Brain } from 'lucide-react';
 import { useToastStore } from '../../store/toastStore';
-import { dataService, type Exam, type ExamQuestion } from '../../lib/dataService';
+import { dataService, type Exam } from '../../lib/dataService';
 import { parseFileForLLM } from '../../lib/fileParser';
 import { generateExamFromDocument } from '../../lib/llm';
 

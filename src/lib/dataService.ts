@@ -117,7 +117,7 @@ export const dataService = {
     };
   },
 
-  getDashboardStats: async (userId: string) => {
+  getDashboardStats: async () => {
     const [
       { count: topicsCount },
       { count: pendingExamsCount }
@@ -221,7 +221,7 @@ export const dataService = {
   },
 
   // Exam Submissions
-  startExamSubmission: async (examId: string, userId: string) => {
+  startExamSubmission: async (examId: string, userId) => {
     return await supabase!.from('exam_submissions').insert({ exam_id: examId, user_id: userId, status: 'started' }).select().single();
   },
   submitExamSubmission: async (submissionId: string, score: number) => {

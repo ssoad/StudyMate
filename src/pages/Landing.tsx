@@ -1,7 +1,6 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/Button';
-import { Brain, Sparkles, BookOpen, Target, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { BookOpen, Sparkles, ShieldCheck, ArrowRight, Brain, Zap } from 'lucide-react';
 import { ThemeToggle } from '../components/ThemeToggle';
 
 export function Landing() {
@@ -20,7 +19,7 @@ export function Landing() {
         <div className="flex items-center gap-4">
           <ThemeToggle />
           <Link to="/login">
-            <Button variant="outline" className="hidden sm:flex border-[var(--border)] hover:bg-[var(--surface-hover)]">
+            <Button variant="secondary" className="hidden sm:flex border-[var(--border)] hover:bg-[var(--surface-hover)]">
               Sign In
             </Button>
           </Link>
@@ -58,7 +57,7 @@ export function Landing() {
               </Button>
             </Link>
             <Link to="/login">
-              <Button size="lg" variant="outline" className="border-2 border-[var(--border)] hover:bg-[var(--surface-hover)] px-8 text-lg font-bold rounded-2xl h-14 backdrop-blur-sm">
+              <Button size="lg" variant="secondary" className="border-2 border-[var(--border)] hover:bg-[var(--surface-hover)] px-8 text-lg font-bold rounded-2xl h-14 backdrop-blur-sm">
                 Admin Demo
               </Button>
             </Link>

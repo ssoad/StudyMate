@@ -2,7 +2,7 @@ import { dataService } from './dataService';
 
 import type { ParsedFile } from './fileParser';
 
-export async function generateExamFromDocument(parsedFile: ParsedFile, title: string) {
+export async function generateExamFromDocument(parsedFile: ParsedFile, _title: string) {
   const { data: settings } = await dataService.getSystemSettings();
   const apiKey = settings?.find(s => s.key === 'llm_api_key')?.value;
   // NOTE: dataService has llm_api_base_url, but old code used llm_base_url. We'll check both.

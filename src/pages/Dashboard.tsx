@@ -28,7 +28,7 @@ export function Dashboard() {
         setRecentDiscussions(discussions.slice(0, 2));
       }
 
-      const stats = await dataService.getDashboardStats(user.id);
+      const stats = await dataService.getDashboardStats();
       setDashboardStats(stats);
 
       const { data: studyDays } = await dataService.getStudyDays();

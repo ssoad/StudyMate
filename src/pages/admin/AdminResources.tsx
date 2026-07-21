@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardBody } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { FileText, Link as LinkIcon, Check, X, Loader2, Download } from 'lucide-react';
@@ -108,7 +108,7 @@ export function AdminResources() {
                   
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Button 
-                      variant="outline" 
+                      variant="secondary" 
                       onClick={() => handleAction(resource.id, 'rejected')}
                       className="flex-1 sm:flex-none text-red-500 hover:bg-red-500/10 border-red-500/20 gap-2"
                     >

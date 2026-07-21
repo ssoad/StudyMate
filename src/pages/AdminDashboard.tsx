@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardBody } from '../components/Card';
 import { Button } from '../components/Button';
-import { Users, BookOpen, MessageSquare, PlusCircle, Database, AlertCircle } from 'lucide-react';
+import { Users, BookOpen, MessageSquare, PlusCircle } from 'lucide-react';
 import { dataService } from '../lib/dataService';
 
 export function AdminDashboard() {

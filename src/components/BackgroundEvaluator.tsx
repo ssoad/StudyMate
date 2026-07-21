@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { dataService } from '../lib/dataService';
 import { evaluateAnswer } from '../lib/evaluator';
 import { useAuthStore } from '../store/authStore';
