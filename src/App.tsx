@@ -7,7 +7,7 @@ import { Exams } from './pages/Exams';
 import { TakeExam } from './pages/TakeExam';
 import { Leaderboard } from './pages/Leaderboard';
 import { Discussion } from './pages/Discussion';
-import { Setup } from './pages/Setup';
+
 import { Login } from './pages/Login';
 import { Landing } from './pages/Landing';
 import { Profile } from './pages/Profile';
