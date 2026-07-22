@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardBody } from '../../components/Card';
+import { Card, CardBody } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { FileText, Link as LinkIcon, Check, X, Loader2, Download } from 'lucide-react';
 import { dataService, type StudyResource } from '../../lib/dataService';

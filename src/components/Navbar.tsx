@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, GraduationCap, Trophy, MessageSquare, LayoutDashboard, ShieldCheck, LogOut, FileText, CheckSquare, Settings } from 'lucide-react';
+import { BookOpen, GraduationCap, Trophy, MessageSquare, LayoutDashboard, ShieldCheck, LogOut, FileText, CheckSquare, Settings, Users } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
@@ -36,6 +36,7 @@ export function Navbar() {
     { name: 'Manage Study Plans', path: '/admin/study-plans', icon: <FileText size={20} /> },
     { name: 'Review Resources', path: '/admin/resources', icon: <CheckSquare size={20} /> },
     { name: 'Manage Exams', path: '/admin/exams', icon: <CheckSquare size={20} /> },
+    { name: 'Manage Users', path: '/admin/users', icon: <Users size={20} /> },
     { name: 'System Settings', path: '/admin/settings', icon: <Settings size={20} /> },
   ];
 

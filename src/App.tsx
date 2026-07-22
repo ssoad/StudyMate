@@ -17,6 +17,7 @@ import { AdminExams } from './pages/admin/AdminExams';
 import { AdminSettings } from './pages/admin/AdminSettings';
 import { Resources } from './pages/Resources';
 import { AdminResources } from './pages/admin/AdminResources';
+import { AdminUsers } from './pages/admin/AdminUsers';
 import { hasSupabaseKeys, supabase } from './lib/supabase';
 import { useAuthStore } from './store/authStore';
 import { useThemeStore } from './store/themeStore';
@@ -43,12 +44,18 @@ function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const role = session?.user.email?.includes('admin') ? 'admin' : 'user';
       setAuth(session?.user ?? null, session?.user ? role : null);
+      if (session?.user) {
+        supabase!.rpc('update_last_access').then(() => {});
+      }
     });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const role = session?.user.email?.includes('admin') ? 'admin' : 'user';
       setAuth(session?.user ?? null, session?.user ? role : null);
+      if (session?.user) {
+        supabase!.rpc('update_last_access').then(() => {});
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -96,6 +103,7 @@ function App() {
               <Route path="admin/exams" element={<AdminExams />} />
               <Route path="admin/settings" element={<AdminSettings />} />
               <Route path="admin/resources" element={<AdminResources />} />
+              <Route path="admin/users" element={<AdminUsers />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </>
           )}

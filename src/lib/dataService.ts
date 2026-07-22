@@ -90,6 +90,8 @@ export interface UserProfile {
   full_name?: string;
   avatar_url?: string;
   bio?: string;
+  last_accessed_at?: string;
+  last_accessed_ip?: string;
 }
 
 export interface SystemSetting {
@@ -178,6 +180,9 @@ export const dataService = {
   getUserPoints: async (userId: string) => {
     return await supabase!.from('profiles').select('points').eq('id', userId).maybeSingle();
   },
+  getAllUsers: async () => {
+    return await supabase!.from('profiles').select('*').order('last_accessed_at', { ascending: false, nullsFirst: false });
+  },
   getUserProfile: async (userId: string) => {
     return await supabase!.from('profiles').select('*').eq('id', userId).maybeSingle();
   },
@@ -221,7 +226,7 @@ export const dataService = {
   },
 
   // Exam Submissions
-  startExamSubmission: async (examId: string, userId) => {
+  startExamSubmission: async (examId: string, userId: string) => {
     return await supabase!.from('exam_submissions').insert({ exam_id: examId, user_id: userId, status: 'started' }).select().single();
   },
   submitExamSubmission: async (submissionId: string, score: number) => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { dataService, type UserProfile } from '../lib/dataService';
 import { Button } from '../components/Button';
-import { Card, CardHeader, CardBody } from '../components/Card';
+import { Card, CardBody } from '../components/Card';
 import { Camera, User, Mail, Save, Loader2 } from 'lucide-react';
 import { useToastStore } from '../store/toastStore';
 
