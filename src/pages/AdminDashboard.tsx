@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardBody } from '../components/Card';
 import { Button } from '../components/Button';
-import { Users, BookOpen, MessageSquare, PlusCircle } from 'lucide-react';
+import { Users, BookOpen, MessageSquare, PlusCircle, PlayCircle } from 'lucide-react';
 import { dataService } from '../lib/dataService';
 
 export function AdminDashboard() {
@@ -75,6 +75,21 @@ export function AdminDashboard() {
             <p className="text-sm text-muted">Create new curriculum topics, upload PDFs, attach book references, and use AI to generate complete study guides.</p>
             <Button onClick={() => window.location.href = '/admin/study-plans'} className="w-full justify-center mt-auto">
               Manage Study Plans
+            </Button>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2">
+              <PlayCircle size={18} className="text-[var(--primary)]" />
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Video Courses</h3>
+            </div>
+          </CardHeader>
+          <CardBody style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <p className="text-sm text-muted">Create courses from YouTube playlist URLs, organize modules and lectures, and attach textbooks & PDFs for student classrooms.</p>
+            <Button onClick={() => window.location.href = '/admin/courses'} className="w-full justify-center mt-auto">
+              Manage Courses
             </Button>
           </CardBody>
         </Card>

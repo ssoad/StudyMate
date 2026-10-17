@@ -18,6 +18,9 @@ import { AdminSettings } from './pages/admin/AdminSettings';
 import { Resources } from './pages/Resources';
 import { AdminResources } from './pages/admin/AdminResources';
 import { AdminUsers } from './pages/admin/AdminUsers';
+import { Courses } from './pages/Courses';
+import { CoursePlayer } from './pages/CoursePlayer';
+import { AdminCourses } from './pages/admin/AdminCourses';
 import { hasSupabaseKeys, supabase } from './lib/supabase';
 import { useAuthStore } from './store/authStore';
 import { useThemeStore } from './store/themeStore';
@@ -92,6 +95,8 @@ function App() {
             <>
               <Route index element={<Dashboard />} />
               <Route path="study-plan" element={<StudyPlan />} />
+              <Route path="courses" element={<Courses />} />
+              <Route path="courses/:id" element={<CoursePlayer />} />
               <Route path="exams" element={<Exams />} />
               <Route path="exams/:id" element={<TakeExam />} />
               <Route path="leaderboard" element={<Leaderboard />} />
@@ -99,6 +104,7 @@ function App() {
               <Route path="profile" element={<Profile />} />
               <Route path="resources" element={<Resources />} />
               <Route path="admin" element={<AdminDashboard />} />
+              <Route path="admin/courses" element={<AdminCourses />} />
               <Route path="admin/study-plans" element={<AdminStudyPlans />} />
               <Route path="admin/exams" element={<AdminExams />} />
               <Route path="admin/settings" element={<AdminSettings />} />

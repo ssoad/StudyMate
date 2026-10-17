@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, GraduationCap, Trophy, MessageSquare, LayoutDashboard, ShieldCheck, LogOut, FileText, CheckSquare, Settings, Users } from 'lucide-react';
+import { BookOpen, GraduationCap, Trophy, MessageSquare, LayoutDashboard, ShieldCheck, LogOut, FileText, CheckSquare, Settings, Users, PlayCircle } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
@@ -24,6 +24,7 @@ export function Navbar() {
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+    { name: 'Courses', path: '/courses', icon: <PlayCircle size={20} /> },
     { name: 'Study Plan', path: '/study-plan', icon: <BookOpen size={20} /> },
     { name: 'Resources', path: '/resources', icon: <FileText size={20} /> },
     { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} /> },
@@ -33,6 +34,7 @@ export function Navbar() {
 
   const adminItems = [
     { name: 'Admin Dashboard', path: '/admin', icon: <ShieldCheck size={20} /> },
+    { name: 'Manage Courses', path: '/admin/courses', icon: <PlayCircle size={20} /> },
     { name: 'Manage Study Plans', path: '/admin/study-plans', icon: <FileText size={20} /> },
     { name: 'Review Resources', path: '/admin/resources', icon: <CheckSquare size={20} /> },
     { name: 'Manage Exams', path: '/admin/exams', icon: <CheckSquare size={20} /> },
