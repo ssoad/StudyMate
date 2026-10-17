@@ -348,6 +348,19 @@ export const dataService = {
   },
   
   uploadStudyResourceFile: async (file: File) => {
+    // Try local self-hosted storage endpoint first
+    try {
+      const res = await fetch('/api/storage/upload', {
+        method: 'POST',
+        headers: { 'x-filename': encodeURIComponent(file.name) },
+        body: file,
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.url) return { url: json.url, error: null };
+      }
+    } catch {}
+
     const fileExt = file.name.split('.').pop();
     const filePath = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const { error: uploadError } = await supabase!.storage.from('study-resources').upload(filePath, file);
@@ -543,6 +556,19 @@ export const dataService = {
   },
 
   uploadCourseResourceFile: async (file: File) => {
+    // Try local self-hosted storage endpoint first
+    try {
+      const res = await fetch('/api/storage/upload', {
+        method: 'POST',
+        headers: { 'x-filename': encodeURIComponent(file.name) },
+        body: file,
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.url) return { url: json.url, error: null };
+      }
+    } catch {}
+
     const fileExt = file.name.split('.').pop();
     const filePath = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     

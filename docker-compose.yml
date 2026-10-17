@@ -1,0 +1,17 @@
+services:
+  study-mate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-https://xtonmginezodjhcquehw.supabase.co}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0b25tZ2luZXpvZGpoY3F1ZWh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzOTg1NjksImV4cCI6MjA5OTk3NDU2OX0.-pECJTSNWGiXZgzzrGPIWrq363sDHVvN0OIytREXumI}
+    container_name: study-mate
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      - PORT=5173
+      - STORAGE_DIR=/app/storage
+    volumes:
+      - ./storage:/app/storage
