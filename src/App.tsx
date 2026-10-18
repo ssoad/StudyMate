@@ -112,10 +112,7 @@ function App() {
           <Route path="/courses/:id" element={<CourseOverview />} />
 
           {/* Classroom Player - Restricted to approved students & admins */}
-          <Route
-            path="/courses/:id/learn"
-            element={user ? <CoursePlayer /> : <Navigate to="/courses" replace />}
-          />
+          <Route path="/courses/:id/learn" element={<CoursePlayer />} />
 
           {/* Protected Student Routes */}
           <Route path="/study-plan" element={user ? <StudyPlan /> : <Navigate to="/login?redirect=/study-plan" replace />} />

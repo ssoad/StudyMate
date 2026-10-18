@@ -95,14 +95,20 @@ export function CoursePlayer() {
       return;
     }
 
-    // Verify enrollment permissions (admin or approved enrollment)
+    // Verify enrollment permissions (admin, free course, or approved enrollment)
+    const isAdmin =
+      role === 'admin' ||
+      user?.email === 'admin@studymate.org' ||
+      user?.email === 'admin@studymate.local' ||
+      (user as any)?.app_metadata?.role === 'admin';
+
     if (!user) {
       addToast('Please sign in to access the classroom.', 'info');
       navigate(`/courses/${cId}`);
       return;
     }
 
-    if (role !== 'admin') {
+    if (!isAdmin && data.price && data.price > 0) {
       const enrollment = await dataService.getCourseEnrollment(cId, user.id);
       if (!enrollment || enrollment.status !== 'approved') {
         addToast('You must have an approved enrollment to access the course classroom.', 'error');
@@ -137,6 +143,7 @@ export function CoursePlayer() {
       }
     }
 
+    setCourse(data);
     setCurrentLesson(initialLesson);
     setCurrentSectionIndex(initialSecIdx);
     setLoading(false);
@@ -332,7 +339,17 @@ export function CoursePlayer() {
     );
   }
 
-  if (!course) return null;
+  if (!course) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-4">
+        <h3 className="text-lg font-bold text-[var(--text-main)]">Course Not Found</h3>
+        <p className="text-sm text-[var(--text-muted)]">This course could not be loaded or you do not have permission.</p>
+        <Button variant="primary" onClick={() => navigate('/courses')}>
+          Return to Courses
+        </Button>
+      </div>
+    );
+  }
 
   // Flattened total lectures
   const allLessons = course.sections?.flatMap((s) => s.lessons) || [];
