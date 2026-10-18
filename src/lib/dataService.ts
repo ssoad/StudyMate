@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { INITIAL_DEMO_COURSES } from './demoCourses';
+import type { TranscriptCue, TranscriptMetadata } from './transcriptParser';
 
 export interface StudyResource {
   id: string;
@@ -33,6 +34,8 @@ export interface CourseLesson {
   description?: string;
   youtube_video_id?: string;
   youtube_video_url?: string;
+  video_url?: string;
+  transcript?: string | null;
   duration_seconds?: number;
   order_index: number;
   is_preview?: boolean;
@@ -63,6 +66,9 @@ export interface Course {
   youtube_playlist_url?: string;
   youtube_playlist_id?: string;
   duration: string;
+  price?: number;
+  currency?: string;
+  payment_instructions?: string;
   rating: number;
   enrolled_count: number;
   is_published: boolean;
@@ -71,6 +77,26 @@ export interface Course {
   updated_at?: string;
   sections?: CourseSection[];
   resources?: CourseResource[];
+}
+
+export interface CourseEnrollment {
+  id: string;
+  course_id: string;
+  user_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  payment_method: string;
+  transaction_id?: string;
+  sender_number?: string;
+  amount: number;
+  proof_url?: string;
+  admin_notes?: string;
+  student_notes?: string;
+  approved_at?: string;
+  approved_by?: string;
+  created_at: string;
+  updated_at: string;
+  user?: { id: string; email: string; full_name?: string; avatar_url?: string };
+  course?: { id: string; title: string; thumbnail_url?: string; price?: number; currency?: string };
 }
 
 export interface UserCourseProgress {
@@ -525,6 +551,8 @@ export const dataService = {
                   description: les.description,
                   youtube_video_id: les.youtube_video_id,
                   youtube_video_url: les.youtube_video_url,
+                  video_url: les.video_url,
+                  transcript: les.transcript || null,
                   duration_seconds: les.duration_seconds,
                   order_index: les.order_index,
                   is_preview: les.is_preview,
@@ -539,6 +567,112 @@ export const dataService = {
     }
 
     return { data: newCourse, error: null };
+  },
+
+  updateLessonTranscript: async (lessonId: string, transcript: string): Promise<{ error: any }> => {
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from('course_lessons')
+          .update({ transcript })
+          .eq('id', lessonId);
+        if (error) throw error;
+        return { error: null };
+      }
+    } catch (e: any) {
+      console.warn('Supabase updateLessonTranscript error:', e);
+      return { error: e };
+    }
+    return { error: null };
+  },
+
+  autoGenerateTranscript: async ({
+    lessonId,
+    videoId,
+    videoUrl,
+    title,
+    courseTitle,
+    durationSeconds,
+    language = 'auto',
+  }: {
+    lessonId?: string;
+    videoId?: string;
+    videoUrl?: string;
+    title?: string;
+    courseTitle?: string;
+    durationSeconds?: number;
+    language?: string;
+  }): Promise<{
+    success: boolean;
+    cues: TranscriptCue[];
+    metadata: TranscriptMetadata;
+    rawTranscript: string;
+    error?: any;
+  }> => {
+    try {
+      const res = await fetch('/api/transcripts/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lessonId,
+          videoId,
+          videoUrl,
+          title,
+          courseTitle,
+          durationSeconds,
+          language,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Transcript generation failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      return {
+        success: data.success,
+        cues: data.cues || [],
+        metadata: {
+          isMachineGenerated: data.isMachineGenerated ?? true,
+          engine: data.engine || 'studymate-asr',
+          detectedLanguage: data.detectedLanguage || 'en',
+          languageName: data.languageName || (data.detectedLanguage === 'bn' ? 'বাংলা (Bengali)' : 'English'),
+          availableLanguages: data.availableLanguages || [],
+          generatedAt: data.generatedAt,
+        },
+        rawTranscript: data.rawTranscript || JSON.stringify(data),
+      };
+    } catch (err: any) {
+      console.error('[dataService.autoGenerateTranscript] Error:', err);
+      return {
+        success: false,
+        cues: [],
+        metadata: {
+          isMachineGenerated: false,
+          detectedLanguage: 'en',
+          languageName: 'English',
+        },
+        rawTranscript: '',
+        error: err.message,
+      };
+    }
+  },
+
+  getTranscriptLanguages: async (videoIdOrUrl?: string) => {
+    try {
+      const url = videoIdOrUrl
+        ? `/api/transcripts/languages?videoId=${encodeURIComponent(videoIdOrUrl)}`
+        : '/api/transcripts/languages';
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.availableLanguages || [];
+    } catch {
+      return [
+        { code: 'bn', name: 'বাংলা (Bengali)', isAsr: true },
+        { code: 'en', name: 'English', isAsr: true },
+      ];
+    }
   },
 
   deleteCourse: async (courseId: string) => {
@@ -743,5 +877,178 @@ export const dataService = {
         }, { onConflict: 'user_id,lesson_id' });
       }
     } catch {}
-  }
+  },
+
+  // --- COURSE ENROLLMENT METHODS ---
+  getCourseEnrollment: async (courseId: string, userId: string): Promise<CourseEnrollment | null> => {
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('course_enrollments')
+          .select('*')
+          .eq('course_id', courseId)
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (!error && data) return data;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch course enrollment:', e);
+    }
+    try {
+      const stored = localStorage.getItem(`study_mate_enrollment_${courseId}_${userId}`);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
+  },
+
+  submitEnrollment: async (
+    enrollmentData: Partial<CourseEnrollment>
+  ): Promise<{ data: CourseEnrollment | null; error: any }> => {
+    const id = enrollmentData.id || `enroll-${Date.now()}`;
+    const payload: CourseEnrollment = {
+      id,
+      course_id: enrollmentData.course_id!,
+      user_id: enrollmentData.user_id!,
+      status: 'pending',
+      payment_method: enrollmentData.payment_method || 'bKash',
+      transaction_id: enrollmentData.transaction_id || '',
+      sender_number: enrollmentData.sender_number || '',
+      amount: enrollmentData.amount || 0,
+      proof_url: enrollmentData.proof_url || '',
+      student_notes: enrollmentData.student_notes || '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    try {
+      localStorage.setItem(
+        `study_mate_enrollment_${payload.course_id}_${payload.user_id}`,
+        JSON.stringify(payload)
+      );
+    } catch {}
+
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('course_enrollments')
+          .upsert(payload, { onConflict: 'user_id,course_id' })
+          .select()
+          .single();
+        if (error) throw error;
+        return { data, error: null };
+      }
+    } catch (e: any) {
+      console.warn('Supabase enrollment upsert failed:', e);
+      return { data: payload, error: null };
+    }
+
+    return { data: payload, error: null };
+  },
+
+  getAllEnrollments: async (statusFilter?: string): Promise<CourseEnrollment[]> => {
+    try {
+      if (supabase) {
+        let query = supabase
+          .from('course_enrollments')
+          .select('*, user:profiles!course_enrollments_user_id_fkey(id, email, full_name, avatar_url), course:courses(id, title, thumbnail_url, price, currency)')
+          .order('created_at', { ascending: false });
+
+        if (statusFilter && statusFilter !== 'all') {
+          query = query.eq('status', statusFilter);
+        }
+
+        const { data, error } = await query;
+        if (!error && data) return data as CourseEnrollment[];
+
+        // If join failed, fallback to plain select and manual enrichment
+        console.warn('PostgREST relation join query returned error, falling back to manual enrichment:', error);
+        let simpleQuery = supabase
+          .from('course_enrollments')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (statusFilter && statusFilter !== 'all') {
+          simpleQuery = simpleQuery.eq('status', statusFilter);
+        }
+
+        const { data: rawEnrollments, error: rawError } = await simpleQuery;
+        if (!rawError && rawEnrollments && rawEnrollments.length > 0) {
+          const courseIds = Array.from(new Set(rawEnrollments.map((e: any) => e.course_id)));
+          const userIds = Array.from(new Set(rawEnrollments.map((e: any) => e.user_id)));
+
+          const [coursesRes, profilesRes] = await Promise.all([
+            supabase.from('courses').select('id, title, thumbnail_url, price, currency').in('id', courseIds),
+            supabase.from('profiles').select('id, email, full_name, avatar_url').in('id', userIds),
+          ]);
+
+          const courseMap = new Map((coursesRes.data || []).map((c: any) => [c.id, c]));
+          const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
+
+          return rawEnrollments.map((e: any) => ({
+            ...e,
+            course: courseMap.get(e.course_id) || { id: e.course_id, title: 'Course' },
+            user: profileMap.get(e.user_id) || { id: e.user_id, email: 'Student' },
+          })) as CourseEnrollment[];
+        }
+        if (rawEnrollments) return rawEnrollments as CourseEnrollment[];
+      }
+    } catch (e) {
+      console.warn('Failed to load enrollments from Supabase:', e);
+    }
+    return [];
+  },
+
+  uploadEnrollmentProof: async (file: File): Promise<{ url: string | null; error: any }> => {
+    return dataService.uploadCourseResourceFile(file);
+  },
+
+  updateEnrollmentStatus: async (
+    enrollmentId: string,
+    status: 'approved' | 'rejected' | 'pending',
+    adminNotes?: string,
+    adminUserId?: string,
+    courseId?: string
+  ): Promise<{ success: boolean; error?: any }> => {
+    const updates: any = {
+      status,
+      admin_notes: adminNotes || '',
+      updated_at: new Date().toISOString(),
+    };
+    if (status === 'approved') {
+      updates.approved_at = new Date().toISOString();
+      if (adminUserId) updates.approved_by = adminUserId;
+    }
+
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from('course_enrollments')
+          .update(updates)
+          .eq('id', enrollmentId);
+        if (error) throw error;
+
+        // If approved and courseId provided, increment enrolled_count
+        if (status === 'approved' && courseId) {
+          try {
+            const { data: c } = await supabase
+              .from('courses')
+              .select('enrolled_count')
+              .eq('id', courseId)
+              .single();
+            if (c) {
+              await supabase
+                .from('courses')
+                .update({ enrolled_count: (c.enrolled_count || 0) + 1 })
+                .eq('id', courseId);
+            }
+          } catch {}
+        }
+        return { success: true };
+      }
+    } catch (e: any) {
+      console.error('Failed to update enrollment status:', e);
+      return { success: false, error: e };
+    }
+    return { success: true };
+  },
 };

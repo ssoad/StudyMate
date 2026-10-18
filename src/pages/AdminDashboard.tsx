@@ -108,6 +108,21 @@ export function AdminDashboard() {
             </Button>
           </CardBody>
         </Card>
+
+        <Card className="border-indigo-500/20 bg-indigo-500/5">
+          <CardHeader style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2">
+              <PlayCircle size={18} className="text-indigo-500" />
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Course Enrollments</h3>
+            </div>
+          </CardHeader>
+          <CardBody style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <p className="text-sm text-muted">Verify student manual payment details (bKash/Nagad/Rocket/Bank TrxID & receipts) and approve access.</p>
+            <Button onClick={() => window.location.href = '/admin/enrollments'} className="w-full justify-center mt-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
+              Review Enrollments
+            </Button>
+          </CardBody>
+        </Card>
       </div>
     </div>
   );

@@ -15,16 +15,17 @@ export function Login() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) return;
-    
+
     setLoading(true);
+    const targetEmail = email.trim().toLowerCase();
 
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ email: targetEmail, password });
         if (error) throw error;
-        addToast('Verification email sent! Click the link to complete sign up.', 'success');
+        addToast('Account created! Welcome to StudyMate.', 'success');
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
         if (error) throw error;
         addToast('Successfully signed in!', 'success');
       }
@@ -40,7 +41,10 @@ export function Login() {
       <Card className="w-full max-w-md glass-panel" style={{ border: '1px solid var(--glass-border)' }}>
         <CardHeader className="text-center" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex justify-center mb-4">
-            <div className="p-4 bg-primary text-white rounded-full flex items-center justify-center" style={{ width: '56px', height: '56px' }}>
+            <div
+              className="p-4 bg-primary text-white rounded-full flex items-center justify-center shadow-lg"
+              style={{ width: '56px', height: '56px' }}
+            >
               <GraduationCap size={28} />
             </div>
           </div>
@@ -48,34 +52,54 @@ export function Login() {
             {mode === 'login' ? 'Welcome Back' : 'Create Account'}
           </h2>
           <p className="text-muted text-sm mt-2">
-            {mode === 'login' ? 'Log in to continue your learning journey' : 'Start tracking your study plan and leaderboard ranks'}
+            {mode === 'login'
+              ? 'Log in to continue your learning journey'
+              : 'Start tracking your study plan and courses'}
           </p>
         </CardHeader>
         <CardBody>
           <form onSubmit={handleAuth} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email Address</label>
+              <label
+                className="text-xs font-semibold text-muted"
+                style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
+              >
+                Email Address
+              </label>
               <div style={{ position: 'relative' }}>
-                <Mail size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
-                <input 
-                  type="email" 
-                  className="input" 
+                <Mail
+                  size={16}
+                  color="var(--text-muted)"
+                  style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }}
+                />
+                <input
+                  type="email"
+                  className="input"
                   style={{ paddingLeft: '2.75rem' }}
-                  placeholder="student@example.com"
+                  placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
             </div>
-            
+
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Password</label>
+              <label
+                className="text-xs font-semibold text-muted"
+                style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
+              >
+                Password
+              </label>
               <div style={{ position: 'relative' }}>
-                <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
-                <input 
-                  type="password" 
-                  className="input" 
+                <Lock
+                  size={16}
+                  color="var(--text-muted)"
+                  style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }}
+                />
+                <input
+                  type="password"
+                  className="input"
                   style={{ paddingLeft: '2.75rem' }}
                   placeholder="••••••••"
                   value={password}
@@ -84,18 +108,21 @@ export function Login() {
                 />
               </div>
             </div>
-            
+
             <Button type="submit" className="w-full mt-2" disabled={loading}>
-              {loading ? 'Processing...' : (mode === 'login' ? 'Sign In' : 'Sign Up')}
+              {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Sign Up'}
             </Button>
           </form>
-          
-          <div className="mt-6 text-center text-sm" style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}>
+
+          <div
+            className="mt-6 text-center text-sm"
+            style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}
+          >
             {mode === 'login' ? (
               <p className="text-muted">
                 Don't have an account?{' '}
-                <button 
-                  onClick={() => setMode('signup')} 
+                <button
+                  onClick={() => setMode('signup')}
                   className="text-primary hover:underline bg-transparent border-none cursor-pointer font-semibold"
                   style={{ color: 'var(--primary)' }}
                 >
@@ -105,8 +132,8 @@ export function Login() {
             ) : (
               <p className="text-muted">
                 Already have an account?{' '}
-                <button 
-                  onClick={() => setMode('login')} 
+                <button
+                  onClick={() => setMode('login')}
                   className="text-primary hover:underline bg-transparent border-none cursor-pointer font-semibold"
                   style={{ color: 'var(--primary)' }}
                 >

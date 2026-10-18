@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, GraduationCap, Trophy, MessageSquare, LayoutDashboard, ShieldCheck, LogOut, FileText, CheckSquare, Settings, Users, PlayCircle } from 'lucide-react';
+import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom';
+import { 
+  BookOpen, 
+  GraduationCap, 
+  Trophy, 
+  MessageSquare, 
+  LayoutDashboard, 
+  ShieldCheck, 
+  LogOut, 
+  FileText, 
+  CheckSquare, 
+  Settings, 
+  Users, 
+  PlayCircle,
+  CreditCard,
+  LogIn
+} from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
@@ -22,18 +37,24 @@ export function Navbar() {
     loadProfile();
   }, [user]);
 
-  const navItems = [
-    { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
-    { name: 'Courses', path: '/courses', icon: <PlayCircle size={20} /> },
-    { name: 'Study Plan', path: '/study-plan', icon: <BookOpen size={20} /> },
-    { name: 'Resources', path: '/resources', icon: <FileText size={20} /> },
-    { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} /> },
-    { name: 'Leaderboard', path: '/leaderboard', icon: <Trophy size={20} /> },
-    { name: 'Discussion', path: '/discussion', icon: <MessageSquare size={20} /> },
-  ];
+  const navItems = user
+    ? [
+        { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+        { name: 'Courses', path: '/courses', icon: <PlayCircle size={20} /> },
+        { name: 'Study Plan', path: '/study-plan', icon: <BookOpen size={20} /> },
+        { name: 'Resources', path: '/resources', icon: <FileText size={20} /> },
+        { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} /> },
+        { name: 'Leaderboard', path: '/leaderboard', icon: <Trophy size={20} /> },
+        { name: 'Discussion', path: '/discussion', icon: <MessageSquare size={20} /> },
+      ]
+    : [
+        { name: 'Home', path: '/', icon: <LayoutDashboard size={20} /> },
+        { name: 'Courses', path: '/courses', icon: <PlayCircle size={20} /> },
+      ];
 
   const adminItems = [
     { name: 'Admin Dashboard', path: '/admin', icon: <ShieldCheck size={20} /> },
+    { name: 'Course Enrollments', path: '/admin/enrollments', icon: <CreditCard size={20} /> },
     { name: 'Manage Courses', path: '/admin/courses', icon: <PlayCircle size={20} /> },
     { name: 'Manage Study Plans', path: '/admin/study-plans', icon: <FileText size={20} /> },
     { name: 'Review Resources', path: '/admin/resources', icon: <CheckSquare size={20} /> },
@@ -95,30 +116,43 @@ export function Navbar() {
         </nav>
 
         <div className="sidebar-footer">
-          <div 
-            className="user-profile-widget cursor-pointer hover:bg-[var(--surface-hover)] transition-colors rounded-lg p-2 -ml-2" 
-            onClick={() => navigate('/profile')}
-            title="Go to Profile"
-          >
-            <div className="avatar">
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover rounded-full" />
-              ) : (
-                userInitials
-              )}
+          {user ? (
+            <>
+              <div 
+                className="user-profile-widget cursor-pointer hover:bg-[var(--surface-hover)] transition-colors rounded-lg p-2 -ml-2" 
+                onClick={() => navigate('/profile')}
+                title="Go to Profile"
+              >
+                <div className="avatar">
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover rounded-full" />
+                  ) : (
+                    userInitials
+                  )}
+                </div>
+                <div className="user-info">
+                  <span className="email truncate max-w-[120px]">{displayName}</span>
+                  <span className="role">{role === 'admin' ? 'Admin' : 'Student'}</span>
+                </div>
+              </div>
+              
+              <div className="footer-actions">
+                <ThemeToggle />
+                <button className="signout-btn" onClick={handleSignOut} title="Sign Out">
+                  <LogOut size={20} />
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="w-full flex items-center justify-between gap-2 pt-2">
+              <Link to="/login" className="flex-1">
+                <button className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all">
+                  <LogIn size={16} /> Sign In
+                </button>
+              </Link>
+              <ThemeToggle />
             </div>
-            <div className="user-info">
-              <span className="email truncate max-w-[120px]">{displayName}</span>
-              <span className="role">{role === 'admin' ? 'Admin' : 'Student'}</span>
-            </div>
-          </div>
-          
-          <div className="footer-actions">
-            <ThemeToggle />
-            <button className="signout-btn" onClick={handleSignOut} title="Sign Out">
-              <LogOut size={20} />
-            </button>
-          </div>
+          )}
         </div>
       </aside>
 
@@ -130,9 +164,17 @@ export function Navbar() {
         </div>
         <div className="mobile-header-actions">
           <ThemeToggle />
-          <button className="signout-btn-mobile" onClick={handleSignOut}>
-            <LogOut size={18} />
-          </button>
+          {user ? (
+            <button className="signout-btn-mobile" onClick={handleSignOut} title="Sign Out">
+              <LogOut size={18} />
+            </button>
+          ) : (
+            <Link to="/login">
+              <button className="p-2 rounded-lg bg-indigo-600 text-white font-bold text-xs">
+                <LogIn size={16} />
+              </button>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -149,6 +191,15 @@ export function Navbar() {
             <span style={{ fontSize: '0.65rem', marginTop: '0.2rem' }}>{item.name}</span>
           </NavLink>
         ))}
+        {!user && (
+          <NavLink
+            to="/login"
+            className={({ isActive }) => `mobile-nav-item ${isActive ? 'active' : ''}`}
+          >
+            <LogIn size={20} />
+            <span style={{ fontSize: '0.65rem', marginTop: '0.2rem' }}>Sign In</span>
+          </NavLink>
+        )}
         {role === 'admin' && (
           <NavLink
             to="/admin"

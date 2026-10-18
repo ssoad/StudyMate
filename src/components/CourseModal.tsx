@@ -80,6 +80,7 @@ export function CourseModal({ isOpen, onClose, onSuccess, initialCourse }: Cours
   const [playlistPreviewId, setPlaylistPreviewId] = useState<string | null>(
     extractPlaylistId(initialCourse?.youtube_playlist_url || '')
   );
+  const [expandedTranscripts, setExpandedTranscripts] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -554,9 +555,46 @@ export function CourseModal({ isOpen, onClose, onSuccess, initialCourse }: Cours
                                 className="w-full bg-transparent text-xs text-[var(--text-muted)] font-mono focus:outline-none"
                               />
                             </div>
+
+                            {/* Expandable Transcript Editor */}
+                            {expandedTranscripts[lesson.id] && (
+                              <div className="w-full mt-2 pt-2 border-t border-[var(--border)] space-y-1.5 animate-fade-in">
+                                <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+                                  <span className="font-semibold flex items-center gap-1 text-[var(--primary)]">
+                                    <FileText size={12} />
+                                    <span>Video Transcript / Subtitles</span>
+                                  </span>
+                                  <span>Paste WebVTT, SRT, or [01:23] timestamped text</span>
+                                </div>
+                                <textarea
+                                  rows={4}
+                                  value={lesson.transcript || ''}
+                                  onChange={(e) => handleUpdateLesson(sIdx, lIdx, 'transcript', e.target.value)}
+                                  placeholder="Paste subtitle cues or transcript:&#10;00:00 Introduction to the topic&#10;01:15 Key concepts..."
+                                  className="input text-xs font-mono w-full resize-y p-2"
+                                />
+                              </div>
+                            )}
                           </div>
 
-                          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                          <div className="flex items-center gap-2.5 w-full md:w-auto justify-end shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedTranscripts({
+                                ...expandedTranscripts,
+                                [lesson.id]: !expandedTranscripts[lesson.id]
+                              })}
+                              className={`px-2 py-1 rounded text-xs flex items-center gap-1 border transition-colors cursor-pointer ${
+                                lesson.transcript
+                                  ? 'bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/30 font-semibold'
+                                  : 'bg-transparent text-[var(--text-muted)] border-[var(--border)] hover:text-[var(--text-main)]'
+                              }`}
+                              title="Add or Edit Transcript"
+                            >
+                              <FileText size={12} />
+                              <span>{lesson.transcript ? 'Transcript ✓' : '+ Transcript'}</span>
+                            </button>
+
                             <label className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] cursor-pointer">
                               <input
                                 type="checkbox"
@@ -569,7 +607,7 @@ export function CourseModal({ isOpen, onClose, onSuccess, initialCourse }: Cours
                             <button
                               type="button"
                               onClick={() => handleRemoveLesson(sIdx, lIdx)}
-                              className="p-1 text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                              className="p-1 text-red-500 hover:bg-red-500/10 rounded transition-colors cursor-pointer"
                               title="Delete Lesson"
                             >
                               <Trash2 size={14} />

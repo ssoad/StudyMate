@@ -298,6 +298,11 @@ export function Courses() {
                     </div>
                   </div>
 
+                  {/* Price Tag */}
+                  <span className="absolute bottom-2.5 left-2.5 bg-black/75 backdrop-blur-md text-emerald-400 text-xs font-black px-2.5 py-1 rounded-lg border border-emerald-500/20 shadow">
+                    {course.price ? `৳ ${course.price.toLocaleString()}` : 'Free'}
+                  </span>
+
                   {/* YouTube Badge */}
                   {course.youtube_playlist_id && (
                     <div className="absolute bottom-2 right-2 bg-red-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow">

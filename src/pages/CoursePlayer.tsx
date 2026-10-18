@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { YoutubeIcon } from '../components/YoutubeIcon';
 import { Button } from '../components/Button';
+import { VideoTranscript } from '../components/VideoTranscript';
 import { dataService, type Course, type CourseLesson, type UserCourseProgress, type CourseResource } from '../lib/dataService';
 import { getYouTubeEmbedUrl, formatDuration } from '../lib/youtube';
 import { useAuthStore } from '../store/authStore';
@@ -29,7 +30,7 @@ import { useToastStore } from '../store/toastStore';
 export function CoursePlayer() {
   const { id: courseId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, role } = useAuthStore();
   const { addToast } = useToastStore();
 
   const [course, setCourse] = useState<Course | null>(null);
@@ -41,7 +42,13 @@ export function CoursePlayer() {
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   // Tabbed sub-player drawer
-  const [activeTab, setActiveTab] = useState<'resources' | 'notes' | 'overview' | 'qa'>('resources');
+  const [activeTab, setActiveTab] = useState<'resources' | 'transcript' | 'notes' | 'overview' | 'qa'>('resources');
+
+  // Video playback time & seeking
+  const [currentVideoTime, setCurrentVideoTime] = useState(0);
+  const [showSideTranscript, setShowSideTranscript] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // Notes state
   const [lessonNote, setLessonNote] = useState('');
@@ -88,14 +95,26 @@ export function CoursePlayer() {
       return;
     }
 
-    setCourse(data);
+    // Verify enrollment permissions (admin or approved enrollment)
+    if (!user) {
+      addToast('Please sign in to access the classroom.', 'info');
+      navigate(`/courses/${cId}`);
+      return;
+    }
+
+    if (role !== 'admin') {
+      const enrollment = await dataService.getCourseEnrollment(cId, user.id);
+      if (!enrollment || enrollment.status !== 'approved') {
+        addToast('You must have an approved enrollment to access the course classroom.', 'error');
+        navigate(`/courses/${cId}`);
+        return;
+      }
+    }
 
     // Load progress
     let userProg: UserCourseProgress | null = null;
-    if (user) {
-      userProg = await dataService.getUserCourseProgress(user.id, cId);
-      setProgress(userProg);
-    }
+    userProg = await dataService.getUserCourseProgress(user.id, cId);
+    setProgress(userProg);
 
     // Determine initial lesson
     let initialLesson: CourseLesson | null = null;
@@ -131,6 +150,48 @@ export function CoursePlayer() {
       setNoteSavedTime(text ? 'Saved' : null);
     });
   }, [currentLesson, user]);
+
+  // Synchronize playback time from YouTube iframe
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      try {
+        if (typeof e.data === 'string') {
+          const data = JSON.parse(e.data);
+          if (data.event === 'infoDelivery' && data.info && data.info.currentTime !== undefined) {
+            setCurrentVideoTime(data.info.currentTime);
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('message', handleMessage);
+    const interval = setInterval(() => {
+      if (iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(
+          JSON.stringify({ event: 'command', func: 'getCurrentTime' }),
+          '*'
+        );
+      }
+    }, 1000);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleSeekVideo = (seconds: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = seconds;
+      videoRef.current.play().catch(() => {});
+    } else if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: 'seekTo', args: [seconds, true] }),
+        '*'
+      );
+    }
+    setCurrentVideoTime(seconds);
+  };
 
   // Handle Note Save
   const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -286,10 +347,19 @@ export function CoursePlayer() {
     ...(currentLesson?.resources || []),
   ];
 
-  // YouTube embed URL
-  const embedUrl = currentLesson?.youtube_video_id
+  // Video playback source: check for local or direct MP4/WebM video stream
+  const directVideoUrl =
+    currentLesson?.video_url ||
+    (currentLesson?.youtube_video_url &&
+    (currentLesson.youtube_video_url.endsWith('.mp4') ||
+      currentLesson.youtube_video_url.includes('/api/storage/files/'))
+      ? currentLesson.youtube_video_url
+      : null);
+
+  // YouTube embed URL fallback
+  const embedUrl = !directVideoUrl && currentLesson?.youtube_video_id
     ? getYouTubeEmbedUrl({ videoId: currentLesson.youtube_video_id, playlistId: course.youtube_playlist_id })
-    : course.youtube_playlist_id
+    : !directVideoUrl && course.youtube_playlist_id
     ? getYouTubeEmbedUrl({ playlistId: course.youtube_playlist_id })
     : null;
 
@@ -300,9 +370,9 @@ export function CoursePlayer() {
         {/* Left: Back & Title */}
         <div className="flex items-center gap-3 overflow-hidden">
           <button
-            onClick={() => navigate('/courses')}
+            onClick={() => navigate(`/courses/${course.id}`)}
             className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors shrink-0"
-            title="Back to Courses"
+            title="Back to Course Overview"
           >
             <ArrowLeft size={20} />
           </button>
@@ -374,23 +444,65 @@ export function CoursePlayer() {
       <div className="flex-1 flex flex-col lg:flex-row min-w-0">
         {/* MAIN VIDEO & CONTENT STAGE */}
         <main className="flex-1 flex flex-col min-w-0 p-4 sm:p-6 lg:p-8 space-y-6">
-          {/* VIDEO STAGE CONTAINER (16:9 Cinema Aspect Ratio) */}
-          <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] bg-black shadow-2xl aspect-video w-full max-h-[72vh] flex items-center justify-center">
-            {embedUrl ? (
-              <iframe
-                src={embedUrl}
-                title={currentLesson?.title || course.title}
-                className="w-full h-full border-0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
-            ) : (
-              <div className="text-center p-8 text-gray-400 space-y-3">
-                <YoutubeIcon size={48} className="mx-auto text-red-500 opacity-80" />
-                <h3 className="text-base font-bold text-white">No Video Configured for This Lecture</h3>
-                <p className="text-xs max-w-sm mx-auto text-gray-400">
-                  You can set a YouTube playlist URL or individual video links in the course curriculum editor.
-                </p>
+          {/* VIDEO & TRANSCRIPT STAGE CONTAINER */}
+          <div className={showSideTranscript && currentLesson ? "grid grid-cols-1 lg:grid-cols-3 gap-6 items-start" : ""}>
+            <div className={showSideTranscript && currentLesson ? "lg:col-span-2 space-y-4" : "w-full space-y-4"}>
+              <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] bg-black shadow-2xl aspect-video w-full max-h-[72vh] flex items-center justify-center">
+                {directVideoUrl ? (
+                  <video
+                    ref={videoRef}
+                    key={directVideoUrl}
+                    src={directVideoUrl}
+                    controls
+                    autoPlay
+                    playsInline
+                    onTimeUpdate={(e) => setCurrentVideoTime(e.currentTarget.currentTime)}
+                    className="w-full h-full object-contain"
+                  >
+                    Your browser does not support HTML5 video streaming.
+                  </video>
+                ) : embedUrl ? (
+                  <iframe
+                    ref={iframeRef}
+                    src={embedUrl}
+                    title={currentLesson?.title || course.title}
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="text-center p-8 text-gray-400 space-y-3">
+                    <YoutubeIcon size={48} className="mx-auto text-red-500 opacity-80" />
+                    <h3 className="text-base font-bold text-white">No Video Configured for This Lecture</h3>
+                    <p className="text-xs max-w-sm mx-auto text-gray-400">
+                      You can set a YouTube playlist URL or local video in the course curriculum editor.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Side-by-side Live Transcript */}
+            {showSideTranscript && currentLesson && (
+              <div className="lg:col-span-1 h-[420px] lg:h-[480px] animate-fade-in">
+                <VideoTranscript
+                  lesson={currentLesson}
+                  currentTime={currentVideoTime}
+                  onSeek={handleSeekVideo}
+                  isAdmin={role === 'admin'}
+                  isSidePanel
+                  onCloseSidePanel={() => setShowSideTranscript(false)}
+                  onTranscriptUpdated={(newTr) => {
+                    setCurrentLesson({ ...currentLesson, transcript: newTr });
+                    if (course?.sections) {
+                      const updatedSections = course.sections.map((s) => ({
+                        ...s,
+                        lessons: s.lessons.map((l) => (l.id === currentLesson.id ? { ...l, transcript: newTr } : l)),
+                      }));
+                      setCourse({ ...course, sections: updatedSections });
+                    }
+                  }}
+                />
               </div>
             )}
           </div>
@@ -407,6 +519,17 @@ export function CoursePlayer() {
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
+              {currentLesson && (
+                <Button
+                  variant={showSideTranscript ? 'primary' : 'secondary'}
+                  onClick={() => setShowSideTranscript(!showSideTranscript)}
+                  icon={<FileText size={16} />}
+                  className="hidden md:inline-flex"
+                >
+                  {showSideTranscript ? 'Hide Transcript Panel' : 'Side Transcript'}
+                </Button>
+              )}
+
               {currentLesson && (
                 <Button
                   variant={isCurrentLessonDone ? 'secondary' : 'primary'}
@@ -444,6 +567,19 @@ export function CoursePlayer() {
               >
                 <BookOpen size={16} />
                 <span>Books & PDFs ({currentResources.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('transcript')}
+                className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+                  activeTab === 'transcript'
+                    ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--surface)]'
+                    : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                }`}
+              >
+                <FileText size={16} />
+                <span>Interactive Transcript</span>
               </button>
 
               <button
@@ -567,6 +703,28 @@ export function CoursePlayer() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* TAB: INTERACTIVE TRANSCRIPT */}
+              {activeTab === 'transcript' && currentLesson && (
+                <div className="animate-fade-in">
+                  <VideoTranscript
+                    lesson={currentLesson}
+                    currentTime={currentVideoTime}
+                    onSeek={handleSeekVideo}
+                    isAdmin={role === 'admin'}
+                    onTranscriptUpdated={(newTr) => {
+                      setCurrentLesson({ ...currentLesson, transcript: newTr });
+                      if (course?.sections) {
+                        const updatedSections = course.sections.map((s) => ({
+                          ...s,
+                          lessons: s.lessons.map((l) => (l.id === currentLesson.id ? { ...l, transcript: newTr } : l)),
+                        }));
+                        setCourse({ ...course, sections: updatedSections });
+                      }
+                    }}
+                  />
                 </div>
               )}
 

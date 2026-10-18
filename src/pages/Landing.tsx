@@ -17,6 +17,9 @@ export function Landing() {
           </span>
         </div>
         <div className="flex items-center gap-4">
+          <Link to="/courses" className="text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors hidden sm:block">
+            Browse Courses
+          </Link>
           <ThemeToggle />
           <Link to="/login">
             <Button variant="secondary" className="hidden sm:flex border-[var(--border)] hover:bg-[var(--surface-hover)]">
@@ -51,14 +54,14 @@ export function Landing() {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center gap-4">
-            <Link to="/login">
+            <Link to="/courses">
               <Button size="lg" className="bg-[var(--primary)] text-white shadow-xl shadow-indigo-500/25 px-8 text-lg font-bold rounded-2xl h-14 hover:scale-[1.02] transition-transform">
-                Start Learning Free <ArrowRight className="ml-2" size={20} />
+                Explore Courses <ArrowRight className="ml-2" size={20} />
               </Button>
             </Link>
             <Link to="/login">
               <Button size="lg" variant="secondary" className="border-2 border-[var(--border)] hover:bg-[var(--surface-hover)] px-8 text-lg font-bold rounded-2xl h-14 backdrop-blur-sm">
-                Admin Demo
+                Sign In
               </Button>
             </Link>
           </div>
