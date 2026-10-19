@@ -94,18 +94,18 @@ export function Resources() {
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in pb-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gradient-to-r from-[var(--surface)] to-[var(--surface-hover)] p-6 rounded-2xl border border-[var(--border)] shadow-sm">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gradient-to-r from-[var(--surface)] to-[var(--surface-hover)] p-4 sm:p-6 rounded-2xl border border-[var(--border)] shadow-sm">
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.25rem', color: 'var(--text-main)' }}>
+          <h1 className="text-xl sm:text-3xl font-bold text-[var(--text-main)] mb-1 font-[var(--font-heading)]">
             Community Resources
           </h1>
-          <p className="text-[var(--text-muted)]" style={{ fontSize: '1rem' }}>
+          <p className="text-sm sm:text-base text-[var(--text-muted)]">
             Discover and share study materials, notes, and helpful links.
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)} className="gap-2 shadow-md hover:shadow-lg transition-all px-6 py-2.5 bg-gradient-to-r from-[var(--primary)] to-indigo-600 rounded-xl">
-          <Upload size={18} />
-          <span className="font-semibold">Upload Resource</span>
+        <Button onClick={() => setIsModalOpen(true)} className="gap-2 shadow-md hover:shadow-lg transition-all px-5 py-2.5 bg-gradient-to-r from-[var(--primary)] to-indigo-600 rounded-xl w-full sm:w-auto justify-center">
+          <Upload size={17} />
+          <span className="font-semibold text-xs sm:text-sm">Upload Resource</span>
         </Button>
       </div>
 
@@ -129,11 +129,11 @@ export function Resources() {
           </CardBody>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {resources.map((resource) => (
             <Card key={resource.id} className="hover:-translate-y-1 hover:shadow-xl transition-all duration-300 group flex flex-col h-full bg-gradient-to-br from-[var(--surface)] to-[var(--surface-hover)] border-[var(--border)] overflow-hidden">
               <div className={`h-1.5 w-full ${resource.type === 'file' ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-gradient-to-r from-emerald-400 to-teal-500'}`} />
-              <CardBody className="flex flex-col h-full p-6">
+              <CardBody className="flex flex-col h-full p-4 sm:p-6">
                 <div className="flex items-start justify-between mb-5">
                   <div className={`p-3.5 rounded-xl shadow-sm flex-shrink-0 ${resource.type === 'file' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
                     {resource.type === 'file' ? <FileText size={26} strokeWidth={1.5} /> : <LinkIcon size={26} strokeWidth={1.5} />}

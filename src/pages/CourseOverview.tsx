@@ -190,32 +190,32 @@ export function CourseOverview() {
             </p>
 
             {/* STATS ROW */}
-            <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-2 text-xs sm:text-sm text-[var(--text-muted)]">
+            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 pt-2 text-xs sm:text-sm text-[var(--text-muted)]">
               <div className="flex items-center gap-1.5 text-amber-500 font-bold">
-                <Star size={16} className="fill-amber-400 text-amber-400" />
+                <Star size={15} className="fill-amber-400 text-amber-400" />
                 <span>{course.rating.toFixed(1)}</span>
-                <span className="text-[var(--text-muted)] font-normal">(Rating)</span>
+                <span className="text-[var(--text-muted)] font-normal hidden sm:inline">(Rating)</span>
               </div>
-              <span>•</span>
+              <span className="hidden sm:inline opacity-30">•</span>
               <div className="flex items-center gap-1.5">
-                <Users size={16} className="text-indigo-500" />
+                <Users size={15} className="text-indigo-500" />
                 <span className="font-semibold text-[var(--text-main)]">{course.enrolled_count.toLocaleString()}</span>
-                <span>Students Enrolled</span>
+                <span>Students</span>
               </div>
-              <span>•</span>
+              <span className="hidden sm:inline opacity-30">•</span>
               <div className="flex items-center gap-1.5">
-                <Clock size={16} className="text-purple-500" />
+                <Clock size={15} className="text-purple-500" />
                 <span>{course.duration}</span>
               </div>
-              <span>•</span>
+              <span className="hidden sm:inline opacity-30">•</span>
               <div className="flex items-center gap-1.5">
-                <BookOpen size={16} className="text-emerald-500" />
+                <BookOpen size={15} className="text-emerald-500" />
                 <span>{course.sections?.length || 0} Modules</span>
               </div>
-              <span>•</span>
+              <span className="hidden sm:inline opacity-30">•</span>
               <div className="flex items-center gap-1.5">
-                <FileText size={16} className="text-pink-500" />
-                <span>{totalResources} PDFs / Notes</span>
+                <FileText size={15} className="text-pink-500" />
+                <span>{totalResources} Resources</span>
               </div>
             </div>
 
@@ -267,7 +267,7 @@ export function CourseOverview() {
             </div>
 
             {/* CARD CONTENT */}
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
               {/* PRICE ROW */}
               <div className="space-y-1">
                 <div className="flex items-baseline gap-2">

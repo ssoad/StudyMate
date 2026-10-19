@@ -87,26 +87,26 @@ export function Courses() {
   });
 
   return (
-    <div className="flex flex-col gap-8 animate-fade-in pb-12">
+    <div className="flex flex-col gap-6 sm:gap-8 animate-fade-in pb-12">
       {/* HERO BANNER */}
-      <div className="relative overflow-hidden rounded-3xl p-8 md:p-12 border border-[var(--border)] bg-gradient-to-br from-[var(--surface)] via-[var(--surface-hover)] to-[var(--surface)] shadow-lg">
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-12 border border-[var(--border)] bg-gradient-to-br from-[var(--surface)] via-[var(--surface-hover)] to-[var(--surface)] shadow-lg">
         {/* Decorative backdrop glow */}
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/10 blur-3xl pointer-events-none" />
         
-        <div className="relative z-10 max-w-2xl space-y-4">
+        <div className="relative z-10 max-w-2xl space-y-3 sm:space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--primary)]/10 text-[var(--primary)] text-xs font-semibold tracking-wide uppercase">
             <Sparkles size={14} />
             <span>Interactive Learning Hub</span>
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-[var(--text-main)] font-[var(--font-heading)]">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-[var(--text-main)] font-[var(--font-heading)]">
             Level Up Your Skills With{' '}
             <span className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
               Video Courses
             </span>
           </h1>
 
-          <p className="text-base text-[var(--text-muted)] leading-relaxed">
+          <p className="text-sm sm:text-base text-[var(--text-muted)] leading-relaxed">
             Learn at your own pace with structured video playlists, downloadable textbooks, cheatsheets, and live progress tracking.
           </p>
 

@@ -48,7 +48,7 @@ export function CoursePlayer() {
   const [currentLesson, setCurrentLesson] = useState<CourseLesson | null>(null);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [progress, setProgress] = useState<UserCourseProgress | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   const isAdmin =
@@ -578,27 +578,26 @@ export function CoursePlayer() {
     : null;
 
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--background)] animate-fade-in -mx-4 -mt-6 sm:-mx-8 sm:-mt-8">
+    <div className="flex flex-col min-h-screen bg-[var(--background)] animate-fade-in w-full">
       {/* TOP UDEMY-STYLE CLASSROOM HEADER */}
-      <header className="sticky top-0 z-40 bg-[var(--surface)] border-b border-[var(--border)] px-4 py-3 flex items-center justify-between gap-4 shadow-sm backdrop-blur-md bg-opacity-90">
+      <header className="sticky top-0 z-40 bg-[var(--surface)] border-b border-[var(--border)] px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 shadow-sm backdrop-blur-md bg-opacity-95">
         {/* Left: Back & Title */}
-        <div className="flex items-center gap-3 overflow-hidden">
+        <div className="flex items-center gap-2 sm:gap-3 overflow-hidden">
           <button
             onClick={() => navigate(`/courses/${course.id}`)}
-            className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors shrink-0"
+            className="p-1.5 sm:p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors shrink-0"
             title="Back to Course Overview"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={19} />
           </button>
 
           <div className="overflow-hidden">
-            <h1 className="text-sm font-bold text-[var(--text-main)] truncate max-w-md">
+            <h1 className="text-xs sm:text-sm font-bold text-[var(--text-main)] truncate max-w-[130px] sm:max-w-md">
               {course.title}
             </h1>
-            <p className="text-xs text-[var(--text-muted)] truncate flex items-center gap-1.5">
-              <span>{course.instructor_name}</span>
-              <span>•</span>
-              <span className="text-[var(--primary)] font-medium">
+            <p className="text-[11px] sm:text-xs text-[var(--text-muted)] truncate flex items-center gap-1.5">
+              <span className="hidden sm:inline">{course.instructor_name} •</span>
+              <span className="text-[var(--primary)] font-medium truncate">
                 {currentLesson?.title || 'Lecture'}
               </span>
             </p>
@@ -606,7 +605,7 @@ export function CoursePlayer() {
         </div>
 
         {/* Center / Right: Progress & Controls */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Progress Indicator */}
           <div className="hidden md:flex items-center gap-3 bg-[var(--surface-hover)] px-3 py-1.5 rounded-xl border border-[var(--border)]">
             <div className="w-20 h-2 rounded-full bg-[var(--border)] overflow-hidden">
@@ -624,7 +623,7 @@ export function CoursePlayer() {
           <button
             type="button"
             onClick={handleCopyLessonLink}
-            className="p-2 rounded-xl text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] border border-[var(--border)] transition-colors flex items-center gap-1.5"
+            className="p-1.5 sm:p-2 rounded-xl text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] border border-[var(--border)] transition-colors flex items-center gap-1.5"
             title="Copy direct shareable link for this lecture"
           >
             {copiedLessonLink ? <Check size={16} className="text-emerald-500" /> : <Share2 size={16} />}
@@ -635,17 +634,17 @@ export function CoursePlayer() {
           <div className="flex items-center gap-1">
             <button
               onClick={handlePrevLesson}
-              className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] border border-[var(--border)] transition-colors"
+              className="p-1.5 sm:p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] border border-[var(--border)] transition-colors"
               title="Previous Lesson"
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft size={17} />
             </button>
             <button
               onClick={handleNextLesson}
-              className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] border border-[var(--border)] transition-colors"
+              className="p-1.5 sm:p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] border border-[var(--border)] transition-colors"
               title="Next Lesson"
             >
-              <ChevronRight size={18} />
+              <ChevronRight size={17} />
             </button>
           </div>
 
@@ -653,7 +652,7 @@ export function CoursePlayer() {
           <button
             type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`p-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all ${
+            className={`p-1.5 sm:p-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all ${
               sidebarOpen
                 ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm'
                 : 'bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
@@ -669,7 +668,7 @@ export function CoursePlayer() {
       {/* CLASSROOM PLAYER BODY (STAGE + SIDEBAR) */}
       <div className="flex-1 flex flex-col lg:flex-row min-w-0">
         {/* MAIN VIDEO & CONTENT STAGE */}
-        <main className="flex-1 flex flex-col min-w-0 p-4 sm:p-6 lg:p-8 space-y-6">
+        <main className="flex-1 flex flex-col min-w-0 p-2.5 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
           {/* VIDEO & TRANSCRIPT STAGE CONTAINER */}
           <div className={showSideTranscript && currentLesson ? "grid grid-cols-1 lg:grid-cols-3 gap-6 items-start" : ""}>
             <div className={showSideTranscript && currentLesson ? "lg:col-span-2 space-y-4" : "w-full space-y-4"}>
@@ -783,43 +782,43 @@ export function CoursePlayer() {
           {/* UDEMY-STYLE TABBED PANELS UNDER PLAYER */}
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm overflow-hidden">
             {/* Tabs */}
-            <div className="flex items-center border-b border-[var(--border)] bg-[var(--surface-hover)] px-4 overflow-x-auto scrollbar-none">
+            <div className="flex items-center border-b border-[var(--border)] bg-[var(--surface-hover)] px-2 sm:px-4 overflow-x-auto scrollbar-none">
               <button
                 type="button"
                 onClick={() => handleSelectTab('resources')}
-                className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+                className={`py-2.5 px-3 sm:py-3.5 sm:px-4 font-semibold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
                   activeTab === 'resources'
                     ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--surface)]'
                     : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
-                <BookOpen size={16} />
+                <BookOpen size={15} />
                 <span>Resources & Materials ({totalModularCount})</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleSelectTab('transcript')}
-                className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+                className={`py-2.5 px-3 sm:py-3.5 sm:px-4 font-semibold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
                   activeTab === 'transcript'
                     ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--surface)]'
                     : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
-                <FileText size={16} />
-                <span>Interactive Transcript</span>
+                <FileText size={15} />
+                <span>Transcript</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleSelectTab('notes')}
-                className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+                className={`py-2.5 px-3 sm:py-3.5 sm:px-4 font-semibold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
                   activeTab === 'notes'
                     ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--surface)]'
                     : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
-                <FileText size={16} />
+                <FileText size={15} />
                 <span>My Notes</span>
                 {noteSavedTime && (
                   <span className="text-[10px] font-mono opacity-60">({noteSavedTime})</span>
@@ -829,32 +828,32 @@ export function CoursePlayer() {
               <button
                 type="button"
                 onClick={() => handleSelectTab('overview')}
-                className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+                className={`py-2.5 px-3 sm:py-3.5 sm:px-4 font-semibold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
                   activeTab === 'overview'
                     ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--surface)]'
                     : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
-                <Sparkles size={16} />
-                <span>Course Overview</span>
+                <Sparkles size={15} />
+                <span>Overview</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleSelectTab('qa')}
-                className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+                className={`py-2.5 px-3 sm:py-3.5 sm:px-4 font-semibold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
                   activeTab === 'qa'
                     ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--surface)]'
                     : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
-                <MessageSquare size={16} />
+                <MessageSquare size={15} />
                 <span>Q&A ({qaList.length})</span>
               </button>
             </div>
 
             {/* TAB CONTENT */}
-            <div className="p-6">
+            <div className="p-3.5 sm:p-6">
               {/* TAB 1: MODULAR RESOURCES & TEXTBOOKS (UDEMY STYLE) */}
               {activeTab === 'resources' && (
                 <div className="space-y-6 animate-fade-in">
@@ -1551,7 +1550,8 @@ export function CoursePlayer() {
         {/* MOBILE / TABLET SLIDE-OVER CURRICULUM DRAWER */}
         {sidebarOpen && (
           <div className="lg:hidden fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
-            <div className="w-full max-w-sm h-full bg-[var(--surface)] border-l border-[var(--border)] flex flex-col shadow-2xl">
+            <div className="absolute inset-0" onClick={() => setSidebarOpen(false)} />
+            <div className="relative w-full max-w-[88vw] sm:max-w-sm h-full bg-[var(--surface)] border-l border-[var(--border)] flex flex-col shadow-2xl z-10">
               <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface-hover)]">
                 <div>
                   <h3 className="font-bold text-sm text-[var(--text-main)]">Course Curriculum</h3>
@@ -1787,39 +1787,39 @@ export function CoursePlayer() {
 
       {/* IN-BROWSER INTERACTIVE DOCUMENT & PDF READER MODAL */}
       {readingResource && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-5xl bg-[var(--surface)] border border-[var(--border)] rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="relative w-full max-w-5xl bg-[var(--surface)] border border-[var(--border)] rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[96vh] sm:max-h-[92vh]">
             {/* Modal Header */}
-            <div className="p-4 border-b border-[var(--border)] flex items-center justify-between gap-4 bg-[var(--surface-hover)]/70">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <div className="w-9 h-9 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center shrink-0">
-                  {readingResource.resource_type === 'book' ? <BookOpen size={18} /> : <FileText size={18} />}
+            <div className="p-2.5 sm:p-4 border-b border-[var(--border)] flex items-center justify-between gap-2 sm:gap-4 bg-[var(--surface-hover)]/70">
+              <div className="flex items-center gap-2 sm:gap-3 overflow-hidden">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center shrink-0">
+                  {readingResource.resource_type === 'book' ? <BookOpen size={16} /> : <FileText size={16} />}
                 </div>
                 <div className="overflow-hidden">
-                  <h3 className="text-sm font-bold text-[var(--text-main)] truncate">
+                  <h3 className="text-xs sm:text-sm font-bold text-[var(--text-main)] truncate max-w-[140px] sm:max-w-md">
                     {readingResource.title}
                   </h3>
-                  <p className="text-[11px] text-[var(--text-muted)] truncate flex items-center gap-2">
+                  <p className="text-[10px] sm:text-[11px] text-[var(--text-muted)] truncate flex items-center gap-1.5 sm:gap-2">
                     <span className="uppercase font-semibold">{readingResource.resource_type}</span>
                     <span>•</span>
-                    <span>{readingResource.file_size || 'Study Material'}</span>
-                    <span>•</span>
-                    <span className="text-emerald-500 font-medium">Interactive Online Reader</span>
+                    <span>{readingResource.file_size || 'Material'}</span>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="hidden sm:inline text-emerald-500 font-medium">Interactive Online Reader</span>
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {isAdmin && (
                   <a
                     href={readingResource.file_url}
                     download
                     target="_blank"
                     rel="noreferrer"
-                    className="btn btn-secondary text-xs h-8 px-3 flex items-center gap-1.5 shadow-sm"
+                    className="btn btn-secondary text-xs h-7 sm:h-8 px-2 sm:px-3 flex items-center gap-1 shadow-sm"
                     title="Download File (Admin Only)"
                   >
-                    <Download size={14} />
+                    <Download size={13} />
                     <span className="hidden sm:inline">Download</span>
                   </a>
                 )}
@@ -1827,19 +1827,19 @@ export function CoursePlayer() {
                   href={readingResource.file_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="btn btn-secondary text-xs h-8 px-3 flex items-center gap-1.5 shadow-sm"
+                  className="btn btn-secondary text-xs h-7 sm:h-8 px-2 sm:px-3 flex items-center gap-1 shadow-sm"
                   title="Open in new browser tab"
                 >
-                  <ExternalLink size={14} />
+                  <ExternalLink size={13} />
                   <span className="hidden sm:inline">Open Full</span>
                 </a>
                 <button
                   type="button"
                   onClick={() => setReadingResource(null)}
-                  className="p-1.5 rounded-full hover:bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+                  className="p-1 sm:p-1.5 rounded-full hover:bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
                   title="Close Reader"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
             </div>

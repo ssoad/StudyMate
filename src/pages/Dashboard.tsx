@@ -48,16 +48,16 @@ export function Dashboard() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+        <h1 className="text-xl sm:text-3xl font-bold text-[var(--text-main)] mb-1 font-[var(--font-heading)]">
           Welcome back, {userName}! 👋
         </h1>
-        <p className="text-muted" style={{ fontSize: '1rem' }}>
+        <p className="text-sm sm:text-base text-[var(--text-muted)]">
           Here is your dashboard overview. Keep solving quizzes to increase your score!
         </p>
       </div>
 
       {/* STATS GRID */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.5rem' }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         <Card glass>
           <CardBody className="flex flex-col gap-3">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -18,7 +18,10 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Share2,
-  Check
+  Check,
+  Menu,
+  X,
+  ChevronRight
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useAuthStore } from '../store/authStore';
@@ -37,6 +40,15 @@ export function Navbar() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pendingEnrollmentsCount, setPendingEnrollmentsCount] = useState<number>(0);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Suppress mobile top and bottom navigation bars on course player page (/courses/:id/learn)
+  const isPlayerPage = location.pathname.includes('/learn');
+
+  // Automatically close mobile menu drawer on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const isAdmin =
     role === 'admin' ||
@@ -106,20 +118,34 @@ export function Navbar() {
         { name: 'Courses', path: '/courses', icon: <PlayCircle size={20} /> },
       ];
 
+  // Mobile Bottom Bar Primary Tabs (4 items + "More" drawer)
+  const mobilePrimaryItems = user
+    ? [
+        { name: 'Home', path: '/', icon: <LayoutDashboard size={19} /> },
+        { name: 'Courses', path: '/courses', icon: <PlayCircle size={19} /> },
+        { name: 'Study Plan', path: '/study-plan', icon: <BookOpen size={19} /> },
+        { name: 'Resources', path: '/resources', icon: <FileText size={19} /> },
+      ]
+    : [
+        { name: 'Home', path: '/', icon: <LayoutDashboard size={19} /> },
+        { name: 'Courses', path: '/courses', icon: <PlayCircle size={19} /> },
+        { name: 'Sign In', path: '/login', icon: <LogIn size={19} /> },
+      ];
+
   const adminItems = [
-    { name: 'Admin Dashboard', path: '/admin', icon: <ShieldCheck size={20} /> },
+    { name: 'Admin Dashboard', path: '/admin', icon: <ShieldCheck size={18} /> },
     { 
       name: 'Course Enrollments', 
       path: '/admin/enrollments', 
-      icon: <CreditCard size={20} />,
+      icon: <CreditCard size={18} />,
       badge: pendingEnrollmentsCount > 0 ? pendingEnrollmentsCount : null,
     },
-    { name: 'Manage Courses', path: '/admin/courses', icon: <PlayCircle size={20} /> },
-    { name: 'Manage Study Plans', path: '/admin/study-plans', icon: <FileText size={20} /> },
-    { name: 'Review Resources', path: '/admin/resources', icon: <CheckSquare size={20} /> },
-    { name: 'Manage Exams', path: '/admin/exams', icon: <CheckSquare size={20} /> },
-    { name: 'Manage Users', path: '/admin/users', icon: <Users size={20} /> },
-    { name: 'System Settings', path: '/admin/settings', icon: <Settings size={20} /> },
+    { name: 'Manage Courses', path: '/admin/courses', icon: <PlayCircle size={18} /> },
+    { name: 'Manage Study Plans', path: '/admin/study-plans', icon: <FileText size={18} /> },
+    { name: 'Review Resources', path: '/admin/resources', icon: <CheckSquare size={18} /> },
+    { name: 'Manage Exams', path: '/admin/exams', icon: <CheckSquare size={18} /> },
+    { name: 'Manage Users', path: '/admin/users', icon: <Users size={18} /> },
+    { name: 'System Settings', path: '/admin/settings', icon: <Settings size={18} /> },
   ];
 
   const handleSignOut = async () => {
@@ -256,83 +282,307 @@ export function Navbar() {
         </div>
       </aside>
 
-      {/* MOBILE HEADER */}
-      <header className="mobile-header glass-panel">
-        <div className="mobile-logo">
-          <GraduationCap size={22} />
-          <h3 className="font-bold text-sm">StudyMate AI</h3>
-        </div>
-        <div className="mobile-header-actions flex items-center gap-1.5">
-          {/* Mobile Copy Page Link Button */}
+      {/* MOBILE TOP HEADER (Suppressed inside classroom player) */}
+      {!isPlayerPage && (
+        <header className="mobile-header glass-panel">
+          <div className="mobile-logo">
+            <GraduationCap size={22} />
+            <h3 className="font-bold text-sm font-[var(--font-heading)]">StudyMate AI</h3>
+          </div>
+          <div className="mobile-header-actions flex items-center gap-1.5">
+            {/* Quick Share Page Link Button */}
+            <button
+              type="button"
+              onClick={handleCopyCurrentUrl}
+              className="p-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors"
+              title="Copy page URL"
+            >
+              {copiedUrl ? <Check size={16} className="text-emerald-500" /> : <Share2 size={16} />}
+            </button>
+
+            {isAdmin && pendingEnrollmentsCount > 0 && (
+              <Link
+                to="/admin/enrollments"
+                className="px-2 py-1 rounded-full bg-amber-500 text-white font-bold text-[10px] flex items-center gap-1 animate-pulse shadow-sm"
+                title={`${pendingEnrollmentsCount} Pending Enrollments`}
+              >
+                <CreditCard size={12} />
+                <span>{pendingEnrollmentsCount}</span>
+              </Link>
+            )}
+
+            <ThemeToggle />
+
+            {user ? (
+              <button 
+                type="button"
+                onClick={() => setMobileMenuOpen(true)}
+                className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center shadow-sm ml-0.5 ring-2 ring-[var(--border)]"
+                title="Open Navigation Menu"
+              >
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  userInitials
+                )}
+              </button>
+            ) : (
+              <Link to="/login">
+                <button className="py-1 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm">
+                  <LogIn size={13} /> <span>Sign In</span>
+                </button>
+              </Link>
+            )}
+          </div>
+        </header>
+      )}
+
+      {/* MOBILE BOTTOM NAVIGATION (Suppressed inside classroom player) */}
+      {!isPlayerPage && (
+        <nav className="mobile-bottom-nav glass-panel">
+          {mobilePrimaryItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) => `mobile-nav-item ${isActive ? 'active' : ''}`}
+              end={item.path === '/'}
+            >
+              {item.icon}
+              <span className="truncate">{item.name}</span>
+            </NavLink>
+          ))}
+
+          {/* 5th Tab: More Button / Drawer Trigger */}
           <button
             type="button"
-            onClick={handleCopyCurrentUrl}
-            className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors"
-            title="Share page URL"
+            onClick={() => setMobileMenuOpen(true)}
+            className={`mobile-nav-item relative ${mobileMenuOpen ? 'active' : ''}`}
+            title="More Options & Navigation"
           >
-            {copiedUrl ? <Check size={17} className="text-emerald-500" /> : <Share2 size={17} />}
-          </button>
-
-          {isAdmin && pendingEnrollmentsCount > 0 && (
-            <Link
-              to="/admin/enrollments"
-              className="px-2.5 py-1 rounded-full bg-amber-500 text-white font-bold text-[11px] flex items-center gap-1 animate-pulse shadow-sm"
-              title={`${pendingEnrollmentsCount} Pending Enrollments`}
-            >
-              <CreditCard size={12} />
-              <span>{pendingEnrollmentsCount}</span>
-            </Link>
-          )}
-          <ThemeToggle />
-          {user ? (
-            <button className="signout-btn-mobile p-2 text-[var(--text-muted)] hover:text-red-500" onClick={handleSignOut} title="Sign Out">
-              <LogOut size={18} />
-            </button>
-          ) : (
-            <Link to="/login">
-              <button className="p-2 rounded-xl bg-indigo-600 text-white font-bold text-xs">
-                <LogIn size={16} />
-              </button>
-            </Link>
-          )}
-        </div>
-      </header>
-
-      {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className="mobile-bottom-nav glass-panel">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) => `mobile-nav-item ${isActive ? 'active' : ''}`}
-            end={item.path === '/'}
-          >
-            {item.icon}
-            <span style={{ fontSize: '0.65rem', marginTop: '0.2rem' }}>{item.name}</span>
-          </NavLink>
-        ))}
-        {!user && (
-          <NavLink
-            to="/login"
-            className={({ isActive }) => `mobile-nav-item ${isActive ? 'active' : ''}`}
-          >
-            <LogIn size={20} />
-            <span style={{ fontSize: '0.65rem', marginTop: '0.2rem' }}>Sign In</span>
-          </NavLink>
-        )}
-        {isAdmin && (
-          <NavLink
-            to="/admin"
-            className={({ isActive }) => `mobile-nav-item relative ${isActive || location.pathname.startsWith('/admin') ? 'active' : ''}`}
-          >
-            <ShieldCheck size={20} />
-            <span style={{ fontSize: '0.65rem', marginTop: '0.2rem' }}>Admin</span>
-            {pendingEnrollmentsCount > 0 && (
-              <span className="absolute top-1 right-4 w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+            <Menu size={19} />
+            <span>More</span>
+            {isAdmin && pendingEnrollmentsCount > 0 && (
+              <span className="absolute top-1.5 right-3 w-2 h-2 rounded-full bg-amber-500 animate-ping" />
             )}
-          </NavLink>
-        )}
-      </nav>
+          </button>
+        </nav>
+      )}
+
+      {/* MOBILE "MORE" SLIDE-UP DRAWER / BOTTOM SHEET */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          {/* Backdrop click dismiss */}
+          <div className="absolute inset-0" onClick={() => setMobileMenuOpen(false)} />
+
+          <div className="relative w-full max-w-lg bg-[var(--surface)] border-t sm:border border-[var(--border)] rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[88vh] flex flex-col overflow-hidden animate-slide-up z-10">
+            {/* Drag handle pill on mobile */}
+            <div className="w-12 h-1.5 rounded-full bg-[var(--border)] mx-auto mt-3 mb-1 shrink-0" />
+
+            {/* Drawer Header */}
+            <div className="px-5 py-3 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface)]">
+              <div className="flex items-center gap-2">
+                <GraduationCap size={20} className="text-[var(--primary)]" />
+                <h3 className="font-bold text-base text-[var(--text-main)] font-[var(--font-heading)]">Menu & Navigation</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1.5 rounded-full hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+                title="Close Menu"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Drawer Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-6">
+              {/* Profile Card if user */}
+              {user ? (
+                <div className="p-3.5 rounded-2xl bg-[var(--surface-hover)] border border-[var(--border)] flex items-center justify-between gap-3 shadow-sm">
+                  <Link
+                    to="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 overflow-hidden flex-1 group"
+                  >
+                    <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center shrink-0 shadow-sm">
+                      {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        userInitials
+                      )}
+                    </div>
+                    <div className="overflow-hidden">
+                      <span className="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors truncate block">
+                        {displayName}
+                      </span>
+                      <span className="text-xs text-[var(--text-muted)] truncate block">
+                        {user.email}
+                      </span>
+                    </div>
+                  </Link>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--primary)]/10 text-[var(--primary)] uppercase tracking-wider shrink-0">
+                    {role === 'admin' ? 'Admin' : 'Student'}
+                  </span>
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-500/20 text-center space-y-2">
+                  <h4 className="font-bold text-sm text-[var(--text-main)]">Sign in to StudyMate AI</h4>
+                  <p className="text-xs text-[var(--text-muted)]">Access your personalized courses, study plan, and progress.</p>
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="inline-block mt-2">
+                    <button className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md">
+                      <LogIn size={15} /> Sign In / Register
+                    </button>
+                  </Link>
+                </div>
+              )}
+
+              {/* Secondary Study Links */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
+                  Explore & Practice
+                </h4>
+                <div className="grid grid-cols-1 gap-1.5">
+                  <NavLink
+                    to="/exams"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={({ isActive }) => `flex items-center justify-between p-3 rounded-xl transition-all border ${
+                      isActive 
+                        ? 'bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/30 font-semibold' 
+                        : 'bg-[var(--surface)] text-[var(--text-main)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+                        <GraduationCap size={18} />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-sm font-semibold block">Exams & Quizzes</span>
+                        <span className="text-[11px] text-[var(--text-muted)]">Practice exam questions & tests</span>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-[var(--text-muted)]" />
+                  </NavLink>
+
+                  <NavLink
+                    to="/leaderboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={({ isActive }) => `flex items-center justify-between p-3 rounded-xl transition-all border ${
+                      isActive 
+                        ? 'bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/30 font-semibold' 
+                        : 'bg-[var(--surface)] text-[var(--text-main)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
+                        <Trophy size={18} />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-sm font-semibold block">Global Leaderboard</span>
+                        <span className="text-[11px] text-[var(--text-muted)]">Check student ranks & points</span>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-[var(--text-muted)]" />
+                  </NavLink>
+
+                  <NavLink
+                    to="/discussion"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={({ isActive }) => `flex items-center justify-between p-3 rounded-xl transition-all border ${
+                      isActive 
+                        ? 'bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/30 font-semibold' 
+                        : 'bg-[var(--surface)] text-[var(--text-main)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
+                        <MessageSquare size={18} />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-sm font-semibold block">Community Discussion</span>
+                        <span className="text-[11px] text-[var(--text-muted)]">Ask questions & share insights</span>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-[var(--text-muted)]" />
+                  </NavLink>
+                </div>
+              </div>
+
+              {/* Admin Verification & Management Portal */}
+              {isAdmin && (
+                <div className="space-y-2 pt-2 border-t border-[var(--border)]">
+                  <div className="flex items-center justify-between px-1">
+                    <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldCheck size={14} /> Admin Verification Portal
+                    </h4>
+                    {pendingEnrollmentsCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">
+                        {pendingEnrollmentsCount} Pending
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {adminItems.map((item) => (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={({ isActive }) => `flex items-center justify-between p-2.5 rounded-xl transition-all border text-xs ${
+                          isActive 
+                            ? 'bg-amber-500/10 text-amber-500 border-amber-500/30 font-semibold' 
+                            : 'bg-[var(--surface)] text-[var(--text-main)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 overflow-hidden">
+                          <span className="shrink-0 text-[var(--text-muted)]">{item.icon}</span>
+                          <span className="truncate font-medium">{item.name}</span>
+                        </div>
+                        {item.badge && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white shrink-0 ml-1">
+                            {item.badge}
+                          </span>
+                        )}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Tools & Settings */}
+              <div className="pt-2 border-t border-[var(--border)] space-y-3">
+                <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
+                  Quick Tools
+                </h4>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyCurrentUrl}
+                    className="flex-1 py-2.5 px-3 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] text-xs font-semibold text-[var(--text-main)] flex items-center justify-center gap-2 hover:border-[var(--primary)] transition-colors"
+                  >
+                    {copiedUrl ? <Check size={16} className="text-emerald-500" /> : <Share2 size={16} />}
+                    <span>{copiedUrl ? 'Copied Page URL!' : 'Copy Page Link'}</span>
+                  </button>
+                  <div className="p-1 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]">
+                    <ThemeToggle />
+                  </div>
+                </div>
+
+                {user && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleSignOut();
+                    }}
+                    className="w-full py-2.5 px-3 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <LogOut size={16} /> Sign Out of Account
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

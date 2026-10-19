@@ -75,19 +75,19 @@ export function StudyPlan() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-between items-center flex-wrap gap-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.25rem' }}>Study Plan</h1>
-          <p className="text-muted" style={{ fontSize: '1rem' }}>Track your daily exam preparation progress.</p>
+          <h1 className="text-xl sm:text-3xl font-bold text-[var(--text-main)] mb-1 font-[var(--font-heading)]">Study Plan</h1>
+          <p className="text-sm sm:text-base text-[var(--text-muted)]">Track your daily exam preparation progress.</p>
         </div>
         
         {!loading && totalDays > 0 && (
-          <div className="flex flex-col items-end gap-1">
-            <div className="badge badge-primary flex gap-2 items-center" style={{ padding: '0.5rem 1rem' }}>
-              <Compass size={16} />
+          <div className="flex flex-col items-start sm:items-end gap-1.5 w-full sm:w-auto">
+            <div className="badge badge-primary flex gap-2 items-center text-xs sm:text-sm py-1.5 px-3">
+              <Compass size={15} />
               <span>{completedDays} / {totalDays} Days Completed</span>
             </div>
-            <div className="w-full bg-[var(--surface-hover)] rounded-full h-1.5 overflow-hidden">
+            <div className="w-full sm:w-48 bg-[var(--surface-hover)] rounded-full h-1.5 overflow-hidden">
               <div className="bg-[var(--primary)] h-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
             </div>
           </div>
