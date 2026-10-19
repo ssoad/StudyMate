@@ -20,12 +20,22 @@ import { ThemeToggle } from './ThemeToggle';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { dataService, type UserProfile } from '../lib/dataService';
+import { playNotificationChime } from '../lib/notificationSound';
+import { useToastStore } from '../store/toastStore';
 
 export function Navbar() {
   const { user, role } = useAuthStore();
+  const { addToast } = useToastStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [pendingEnrollmentsCount, setPendingEnrollmentsCount] = useState<number>(0);
+
+  const isAdmin =
+    role === 'admin' ||
+    user?.email === 'admin@studymate.org' ||
+    user?.email === 'admin@studymate.local' ||
+    (user as any)?.app_metadata?.role === 'admin';
 
   useEffect(() => {
     async function loadProfile() {
@@ -36,6 +46,31 @@ export function Navbar() {
     }
     loadProfile();
   }, [user]);
+
+  // Real-time polling for pending enrollments (every 8 seconds for admins)
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    let isInitialCheck = true;
+    let previousCount = 0;
+
+    const checkPending = async () => {
+      const count = await dataService.getPendingEnrollmentCount();
+      setPendingEnrollmentsCount(count);
+
+      // If new enrollment arrived after initial load, chime & toast
+      if (!isInitialCheck && count > previousCount) {
+        playNotificationChime();
+        addToast(`🔔 New course enrollment submitted! (${count} pending)`, 'info');
+      }
+      previousCount = count;
+      isInitialCheck = false;
+    };
+
+    checkPending();
+    const interval = setInterval(checkPending, 8000);
+    return () => clearInterval(interval);
+  }, [isAdmin]);
 
   const navItems = user
     ? [
@@ -54,7 +89,12 @@ export function Navbar() {
 
   const adminItems = [
     { name: 'Admin Dashboard', path: '/admin', icon: <ShieldCheck size={20} /> },
-    { name: 'Course Enrollments', path: '/admin/enrollments', icon: <CreditCard size={20} /> },
+    { 
+      name: 'Course Enrollments', 
+      path: '/admin/enrollments', 
+      icon: <CreditCard size={20} />,
+      badge: pendingEnrollmentsCount > 0 ? pendingEnrollmentsCount : null,
+    },
     { name: 'Manage Courses', path: '/admin/courses', icon: <PlayCircle size={20} /> },
     { name: 'Manage Study Plans', path: '/admin/study-plans', icon: <FileText size={20} /> },
     { name: 'Review Resources', path: '/admin/resources', icon: <CheckSquare size={20} /> },
@@ -95,7 +135,7 @@ export function Navbar() {
             </NavLink>
           ))}
 
-          {role === 'admin' && (
+          {isAdmin && (
             <>
               <div style={{ marginTop: '1rem', padding: '0 1rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Admin
@@ -108,7 +148,12 @@ export function Navbar() {
                   end={item.path === '/admin'}
                 >
                   {item.icon}
-                  <span>{item.name}</span>
+                  <span className="flex-1">{item.name}</span>
+                  {item.badge && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse shadow-sm ml-auto">
+                      {item.badge}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </>
@@ -162,7 +207,17 @@ export function Navbar() {
           <GraduationCap size={22} />
           <h3>StudyMate AI</h3>
         </div>
-        <div className="mobile-header-actions">
+        <div className="mobile-header-actions flex items-center gap-2">
+          {isAdmin && pendingEnrollmentsCount > 0 && (
+            <Link
+              to="/admin/enrollments"
+              className="px-2.5 py-1 rounded-full bg-amber-500 text-white font-bold text-[11px] flex items-center gap-1 animate-pulse shadow-sm"
+              title={`${pendingEnrollmentsCount} Pending Enrollments`}
+            >
+              <CreditCard size={12} />
+              <span>{pendingEnrollmentsCount}</span>
+            </Link>
+          )}
           <ThemeToggle />
           {user ? (
             <button className="signout-btn-mobile" onClick={handleSignOut} title="Sign Out">
@@ -200,13 +255,16 @@ export function Navbar() {
             <span style={{ fontSize: '0.65rem', marginTop: '0.2rem' }}>Sign In</span>
           </NavLink>
         )}
-        {role === 'admin' && (
+        {isAdmin && (
           <NavLink
             to="/admin"
-            className={({ isActive }) => `mobile-nav-item ${isActive || location.pathname.startsWith('/admin') ? 'active' : ''}`}
+            className={({ isActive }) => `mobile-nav-item relative ${isActive || location.pathname.startsWith('/admin') ? 'active' : ''}`}
           >
             <ShieldCheck size={20} />
             <span style={{ fontSize: '0.65rem', marginTop: '0.2rem' }}>Admin</span>
+            {pendingEnrollmentsCount > 0 && (
+              <span className="absolute top-1 right-4 w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+            )}
           </NavLink>
         )}
       </nav>

@@ -153,9 +153,9 @@ export function VideoTranscript({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Download as WebVTT or plain text file
+  // Download as WebVTT or plain text file (Admin Only)
   const handleDownload = (format: 'vtt' | 'txt') => {
-    if (cues.length === 0) return;
+    if (!isAdmin || cues.length === 0) return;
     const filename = `${lesson.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_transcript.${format}`;
     const content = format === 'vtt' ? cuesToWebVTT(cues, lesson.title) : cuesToPlainText(cues, true);
     const blob = new Blob([content], { type: format === 'vtt' ? 'text/vtt' : 'text/plain;charset=utf-8' });
@@ -367,13 +367,13 @@ export function VideoTranscript({
             {copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
           </button>
 
-          {/* Download VTT */}
-          {cues.length > 0 && (
+          {/* Download VTT (Admin Only) */}
+          {isAdmin && cues.length > 0 && (
             <button
               type="button"
               onClick={() => handleDownload('vtt')}
               className="p-2 rounded-lg bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border)] transition-colors"
-              title="Download WebVTT Subtitles (.vtt)"
+              title="Download WebVTT Subtitles (.vtt) [Admin Only]"
             >
               <Download size={15} />
             </button>
@@ -813,14 +813,19 @@ export function VideoTranscript({
             >
               Copy with Timestamps
             </button>
-            <span>•</span>
-            <button
-              type="button"
-              onClick={() => handleDownload('txt')}
-              className="hover:text-[var(--text-main)] transition-colors underline decoration-dotted"
-            >
-              Download Text
-            </button>
+            {isAdmin && (
+              <>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => handleDownload('txt')}
+                  className="hover:text-[var(--text-main)] transition-colors underline decoration-dotted"
+                  title="Download plain text transcript (Admin Only)"
+                >
+                  Download Text
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

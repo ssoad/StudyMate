@@ -17,7 +17,8 @@ import {
   Sparkles, 
   Loader2,
   Clock,
-  Send
+  Send,
+  Eye
 } from 'lucide-react';
 import { YoutubeIcon } from '../components/YoutubeIcon';
 import { Button } from '../components/Button';
@@ -40,6 +41,12 @@ export function CoursePlayer() {
   const [progress, setProgress] = useState<UserCourseProgress | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  const isAdmin =
+    role === 'admin' ||
+    user?.email === 'admin@studymate.org' ||
+    user?.email === 'admin@studymate.local' ||
+    (user as any)?.app_metadata?.role === 'admin';
 
   // Tabbed sub-player drawer
   const [activeTab, setActiveTab] = useState<'resources' | 'transcript' | 'notes' | 'overview' | 'qa'>('resources');
@@ -96,12 +103,6 @@ export function CoursePlayer() {
     }
 
     // Verify enrollment permissions (admin, free course, or approved enrollment)
-    const isAdmin =
-      role === 'admin' ||
-      user?.email === 'admin@studymate.org' ||
-      user?.email === 'admin@studymate.local' ||
-      (user as any)?.app_metadata?.role === 'admin';
-
     if (!user) {
       addToast('Please sign in to access the classroom.', 'info');
       navigate(`/courses/${cId}`);
@@ -471,6 +472,8 @@ export function CoursePlayer() {
                     key={directVideoUrl}
                     src={directVideoUrl}
                     controls
+                    controlsList="nodownload"
+                    onContextMenu={(e) => e.preventDefault()}
                     autoPlay
                     playsInline
                     onTimeUpdate={(e) => setCurrentVideoTime(e.currentTarget.currentTime)}
@@ -506,7 +509,7 @@ export function CoursePlayer() {
                   lesson={currentLesson}
                   currentTime={currentVideoTime}
                   onSeek={handleSeekVideo}
-                  isAdmin={role === 'admin'}
+                  isAdmin={isAdmin}
                   isSidePanel
                   onCloseSidePanel={() => setShowSideTranscript(false)}
                   onTranscriptUpdated={(newTr) => {
@@ -653,7 +656,9 @@ export function CoursePlayer() {
                         Course Textbooks, PDFs & Study Materials
                       </h3>
                       <p className="text-xs text-[var(--text-muted)]">
-                        Download lecture notes, reference textbooks, cheatsheets, and slides prepared for this course.
+                        {isAdmin
+                          ? 'Download lecture notes, reference textbooks, cheatsheets, and slides prepared for this course.'
+                          : 'Read lecture notes, reference textbooks, cheatsheets, and slides prepared for this course online.'}
                       </p>
                     </div>
 
@@ -700,22 +705,36 @@ export function CoursePlayer() {
                                   {res.resource_type}
                                 </span>
                                 <span className="text-xs font-mono text-[var(--text-muted)]">
-                                  {res.file_size || 'Downloadable'}
+                                  {res.file_size || (isAdmin ? 'Downloadable' : 'Online Document')}
                                 </span>
                               </div>
                             </div>
                           </div>
 
-                          <a
-                            href={res.file_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn btn-secondary text-xs px-3 py-2 shrink-0 flex items-center gap-1.5 shadow-sm"
-                            title="Download / View"
-                          >
-                            <Download size={14} />
-                            <span>Download</span>
-                          </a>
+                          {isAdmin ? (
+                            <a
+                              href={res.file_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                              className="btn btn-secondary text-xs px-3 py-2 shrink-0 flex items-center gap-1.5 shadow-sm"
+                              title="Download Resource (Admin Only)"
+                            >
+                              <Download size={14} />
+                              <span>Download</span>
+                            </a>
+                          ) : (
+                            <a
+                              href={res.file_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-secondary text-xs px-3 py-2 shrink-0 flex items-center gap-1.5 shadow-sm hover:border-[var(--primary)]"
+                              title="Read Online in Browser"
+                            >
+                              <Eye size={14} />
+                              <span>Read Online</span>
+                            </a>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -730,7 +749,7 @@ export function CoursePlayer() {
                     lesson={currentLesson}
                     currentTime={currentVideoTime}
                     onSeek={handleSeekVideo}
-                    isAdmin={role === 'admin'}
+                    isAdmin={isAdmin}
                     onTranscriptUpdated={(newTr) => {
                       setCurrentLesson({ ...currentLesson, transcript: newTr });
                       if (course?.sections) {

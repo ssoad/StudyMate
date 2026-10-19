@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardBody } from '../components/Card';
 import { Button } from '../components/Button';
-import { FileText, Link as LinkIcon, Upload, Download, X, Loader2 } from 'lucide-react';
+import { FileText, Link as LinkIcon, Upload, Download, Eye, X, Loader2 } from 'lucide-react';
 import { dataService, type StudyResource } from '../lib/dataService';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 
 export function Resources() {
-  const { user } = useAuthStore();
+  const { user, role } = useAuthStore();
   const { addToast } = useToastStore();
   const [resources, setResources] = useState<StudyResource[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isAdmin =
+    role === 'admin' ||
+    user?.email === 'admin@studymate.org' ||
+    user?.email === 'admin@studymate.local' ||
+    (user as any)?.app_metadata?.role === 'admin';
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -162,10 +168,23 @@ export function Resources() {
                     href={resource.url} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className={`p-2.5 rounded-xl shadow-sm hover:shadow-md transition-all flex-shrink-0 group-hover:scale-110 ${resource.type === 'file' ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:hover:bg-indigo-500' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white dark:bg-emerald-500/10 dark:hover:bg-emerald-500'}`}
-                    title={resource.type === 'file' ? 'Download File' : 'Visit Link'}
+                    {...(isAdmin && resource.type === 'file' ? { download: true } : {})}
+                    className={`p-2.5 rounded-xl shadow-sm hover:shadow-md transition-all flex-shrink-0 group-hover:scale-110 ${
+                      resource.type === 'file' 
+                        ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white dark:bg-indigo-500/10 dark:hover:bg-indigo-500' 
+                        : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white dark:bg-emerald-500/10 dark:hover:bg-emerald-500'
+                    }`}
+                    title={
+                      resource.type === 'file'
+                        ? (isAdmin ? 'Download File (Admin Only)' : 'Read Online in Browser')
+                        : 'Visit Link'
+                    }
                   >
-                    {resource.type === 'file' ? <Download size={18} strokeWidth={2} /> : <LinkIcon size={18} strokeWidth={2} />}
+                    {resource.type === 'file' ? (
+                      isAdmin ? <Download size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />
+                    ) : (
+                      <LinkIcon size={18} strokeWidth={2} />
+                    )}
                   </a>
                 </div>
               </CardBody>

@@ -904,9 +904,7 @@ export const dataService = {
   submitEnrollment: async (
     enrollmentData: Partial<CourseEnrollment>
   ): Promise<{ data: CourseEnrollment | null; error: any }> => {
-    const id = enrollmentData.id || `enroll-${Date.now()}`;
-    const payload: CourseEnrollment = {
-      id,
+    const payload: any = {
       course_id: enrollmentData.course_id!,
       user_id: enrollmentData.user_id!,
       status: 'pending',
@@ -914,35 +912,87 @@ export const dataService = {
       transaction_id: enrollmentData.transaction_id || '',
       sender_number: enrollmentData.sender_number || '',
       amount: enrollmentData.amount || 0,
-      proof_url: enrollmentData.proof_url || '',
-      student_notes: enrollmentData.student_notes || '',
-      created_at: new Date().toISOString(),
+      proof_url: enrollmentData.proof_url || null,
+      student_notes: enrollmentData.student_notes || null,
       updated_at: new Date().toISOString(),
     };
 
-    try {
-      localStorage.setItem(
-        `study_mate_enrollment_${payload.course_id}_${payload.user_id}`,
-        JSON.stringify(payload)
-      );
-    } catch {}
+    // Only supply id if it is a valid UUID, otherwise allow PostgreSQL gen_random_uuid() to auto-generate
+    if (enrollmentData.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(enrollmentData.id)) {
+      payload.id = enrollmentData.id;
+    }
 
     try {
       if (supabase) {
+        let savedData: any = null;
+
+        // Try standard upsert with onConflict
         const { data, error } = await supabase
           .from('course_enrollments')
           .upsert(payload, { onConflict: 'user_id,course_id' })
           .select()
           .single();
-        if (error) throw error;
-        return { data, error: null };
+
+        if (!error && data) {
+          savedData = data;
+        } else {
+          // If onConflict upsert failed, gracefully check existing record and update/insert
+          console.warn('Upsert onConflict error, attempting fallback update/insert:', error);
+          const { data: existing } = await supabase
+            .from('course_enrollments')
+            .select('id')
+            .eq('user_id', payload.user_id)
+            .eq('course_id', payload.course_id)
+            .maybeSingle();
+
+          if (existing?.id) {
+            const updateRes = await supabase
+              .from('course_enrollments')
+              .update(payload)
+              .eq('id', existing.id)
+              .select()
+              .single();
+            if (updateRes.error) throw updateRes.error;
+            savedData = updateRes.data;
+          } else {
+            const insertRes = await supabase
+              .from('course_enrollments')
+              .insert(payload)
+              .select()
+              .single();
+            if (insertRes.error) throw insertRes.error;
+            savedData = insertRes.data;
+          }
+        }
+
+        try {
+          localStorage.setItem(
+            `study_mate_enrollment_${payload.course_id}_${payload.user_id}`,
+            JSON.stringify(savedData)
+          );
+        } catch {}
+
+        return { data: savedData as CourseEnrollment, error: null };
       }
     } catch (e: any) {
-      console.warn('Supabase enrollment upsert failed:', e);
-      return { data: payload, error: null };
+      console.error('Supabase enrollment submission failed:', e);
+      return { data: null, error: e };
     }
 
-    return { data: payload, error: null };
+    return { data: payload as CourseEnrollment, error: null };
+  },
+
+  getPendingEnrollmentCount: async (): Promise<number> => {
+    try {
+      if (supabase) {
+        const { count, error } = await supabase
+          .from('course_enrollments')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        if (!error && typeof count === 'number') return count;
+      }
+    } catch {}
+    return 0;
   },
 
   getAllEnrollments: async (statusFilter?: string): Promise<CourseEnrollment[]> => {

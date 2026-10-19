@@ -22,6 +22,7 @@ import { Button } from '../../components/Button';
 import { dataService, type CourseEnrollment } from '../../lib/dataService';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
+import { playNotificationChime } from '../../lib/notificationSound';
 
 export function AdminEnrollments() {
   const { user } = useAuthStore();
@@ -29,6 +30,7 @@ export function AdminEnrollments() {
 
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedTrxId, setCopiedTrxId] = useState<string | null>(null);
@@ -42,11 +44,38 @@ export function AdminEnrollments() {
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadEnrollments();
+    let prevPendingCount = -1;
+
+    const fetchLatest = async (isInitial = false) => {
+      try {
+        if (isInitial) setLoading(true);
+        const data = await dataService.getAllEnrollments();
+        const pendingNow = data.filter((e) => e.status === 'pending').length;
+        if (prevPendingCount !== -1 && pendingNow > prevPendingCount) {
+          playNotificationChime();
+          addToast(`🔔 New enrollment request arrived! (${pendingNow} pending)`, 'info');
+        }
+        prevPendingCount = pendingNow;
+        setEnrollments(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (isInitial) setLoading(false);
+      }
+    };
+
+    fetchLatest(true);
+    const interval = setInterval(() => fetchLatest(false), 6000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const loadEnrollments = async () => {
-    setLoading(true);
+  const loadEnrollments = async (showFullSpinner = false) => {
+    if (showFullSpinner) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     try {
       const data = await dataService.getAllEnrollments();
       setEnrollments(data);
@@ -55,6 +84,7 @@ export function AdminEnrollments() {
       addToast('Failed to load enrollments.', 'error');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -163,14 +193,22 @@ export function AdminEnrollments() {
           </p>
         </div>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={loadEnrollments}
-          icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
-        >
-          Refresh Data
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Real-Time Sync (6s)</span>
+          </div>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => loadEnrollments(false)}
+            disabled={isRefreshing}
+            icon={<RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />}
+          >
+            {isRefreshing ? 'Syncing...' : 'Refresh'}
+          </Button>
+        </div>
       </div>
 
       {/* STATS METRIC CARDS */}

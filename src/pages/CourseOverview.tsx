@@ -14,6 +14,7 @@ import {
   ShieldCheck, 
   AlertCircle, 
   Download, 
+  Eye,
   Lock, 
   HelpCircle,
   Loader2,
@@ -117,7 +118,12 @@ export function CourseOverview() {
 
   const totalLectures = course.sections?.reduce((acc, s) => acc + (s.lessons?.length || 0), 0) || 0;
   const totalResources = (course.resources?.length || 0) + (course.sections?.reduce((acc, s) => acc + s.lessons.reduce((lacc, l) => lacc + (l.resources?.length || 0), 0), 0) || 0);
-  const isApproved = role === 'admin' || enrollment?.status === 'approved';
+  const isAdmin =
+    role === 'admin' ||
+    user?.email === 'admin@studymate.org' ||
+    user?.email === 'admin@studymate.local' ||
+    (user as any)?.app_metadata?.role === 'admin';
+  const isApproved = isAdmin || enrollment?.status === 'approved';
   const isPending = enrollment?.status === 'pending';
   const isRejected = enrollment?.status === 'rejected';
 
@@ -347,7 +353,7 @@ export function CourseOverview() {
                 </div>
                 <div className="flex items-center gap-2">
                   <FileText size={14} className="text-indigo-500 flex-shrink-0" />
-                  <span>{totalResources} downloadable lecture notes & books</span>
+                  <span>{totalResources} lecture notes & reference books</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock size={14} className="text-indigo-500 flex-shrink-0" />
@@ -500,7 +506,7 @@ export function CourseOverview() {
         </div>
       </div>
 
-      {/* DOWNLOADABLE RESOURCES SHOWCASE */}
+      {/* RESOURCES SHOWCASE */}
       {totalResources > 0 && (
         <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 space-y-4">
           <div className="flex items-center gap-3">
@@ -509,10 +515,10 @@ export function CourseOverview() {
             </div>
             <div>
               <h3 className="text-lg font-bold text-[var(--text-main)] font-[var(--font-heading)]">
-                {totalResources} Downloadable Books, Hand-Written Notes & MCQ Question Banks
+                {totalResources} Reference Books, Hand-Written Notes & MCQ Question Banks
               </h3>
               <p className="text-xs text-[var(--text-muted)]">
-                Included with lifetime course enrollment for offline study and quick revision.
+                {isAdmin ? 'Available for download and offline study.' : 'Read and revise online directly in your browser.'}
               </p>
             </div>
           </div>
@@ -527,16 +533,28 @@ export function CourseOverview() {
                 <FileText size={18} className="text-pink-500 flex-shrink-0" />
                 <span className="font-medium text-[var(--text-main)] truncate flex-1">{res.title}</span>
                 {isApproved ? (
-                  <a
-                    href={res.file_url}
-                    download
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-1.5 rounded-lg bg-[var(--surface)] hover:text-indigo-500 text-[var(--text-muted)] border border-[var(--border)]"
-                    title="Download Note"
-                  >
-                    <Download size={14} />
-                  </a>
+                  isAdmin ? (
+                    <a
+                      href={res.file_url}
+                      download
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1.5 rounded-lg bg-[var(--surface)] hover:text-indigo-500 text-[var(--text-muted)] border border-[var(--border)] transition-colors"
+                      title="Download Note (Admin Only)"
+                    >
+                      <Download size={14} />
+                    </a>
+                  ) : (
+                    <a
+                      href={res.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1.5 rounded-lg bg-[var(--surface)] hover:text-indigo-500 text-[var(--text-muted)] border border-[var(--border)] transition-colors"
+                      title="Read Online in Browser"
+                    >
+                      <Eye size={14} />
+                    </a>
+                  )
                 ) : (
                   <span title="Enroll to unlock">
                     <Lock size={14} className="text-[var(--text-muted)]" />
@@ -611,6 +629,8 @@ export function CourseOverview() {
                 <video
                   src={previewLesson.video_url}
                   controls
+                  controlsList="nodownload"
+                  onContextMenu={(e) => e.preventDefault()}
                   autoPlay
                   className="w-full h-full object-contain"
                 />
