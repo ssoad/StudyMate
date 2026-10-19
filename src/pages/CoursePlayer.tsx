@@ -7,6 +7,7 @@ import {
   ChevronLeft, 
   ChevronRight, 
   ChevronDown, 
+  ChevronUp,
   FileText, 
   BookOpen, 
   Download, 
@@ -22,7 +23,11 @@ import {
   PanelRightOpen,
   Share2,
   Check,
-  X
+  X,
+  Search,
+  Code2,
+  ExternalLink,
+  Paperclip
 } from 'lucide-react';
 import { YoutubeIcon } from '../components/YoutubeIcon';
 import { Button } from '../components/Button';
@@ -94,6 +99,13 @@ export function CoursePlayer() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadUrl, setUploadUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadTargetLessonId, setUploadTargetLessonId] = useState<string>('');
+
+  // Modular Udemy-Style Resources State
+  const [resourceFilter, setResourceFilter] = useState<string>('all'); // 'all' | 'current' | 'course_wide' | sectionId
+  const [resourceSearch, setResourceSearch] = useState<string>('');
+  const [expandedResourceSections, setExpandedResourceSections] = useState<Record<string, boolean>>({});
+  const [readingResource, setReadingResource] = useState<CourseResource | null>(null);
 
   // Load Course and Progress
   useEffect(() => {
@@ -169,6 +181,13 @@ export function CoursePlayer() {
         initialLesson = data.sections[0].lessons[0];
       }
     }
+
+    // Auto-expand all modular resource sections by default
+    const initialResExp: Record<string, boolean> = { course_wide: true };
+    data.sections?.forEach((s) => {
+      initialResExp[s.id] = true;
+    });
+    setExpandedResourceSections(initialResExp);
 
     setCourse(data);
     setCurrentLesson(initialLesson);
@@ -373,9 +392,11 @@ export function CoursePlayer() {
       }
     }
 
+    const targetLessonId = uploadTargetLessonId.trim() || undefined;
+
     const { data: newRes } = await dataService.addCourseResource({
       course_id: course!.id,
-      lesson_id: currentLesson?.id || null,
+      lesson_id: targetLessonId,
       title: uploadTitle.trim(),
       resource_type: uploadType,
       file_url: finalUrl,
@@ -384,11 +405,32 @@ export function CoursePlayer() {
     });
 
     if (newRes && course) {
-      setCourse({
-        ...course,
-        resources: [...(course.resources || []), newRes],
-      });
-      addToast('Resource uploaded and attached successfully!', 'success');
+      if (targetLessonId && course.sections) {
+        const updatedSections = course.sections.map((sec) => ({
+          ...sec,
+          lessons: sec.lessons.map((les) =>
+            les.id === targetLessonId
+              ? { ...les, resources: [...(les.resources || []), newRes] }
+              : les
+          ),
+        }));
+        setCourse({
+          ...course,
+          sections: updatedSections,
+        });
+        if (currentLesson?.id === targetLessonId) {
+          setCurrentLesson({
+            ...currentLesson,
+            resources: [...(currentLesson.resources || []), newRes],
+          });
+        }
+      } else {
+        setCourse({
+          ...course,
+          resources: [...(course.resources || []), newRes],
+        });
+      }
+      addToast('Resource uploaded and modularly attached successfully!', 'success');
     }
 
     setIsUploading(false);
@@ -426,11 +468,98 @@ export function CoursePlayer() {
   const progressPercent = totalLecturesCount > 0 ? Math.min(100, Math.round((completedCount / totalLecturesCount) * 100)) : 0;
   const isCurrentLessonDone = currentLesson ? progress?.completed_lessons?.includes(currentLesson.id) : false;
 
-  // Attached resources (combines course-level resources and current lesson-level resources)
-  const currentResources: CourseResource[] = [
-    ...(course.resources || []),
-    ...(currentLesson?.resources || []),
-  ];
+  // Modular Udemy-Style Resources Breakdown
+  const courseLevelResources = course.resources || [];
+  const currentLessonResources = currentLesson?.resources || [];
+
+  const modularSections = (course.sections || [])
+    .map((sec, sIdx) => {
+      const lessonsWithRes = (sec.lessons || [])
+        .map((les, lIdx) => ({
+          lesson: les,
+          lessonIndex: lIdx,
+          resources: les.resources || [],
+        }))
+        .filter((l) => l.resources.length > 0);
+
+      const sectionResCount = lessonsWithRes.reduce((acc, l) => acc + l.resources.length, 0);
+
+      return {
+        section: sec,
+        sectionIndex: sIdx,
+        lessonsWithRes,
+        totalResources: sectionResCount,
+      };
+    })
+    .filter((s) => s.totalResources > 0);
+
+  const totalModularCount =
+    courseLevelResources.length +
+    modularSections.reduce((acc, s) => acc + s.totalResources, 0);
+
+  const resQuery = resourceSearch.toLowerCase().trim();
+
+  // Filtered Course-level Resources
+  const filteredCourseLevel = courseLevelResources.filter((res) => {
+    const matchesScope = resourceFilter === 'all' || resourceFilter === 'course_wide';
+    if (!matchesScope) return false;
+    if (!resQuery) return true;
+    return (
+      res.title.toLowerCase().includes(resQuery) ||
+      (res.description || '').toLowerCase().includes(resQuery) ||
+      res.resource_type.toLowerCase().includes(resQuery)
+    );
+  });
+
+  // Filtered Modular Sections & Lessons
+  const filteredModularSections = modularSections
+    .map((s) => {
+      const matchesSectionScope =
+        resourceFilter === 'all' ||
+        resourceFilter === s.section.id ||
+        (resourceFilter === 'current' && s.lessonsWithRes.some((l) => l.lesson.id === currentLesson?.id));
+
+      if (!matchesSectionScope) return null;
+
+      const filteredLessons = s.lessonsWithRes
+        .map((l) => {
+          if (resourceFilter === 'current' && l.lesson.id !== currentLesson?.id) {
+            return null;
+          }
+
+          const filteredRes = l.resources.filter((res) => {
+            if (!resQuery) return true;
+            return (
+              res.title.toLowerCase().includes(resQuery) ||
+              (res.description || '').toLowerCase().includes(resQuery) ||
+              res.resource_type.toLowerCase().includes(resQuery) ||
+              l.lesson.title.toLowerCase().includes(resQuery)
+            );
+          });
+
+          if (filteredRes.length === 0) return null;
+
+          return {
+            ...l,
+            resources: filteredRes,
+          };
+        })
+        .filter(Boolean) as typeof s.lessonsWithRes;
+
+      if (filteredLessons.length === 0) return null;
+
+      const count = filteredLessons.reduce((acc, l) => acc + l.resources.length, 0);
+      return {
+        ...s,
+        lessonsWithRes: filteredLessons,
+        totalResources: count,
+      };
+    })
+    .filter(Boolean) as typeof modularSections;
+
+  const filteredTotalCount =
+    filteredCourseLevel.length +
+    filteredModularSections.reduce((acc, s) => acc + s.totalResources, 0);
 
   // Video playback source: check for local or direct MP4/WebM video stream
   const directVideoUrl =
@@ -665,7 +794,7 @@ export function CoursePlayer() {
                 }`}
               >
                 <BookOpen size={16} />
-                <span>Books & PDFs ({currentResources.length})</span>
+                <span>Resources & Materials ({totalModularCount})</span>
               </button>
 
               <button
@@ -726,96 +855,432 @@ export function CoursePlayer() {
 
             {/* TAB CONTENT */}
             <div className="p-6">
-              {/* TAB 1: RESOURCES & BOOKS */}
+              {/* TAB 1: MODULAR RESOURCES & TEXTBOOKS (UDEMY STYLE) */}
               {activeTab === 'resources' && (
-                <div className="space-y-5 animate-fade-in">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-6 animate-fade-in">
+                  {/* Top Bar: Title, Stats & Controls */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
                     <div>
-                      <h3 className="text-base font-bold text-[var(--text-main)]">
-                        Course Textbooks, PDFs & Study Materials
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 font-bold text-xs uppercase tracking-wider">
+                          Curriculum Materials
+                        </span>
+                        <span className="text-xs text-[var(--text-muted)]">
+                          {totalModularCount} Total Resources
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-bold text-[var(--text-main)] mt-1">
+                        Course Textbooks, Slides & Modular Resources
                       </h3>
                       <p className="text-xs text-[var(--text-muted)]">
                         {isAdmin
-                          ? 'Download lecture notes, reference textbooks, cheatsheets, and slides prepared for this course.'
-                          : 'Read lecture notes, reference textbooks, cheatsheets, and slides prepared for this course online.'}
+                          ? 'Review, attach, or download modular study materials attached across lectures.'
+                          : 'Read lecture notes, textbooks, slides, and cheat sheets online in our interactive reader.'}
                       </p>
                     </div>
 
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setUploadModalOpen(true)}
-                      icon={<Plus size={16} />}
-                    >
-                      Attach Resource
-                    </Button>
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          const allExp: Record<string, boolean> = { course_wide: true };
+                          modularSections.forEach((s) => (allExp[s.section.id] = true));
+                          setExpandedResourceSections(allExp);
+                        }}
+                      >
+                        Expand All
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setExpandedResourceSections({})}
+                      >
+                        Collapse All
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => {
+                          setUploadTargetLessonId(currentLesson?.id || '');
+                          setUploadModalOpen(true);
+                        }}
+                        icon={<Plus size={16} />}
+                      >
+                        Attach Resource
+                      </Button>
+                    </div>
                   </div>
 
-                  {currentResources.length === 0 ? (
-                    <div className="text-center py-12 border-2 border-dashed border-[var(--border)] rounded-xl space-y-2">
-                      <BookOpen size={36} className="mx-auto text-[var(--text-muted)] opacity-50" />
-                      <p className="text-sm font-medium text-[var(--text-main)]">No resources attached yet.</p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        Upload a textbook PDF or cheat sheet using the button above.
+                  {/* Filter & Search Bar */}
+                  <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-[var(--surface)] p-3.5 rounded-2xl border border-[var(--border)] shadow-sm">
+                    {/* Scope Pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                      <button
+                        type="button"
+                        onClick={() => setResourceFilter('all')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                          resourceFilter === 'all'
+                            ? 'bg-[var(--primary)] text-white shadow-sm'
+                            : 'bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                        }`}
+                      >
+                        All Materials ({totalModularCount})
+                      </button>
+
+                      {currentLesson && (
+                        <button
+                          type="button"
+                          onClick={() => setResourceFilter('current')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                            resourceFilter === 'current'
+                              ? 'bg-[var(--primary)] text-white shadow-sm'
+                              : 'bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                          }`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>Current Lecture ({currentLessonResources.length})</span>
+                        </button>
+                      )}
+
+                      {courseLevelResources.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setResourceFilter('course_wide')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                            resourceFilter === 'course_wide'
+                              ? 'bg-[var(--primary)] text-white shadow-sm'
+                              : 'bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                          }`}
+                        >
+                          General Textbooks ({courseLevelResources.length})
+                        </button>
+                      )}
+
+                      {modularSections.map((s) => (
+                        <button
+                          key={s.section.id}
+                          type="button"
+                          onClick={() => setResourceFilter(s.section.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                            resourceFilter === s.section.id
+                              ? 'bg-[var(--primary)] text-white shadow-sm'
+                              : 'bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                          }`}
+                        >
+                          Module {s.sectionIndex + 1} ({s.totalResources})
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Search */}
+                    <div className="relative min-w-[220px]">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                      <input
+                        type="text"
+                        value={resourceSearch}
+                        onChange={(e) => setResourceSearch(e.target.value)}
+                        placeholder="Search resources, topics..."
+                        className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--primary)]"
+                      />
+                      {resourceSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setResourceSearch('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* MODULAR SECTIONS LIST */}
+                  {filteredTotalCount === 0 ? (
+                    <div className="text-center py-16 border-2 border-dashed border-[var(--border)] rounded-2xl bg-[var(--surface)] space-y-3">
+                      <BookOpen size={40} className="mx-auto text-[var(--text-muted)] opacity-40" />
+                      <h4 className="text-base font-bold text-[var(--text-main)]">No resources found</h4>
+                      <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
+                        {resourceSearch
+                          ? `No resources matched "${resourceSearch}". Try a different keyword.`
+                          : 'No resources have been attached to this selection yet.'}
                       </p>
+                      <div className="pt-2 flex justify-center gap-2">
+                        {resourceSearch && (
+                          <Button size="sm" variant="secondary" onClick={() => setResourceSearch('')}>
+                            Clear Search
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => {
+                            setUploadTargetLessonId(currentLesson?.id || '');
+                            setUploadModalOpen(true);
+                          }}
+                          icon={<Plus size={14} />}
+                        >
+                          Attach First Resource
+                        </Button>
+                      </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {currentResources.map((res) => (
-                        <div
-                          key={res.id}
-                          className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] hover:border-[var(--primary)] transition-all flex items-start justify-between gap-4 group"
-                        >
-                          <div className="flex items-start gap-3 overflow-hidden">
-                            <div className="p-2.5 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] shrink-0 mt-0.5">
-                              {res.resource_type === 'book' ? <BookOpen size={20} /> : <FileText size={20} />}
-                            </div>
-                            <div className="overflow-hidden space-y-1">
-                              <span className="text-sm font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors block truncate">
-                                {res.title}
-                              </span>
-                              {res.description && (
-                                <p className="text-xs text-[var(--text-muted)] line-clamp-2 leading-relaxed">
-                                  {res.description}
-                                </p>
-                              )}
-                              <div className="flex items-center gap-2 pt-1">
-                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)]">
-                                  {res.resource_type}
-                                </span>
-                                <span className="text-xs font-mono text-[var(--text-muted)]">
-                                  {res.file_size || (isAdmin ? 'Downloadable' : 'Online Document')}
+                    <div className="space-y-5">
+                      {/* 1. COURSE-WIDE REFERENCE TEXTBOOKS & CHEATSHEETS */}
+                      {filteredCourseLevel.length > 0 && (
+                        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedResourceSections((prev) => ({
+                                ...prev,
+                                course_wide: !prev.course_wide,
+                              }))
+                            }
+                            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[var(--surface-hover)] transition-colors select-none"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-bold text-xs">
+                                📚
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-bold text-[var(--text-main)]">
+                                  Course-Wide Reference Textbooks & Materials
+                                </h4>
+                                <span className="text-[11px] text-[var(--text-muted)]">
+                                  {filteredCourseLevel.length} master resource{filteredCourseLevel.length > 1 ? 's' : ''} available across all lectures
                                 </span>
                               </div>
                             </div>
-                          </div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2.5 py-0.5 rounded-full bg-[var(--surface-hover)] text-[10px] font-bold text-[var(--text-muted)] border border-[var(--border)]">
+                                {filteredCourseLevel.length} Files
+                              </span>
+                              {expandedResourceSections.course_wide !== false ? (
+                                <ChevronUp size={18} className="text-[var(--text-muted)]" />
+                              ) : (
+                                <ChevronDown size={18} className="text-[var(--text-muted)]" />
+                              )}
+                            </div>
+                          </button>
 
-                          {isAdmin ? (
-                            <a
-                              href={res.file_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              download
-                              className="btn btn-secondary text-xs px-3 py-2 shrink-0 flex items-center gap-1.5 shadow-sm"
-                              title="Download Resource (Admin Only)"
-                            >
-                              <Download size={14} />
-                              <span>Download</span>
-                            </a>
-                          ) : (
-                            <a
-                              href={res.file_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-secondary text-xs px-3 py-2 shrink-0 flex items-center gap-1.5 shadow-sm hover:border-[var(--primary)]"
-                              title="Read Online in Browser"
-                            >
-                              <Eye size={14} />
-                              <span>Read Online</span>
-                            </a>
+                          {expandedResourceSections.course_wide !== false && (
+                            <div className="p-4 pt-0 border-t border-[var(--border)] grid grid-cols-1 md:grid-cols-2 gap-3.5 bg-[var(--surface-hover)]/30 mt-3">
+                              {filteredCourseLevel.map((res) => (
+                                <div
+                                  key={res.id}
+                                  className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)] transition-all flex flex-col justify-between gap-3 group shadow-xs"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className="p-2.5 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] shrink-0 mt-0.5">
+                                      {res.resource_type === 'book' ? <BookOpen size={20} /> : <FileText size={20} />}
+                                    </div>
+                                    <div className="overflow-hidden space-y-1 flex-1">
+                                      <span className="text-sm font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors block truncate">
+                                        {res.title}
+                                      </span>
+                                      {res.description && (
+                                        <p className="text-xs text-[var(--text-muted)] line-clamp-2 leading-relaxed">
+                                          {res.description}
+                                        </p>
+                                      )}
+                                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]">
+                                          {res.resource_type}
+                                        </span>
+                                        <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                                          {res.file_size || 'Reference Document'}
+                                        </span>
+                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500">
+                                          All Lectures
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() => setReadingResource(res)}
+                                      className="text-xs h-7 px-3 hover:border-[var(--primary)]"
+                                      icon={<Eye size={13} />}
+                                    >
+                                      Read Online
+                                    </Button>
+                                    {isAdmin && (
+                                      <a
+                                        href={res.file_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        download
+                                        className="btn btn-secondary text-xs h-7 px-3 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                        title="Download Resource (Admin Only)"
+                                      >
+                                        <Download size={13} />
+                                        <span>Download</span>
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
-                      ))}
+                      )}
+
+                      {/* 2. MODULE BY MODULE BREAKDOWN (UDEMY ACCORDION) */}
+                      {filteredModularSections.map((s) => {
+                        const isExpanded = expandedResourceSections[s.section.id] !== false;
+
+                        return (
+                          <div
+                            key={s.section.id}
+                            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm"
+                          >
+                            {/* MODULE HEADER ACCORDION */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedResourceSections((prev) => ({
+                                  ...prev,
+                                  [s.section.id]: !isExpanded,
+                                }))
+                              }
+                              className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[var(--surface-hover)] transition-colors select-none"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center font-bold text-xs">
+                                  {s.sectionIndex + 1}
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-bold text-[var(--text-main)]">
+                                    Module {s.sectionIndex + 1}: {s.section.title}
+                                  </h4>
+                                  <span className="text-[11px] text-[var(--text-muted)]">
+                                    {s.lessonsWithRes.length} lecture{s.lessonsWithRes.length > 1 ? 's' : ''} with attached study resources
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-0.5 rounded-full bg-[var(--surface-hover)] text-[10px] font-bold text-[var(--text-muted)] border border-[var(--border)]">
+                                  {s.totalResources} File{s.totalResources > 1 ? 's' : ''}
+                                </span>
+                                {isExpanded ? (
+                                  <ChevronUp size={18} className="text-[var(--text-muted)]" />
+                                ) : (
+                                  <ChevronDown size={18} className="text-[var(--text-muted)]" />
+                                )}
+                              </div>
+                            </button>
+
+                            {/* MODULE LECTURES & RESOURCES */}
+                            {isExpanded && (
+                              <div className="border-t border-[var(--border)] divide-y divide-[var(--border)] bg-[var(--surface-hover)]/30">
+                                {s.lessonsWithRes.map((l) => {
+                                  const isCurrent = currentLesson?.id === l.lesson.id;
+
+                                  return (
+                                    <div key={l.lesson.id} className="p-4 space-y-3">
+                                      {/* Lecture Sub-Header with Switch Button */}
+                                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <div className="flex items-center gap-2">
+                                          <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                                          <span className="text-xs font-bold text-[var(--text-main)]">
+                                            Lecture {s.sectionIndex + 1}.{l.lessonIndex + 1}: {l.lesson.title}
+                                          </span>
+                                          {isCurrent && (
+                                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] border border-emerald-500/20">
+                                              ▶ Currently Playing
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {!isCurrent && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSelectLesson(l.lesson, s.sectionIndex)}
+                                            className="text-[11px] font-semibold text-[var(--primary)] hover:underline flex items-center gap-1"
+                                          >
+                                            Switch to Lecture 📺
+                                          </button>
+                                        )}
+                                      </div>
+
+                                      {/* Lecture Resource Cards Grid */}
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {l.resources.map((res) => (
+                                          <div
+                                            key={res.id}
+                                            className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)] transition-all flex flex-col justify-between gap-3 group shadow-xs"
+                                          >
+                                            <div className="flex items-start gap-3">
+                                              <div className="p-2 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] shrink-0 mt-0.5">
+                                                {res.resource_type === 'book' ? (
+                                                  <BookOpen size={18} />
+                                                ) : res.resource_type === 'code' ? (
+                                                  <Code2 size={18} />
+                                                ) : res.resource_type === 'link' ? (
+                                                  <ExternalLink size={18} />
+                                                ) : (
+                                                  <FileText size={18} />
+                                                )}
+                                              </div>
+                                              <div className="overflow-hidden space-y-1 flex-1">
+                                                <span className="text-xs font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors block truncate">
+                                                  {res.title}
+                                                </span>
+                                                {res.description && (
+                                                  <p className="text-[11px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">
+                                                    {res.description}
+                                                  </p>
+                                                )}
+                                                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                                                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]">
+                                                    {res.resource_type}
+                                                  </span>
+                                                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                                                    {res.file_size || 'Class Material'}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                                              <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                onClick={() => setReadingResource(res)}
+                                                className="text-xs h-7 px-3 hover:border-[var(--primary)]"
+                                                icon={<Eye size={12} />}
+                                              >
+                                                Read Online
+                                              </Button>
+                                              {isAdmin && (
+                                                <a
+                                                  href={res.file_url}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  download
+                                                  className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                                  title="Download Resource (Admin Only)"
+                                                >
+                                                  <Download size={12} />
+                                                  <span>Download</span>
+                                                </a>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1049,10 +1514,20 @@ export function CoursePlayer() {
                                       {formatDuration(lesson.duration_seconds)}
                                     </span>
                                     {hasLessonResources && (
-                                      <span className="flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-semibold">
-                                        <BookOpen size={10} />
-                                        Resource
-                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleSelectLesson(lesson, sIdx);
+                                          handleSelectTab('resources');
+                                          setResourceFilter('current');
+                                        }}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-[9px] border border-emerald-500/20 transition-colors"
+                                        title="View attached resources for this lecture"
+                                      >
+                                        <Paperclip size={9} />
+                                        <span>{lesson.resources!.length} File{lesson.resources!.length > 1 ? 's' : ''}</span>
+                                      </button>
                                     )}
                                   </div>
                                 </div>
@@ -1169,10 +1644,28 @@ export function CoursePlayer() {
                                     >
                                       {lesson.title}
                                     </span>
-                                    <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
-                                      <Clock size={10} />
-                                      {formatDuration(lesson.duration_seconds)}
-                                    </span>
+                                    <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                                      <span className="flex items-center gap-1">
+                                        <Clock size={10} />
+                                        {formatDuration(lesson.duration_seconds)}
+                                      </span>
+                                      {(lesson.resources?.length || 0) > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleSelectLesson(lesson, sIdx);
+                                            handleSelectTab('resources');
+                                            setResourceFilter('current');
+                                            setSidebarOpen(false);
+                                          }}
+                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[9px] border border-emerald-500/20"
+                                        >
+                                          <Paperclip size={9} />
+                                          <span>{lesson.resources!.length} File{lesson.resources!.length > 1 ? 's' : ''}</span>
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
 
@@ -1198,6 +1691,28 @@ export function CoursePlayer() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
             <h3 className="text-base font-bold text-[var(--text-main)]">Attach PDF or Book Resource</h3>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                Attach To (Module & Lecture)
+              </label>
+              <select
+                value={uploadTargetLessonId}
+                onChange={(e) => setUploadTargetLessonId(e.target.value)}
+                className="input text-sm"
+              >
+                <option value="">🌐 General Course Material (All Lectures)</option>
+                {course.sections?.map((sec, sIdx) => (
+                  <optgroup key={sec.id} label={`Module ${sIdx + 1}: ${sec.title}`}>
+                    {sec.lessons.map((les, lIdx) => (
+                      <option key={les.id} value={les.id}>
+                        Lecture {sIdx + 1}.{lIdx + 1}: {les.title}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
@@ -1265,6 +1780,94 @@ export function CoursePlayer() {
               >
                 {isUploading ? 'Uploading...' : 'Save & Attach'}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IN-BROWSER INTERACTIVE DOCUMENT & PDF READER MODAL */}
+      {readingResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="relative w-full max-w-5xl bg-[var(--surface)] border border-[var(--border)] rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-[var(--border)] flex items-center justify-between gap-4 bg-[var(--surface-hover)]/70">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="w-9 h-9 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center shrink-0">
+                  {readingResource.resource_type === 'book' ? <BookOpen size={18} /> : <FileText size={18} />}
+                </div>
+                <div className="overflow-hidden">
+                  <h3 className="text-sm font-bold text-[var(--text-main)] truncate">
+                    {readingResource.title}
+                  </h3>
+                  <p className="text-[11px] text-[var(--text-muted)] truncate flex items-center gap-2">
+                    <span className="uppercase font-semibold">{readingResource.resource_type}</span>
+                    <span>•</span>
+                    <span>{readingResource.file_size || 'Study Material'}</span>
+                    <span>•</span>
+                    <span className="text-emerald-500 font-medium">Interactive Online Reader</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {isAdmin && (
+                  <a
+                    href={readingResource.file_url}
+                    download
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-secondary text-xs h-8 px-3 flex items-center gap-1.5 shadow-sm"
+                    title="Download File (Admin Only)"
+                  >
+                    <Download size={14} />
+                    <span className="hidden sm:inline">Download</span>
+                  </a>
+                )}
+                <a
+                  href={readingResource.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-secondary text-xs h-8 px-3 flex items-center gap-1.5 shadow-sm"
+                  title="Open in new browser tab"
+                >
+                  <ExternalLink size={14} />
+                  <span className="hidden sm:inline">Open Full</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setReadingResource(null)}
+                  className="p-1.5 rounded-full hover:bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+                  title="Close Reader"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 p-2 sm:p-4 bg-gray-950 overflow-hidden flex items-center justify-center">
+              {readingResource.resource_type === 'link' ? (
+                <div className="text-center p-8 space-y-4 max-w-md bg-[var(--surface)] rounded-2xl border border-[var(--border)]">
+                  <ExternalLink size={40} className="mx-auto text-[var(--primary)]" />
+                  <h4 className="text-base font-bold text-[var(--text-main)]">{readingResource.title}</h4>
+                  <p className="text-xs text-[var(--text-muted)]">{readingResource.description || 'External learning tool or repository.'}</p>
+                  <a
+                    href={readingResource.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-primary text-xs px-4 py-2 inline-flex items-center gap-2"
+                  >
+                    <span>Open External Resource</span>
+                    <ExternalLink size={14} />
+                  </a>
+                </div>
+              ) : (
+                <iframe
+                  src={`${readingResource.file_url}#toolbar=0`}
+                  title={readingResource.title}
+                  className="w-full h-[75vh] border-0 rounded-2xl bg-white shadow-inner"
+                />
+              )}
             </div>
           </div>
         </div>
