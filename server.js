@@ -1131,8 +1131,11 @@ const server = http.createServer(async (req, res) => {
       headers[key] = val;
     }
 
-    // Ensure authorization header exists for PostgREST role resolution
-    if (!headers['authorization']) {
+    // Ensure valid authorization and apikey headers exist for PostgREST role resolution
+    if (!headers['apikey'] || (typeof headers['apikey'] === 'string' && headers['apikey'].endsWith('.local'))) {
+      headers['apikey'] = ANON_TOKEN;
+    }
+    if (!headers['authorization'] || (typeof headers['authorization'] === 'string' && headers['authorization'].endsWith('.local'))) {
       headers['authorization'] = `Bearer ${ANON_TOKEN}`;
     }
 
