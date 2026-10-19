@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   CreditCard, 
   Search, 
@@ -15,7 +16,8 @@ import {
   Loader2,
   X,
   DollarSign,
-  Users
+  Users,
+  Share2
 } from 'lucide-react';
 import { Card, CardBody } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -27,13 +29,47 @@ import { playNotificationChime } from '../../lib/notificationSound';
 export function AdminEnrollments() {
   const { user } = useAuthStore();
   const { addToast } = useToastStore();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const initialStatus = (searchParams.get('status') as any) || 'all';
+  const validStatus = ['all', 'pending', 'approved', 'rejected'].includes(initialStatus) ? initialStatus : 'all';
+  const initialQuery = searchParams.get('q') || '';
 
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>(validStatus);
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [copiedTrxId, setCopiedTrxId] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const updateParams = (newStatus: string, newQuery: string) => {
+    const nextParams = new URLSearchParams();
+    if (newStatus && newStatus !== 'all') {
+      nextParams.set('status', newStatus);
+    }
+    if (newQuery.trim()) {
+      nextParams.set('q', newQuery.trim());
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const handleStatusChange = (st: 'all' | 'pending' | 'approved' | 'rejected') => {
+    setStatusFilter(st);
+    updateParams(st, searchQuery);
+  };
+
+  const handleSearchChange = (q: string) => {
+    setSearchQuery(q);
+    updateParams(statusFilter, q);
+  };
+
+  const handleCopyViewLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedLink(true);
+    addToast('Admin view URL copied to clipboard!', 'success');
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   // Lightbox Modal for Receipt
   const [previewProofUrl, setPreviewProofUrl] = useState<string | null>(null);
@@ -193,11 +229,21 @@ export function AdminEnrollments() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-sm">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>Real-Time Sync (6s)</span>
           </div>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleCopyViewLink}
+            icon={copiedLink ? <Check size={14} className="text-emerald-500" /> : <Share2 size={14} />}
+            title="Copy view URL with current filter and search"
+          >
+            {copiedLink ? 'Copied' : 'Share View'}
+          </Button>
 
           <Button
             variant="secondary"
@@ -288,7 +334,7 @@ export function AdminEnrollments() {
             <button
               key={st}
               type="button"
-              onClick={() => setStatusFilter(st)}
+              onClick={() => handleStatusChange(st)}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold capitalize whitespace-nowrap transition-all ${
                 statusFilter === st
                   ? 'bg-indigo-600 text-white shadow-md'
@@ -306,7 +352,7 @@ export function AdminEnrollments() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search TrxID, sender number, student or course..."
             className="w-full pl-9 pr-4 py-2 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] text-xs text-[var(--text-main)] focus:outline-none focus:border-indigo-500"
           />
@@ -330,8 +376,176 @@ export function AdminEnrollments() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
-          <table className="w-full text-left text-xs border-collapse">
+        <>
+          {/* MOBILE CARDS VIEW (<lg) */}
+          <div className="lg:hidden space-y-4">
+            {filteredEnrollments.map((item) => {
+              const isProcessing = processingId === item.id;
+              const formattedDate = new Date(item.created_at).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+
+              return (
+                <div
+                  key={`mob-${item.id}`}
+                  className="p-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm space-y-3.5"
+                >
+                  {/* Header: Student & Status */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {item.user?.avatar_url ? (
+                        <img
+                          src={item.user.avatar_url}
+                          alt="avatar"
+                          className="w-9 h-9 rounded-full object-cover border border-[var(--border)] flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-indigo-500/10 text-indigo-600 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                          {(item.user?.full_name || item.user?.email || 'U').substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-[var(--text-main)] truncate">
+                          {item.user?.full_name || item.user?.email?.split('@')[0] || 'Student'}
+                        </p>
+                        <p className="text-[11px] text-[var(--text-muted)] truncate">
+                          {item.user?.email}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      {item.status === 'approved' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 font-bold text-[10px]">
+                          <CheckCircle2 size={12} /> Approved
+                        </span>
+                      ) : item.status === 'rejected' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 font-bold text-[10px]">
+                          <XCircle size={12} /> Rejected
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 font-bold text-[10px]">
+                          <Clock size={12} /> Pending
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Course Title */}
+                  <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[var(--surface-hover)]/70 border border-[var(--border)]/60">
+                    {item.course?.thumbnail_url && (
+                      <img
+                        src={item.course.thumbnail_url}
+                        alt="course"
+                        className="w-12 h-8 object-cover rounded-lg border border-[var(--border)] flex-shrink-0"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider block font-semibold">Course</span>
+                      <p className="text-xs font-semibold text-[var(--text-main)] truncate">
+                        {item.course?.title || 'Unknown Course'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Payment Info Grid */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-[var(--surface-hover)]/40 border border-[var(--border)]/60 space-y-1">
+                      <span className="text-[10px] text-[var(--text-muted)] font-medium block">Method & Number</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500 font-bold text-[10px]">
+                          {item.payment_method}
+                        </span>
+                        <span className="font-mono text-[11px] text-[var(--text-main)]">
+                          {item.sender_number}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-[var(--surface-hover)]/40 border border-[var(--border)]/60 space-y-1">
+                      <span className="text-[10px] text-[var(--text-muted)] font-medium block">Amount Paid</span>
+                      <p className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
+                        ৳{Number(item.amount || 0).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* TrxID & Proof */}
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[var(--surface-hover)]/40 text-xs">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[11px] text-[var(--text-muted)]">TrxID:</span>
+                      <span className="font-mono font-bold text-[11px] text-[var(--text-main)] truncate">
+                        {item.transaction_id || 'N/A'}
+                      </span>
+                      {item.transaction_id && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(item.transaction_id!)}
+                          className="p-1 hover:text-indigo-500 text-[var(--text-muted)]"
+                          title="Copy TrxID"
+                        >
+                          {copiedTrxId === item.transaction_id ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                        </button>
+                      )}
+                    </div>
+
+                    {item.proof_url ? (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewProofUrl(item.proof_url!)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-indigo-500 font-medium text-xs shadow-sm hover:border-indigo-500 transition-colors flex-shrink-0"
+                      >
+                        <Eye size={12} /> Receipt
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-[var(--text-muted)] italic">No receipt</span>
+                    )}
+                  </div>
+
+                  {/* Actions & Timestamp */}
+                  <div className="flex items-center justify-between pt-1 text-[10px] text-[var(--text-muted)]">
+                    <span>Submitted: {formattedDate}</span>
+                    <div className="flex items-center gap-2">
+                      {item.status !== 'approved' && (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => handleApprove(item)}
+                          disabled={isProcessing}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-3"
+                          icon={isProcessing ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                        >
+                          Approve
+                        </Button>
+                      )}
+                      {item.status !== 'rejected' && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setRejectingEnrollment(item);
+                            setRejectReason('Transaction ID not found in statement.');
+                          }}
+                          disabled={isProcessing}
+                          className="text-red-500 hover:bg-red-500/10 border-red-500/20 text-xs h-7 px-3"
+                          icon={<XCircle size={13} />}
+                        >
+                          Reject
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* DESKTOP TABLE VIEW (>=lg) */}
+          <div className="hidden lg:block overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+            <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-muted)] uppercase tracking-wider font-semibold text-[11px]">
                 <th className="py-3 px-4">Student</th>
@@ -505,6 +719,7 @@ export function AdminEnrollments() {
             </tbody>
           </table>
         </div>
+      </>
       )}
 
       {/* RECEIPT LIGHTBOX MODAL */}

@@ -19,7 +19,9 @@ import {
   HelpCircle,
   Loader2,
   X,
-  CreditCard
+  CreditCard,
+  Share2,
+  Check
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { EnrollmentModal } from '../components/EnrollmentModal';
@@ -39,6 +41,14 @@ export function CourseOverview() {
   const [enrollment, setEnrollment] = useState<CourseEnrollment | null>(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyCourseUrl = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    addToast('Course URL copied to clipboard!', 'success');
+    setTimeout(() => setCopied(false), 2000);
+  };
   
   // Preview modal state
   const [previewLesson, setPreviewLesson] = useState<CourseLesson | null>(null);
@@ -133,12 +143,23 @@ export function CourseOverview() {
   return (
     <div className="animate-fade-in pb-20 space-y-8">
       {/* BREADCRUMB */}
-      <nav className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-        <Link to="/" className="hover:text-[var(--text-main)] transition-colors">Home</Link>
-        <span>/</span>
-        <Link to="/courses" className="hover:text-[var(--text-main)] transition-colors">Courses</Link>
-        <span>/</span>
-        <span className="text-[var(--text-main)] font-semibold truncate max-w-xs">{course.title}</span>
+      <nav className="flex items-center justify-between gap-3 text-xs text-[var(--text-muted)] flex-wrap">
+        <div className="flex items-center gap-2">
+          <Link to="/" className="hover:text-[var(--text-main)] transition-colors">Home</Link>
+          <span>/</span>
+          <Link to="/courses" className="hover:text-[var(--text-main)] transition-colors">Courses</Link>
+          <span>/</span>
+          <span className="text-[var(--text-main)] font-semibold truncate max-w-xs">{course.title}</span>
+        </div>
+        <button
+          type="button"
+          onClick={handleCopyCourseUrl}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs font-semibold shadow-sm transition-all"
+          title="Copy course URL to share"
+        >
+          {copied ? <Check size={14} className="text-emerald-500" /> : <Share2 size={14} />}
+          <span>{copied ? 'Link Copied!' : 'Share Course'}</span>
+        </button>
       </nav>
 
       {/* HERO SECTION */}
@@ -336,6 +357,15 @@ export function CourseOverview() {
                     {user ? 'Enroll Now 🎓' : 'Enroll Now (Sign In) 🎓'}
                   </Button>
                 )}
+
+                <button
+                  type="button"
+                  onClick={handleCopyCourseUrl}
+                  className="w-full py-2.5 px-3 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]/40 hover:bg-[var(--surface-hover)] text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center justify-center gap-2 transition-colors"
+                >
+                  {copied ? <Check size={14} className="text-emerald-500" /> : <Share2 size={14} />}
+                  <span>{copied ? 'Course Link Copied!' : 'Share / Copy Course Link'}</span>
+                </button>
 
                 {!user && (
                   <p className="text-[11px] text-center text-[var(--text-muted)]">

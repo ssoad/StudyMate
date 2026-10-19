@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   ArrowLeft, 
   CheckCircle2, 
@@ -13,12 +13,16 @@ import {
   Upload, 
   Plus, 
   MessageSquare, 
-  Layers, 
   Sparkles, 
   Loader2,
   Clock,
   Send,
-  Eye
+  Eye,
+  PanelRightClose,
+  PanelRightOpen,
+  Share2,
+  Check,
+  X
 } from 'lucide-react';
 import { YoutubeIcon } from '../components/YoutubeIcon';
 import { Button } from '../components/Button';
@@ -47,6 +51,10 @@ export function CoursePlayer() {
     user?.email === 'admin@studymate.org' ||
     user?.email === 'admin@studymate.local' ||
     (user as any)?.app_metadata?.role === 'admin';
+
+  // URL searchParams synchronization
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [copiedLessonLink, setCopiedLessonLink] = useState(false);
 
   // Tabbed sub-player drawer
   const [activeTab, setActiveTab] = useState<'resources' | 'transcript' | 'notes' | 'overview' | 'qa'>('resources');
@@ -123,13 +131,30 @@ export function CoursePlayer() {
     userProg = await dataService.getUserCourseProgress(user.id, cId);
     setProgress(userProg);
 
-    // Determine initial lesson
+    // Determine initial lesson from searchParams, userProg, or first lesson
     let initialLesson: CourseLesson | null = null;
     let initialSecIdx = 0;
+    const requestedLessonId = searchParams.get('lesson');
+    const requestedTab = searchParams.get('tab') as any;
+
+    if (requestedTab && ['resources', 'transcript', 'notes', 'overview', 'qa'].includes(requestedTab)) {
+      setActiveTab(requestedTab);
+    }
 
     if (data.sections && data.sections.length > 0) {
-      if (userProg?.last_lesson_id) {
-        // Find last active lesson
+      // 1. Try URL requested lesson
+      if (requestedLessonId) {
+        data.sections.forEach((sec, sIdx) => {
+          const match = sec.lessons.find((l) => l.id === requestedLessonId);
+          if (match) {
+            initialLesson = match;
+            initialSecIdx = sIdx;
+          }
+        });
+      }
+
+      // 2. Try last active lesson from progress
+      if (!initialLesson && userProg?.last_lesson_id) {
         data.sections.forEach((sec, sIdx) => {
           const match = sec.lessons.find((l) => l.id === userProg?.last_lesson_id);
           if (match) {
@@ -139,6 +164,7 @@ export function CoursePlayer() {
         });
       }
 
+      // 3. Fallback to first lesson
       if (!initialLesson && data.sections[0].lessons.length > 0) {
         initialLesson = data.sections[0].lessons[0];
       }
@@ -232,6 +258,49 @@ export function CoursePlayer() {
     }
   };
 
+  // Lesson & Tab selection handlers that sync with URL
+  const handleSelectLesson = (lesson: CourseLesson, sIdx: number) => {
+    setCurrentLesson(lesson);
+    setCurrentSectionIndex(sIdx);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('lesson', lesson.id);
+        return next;
+      },
+      { replace: true }
+    );
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
+  };
+
+  const handleSelectTab = (tab: 'resources' | 'transcript' | 'notes' | 'overview' | 'qa') => {
+    setActiveTab(tab);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', tab);
+        return next;
+      },
+      { replace: true }
+    );
+  };
+
+  const handleCopyLessonLink = () => {
+    try {
+      const url = new URL(window.location.href);
+      if (currentLesson) url.searchParams.set('lesson', currentLesson.id);
+      url.searchParams.set('tab', activeTab);
+      navigator.clipboard.writeText(url.toString());
+      setCopiedLessonLink(true);
+      addToast('Lesson link copied to clipboard!', 'success');
+      setTimeout(() => setCopiedLessonLink(false), 2000);
+    } catch {
+      addToast('Failed to copy lesson link.', 'error');
+    }
+  };
+
   // Navigate to Next Lesson
   const handleNextLesson = () => {
     if (!course || !currentLesson) return;
@@ -244,8 +313,7 @@ export function CoursePlayer() {
     const currentIndex = allLessons.findIndex((item) => item.lesson.id === currentLesson.id);
     if (currentIndex !== -1 && currentIndex < allLessons.length - 1) {
       const next = allLessons[currentIndex + 1];
-      setCurrentLesson(next.lesson);
-      setCurrentSectionIndex(next.sectionIndex);
+      handleSelectLesson(next.lesson, next.sectionIndex);
     } else {
       addToast('Congratulations! You have reached the end of the course curriculum.', 'success');
     }
@@ -263,8 +331,7 @@ export function CoursePlayer() {
     const currentIndex = allLessons.findIndex((item) => item.lesson.id === currentLesson.id);
     if (currentIndex > 0) {
       const prev = allLessons[currentIndex - 1];
-      setCurrentLesson(prev.lesson);
-      setCurrentSectionIndex(prev.sectionIndex);
+      handleSelectLesson(prev.lesson, prev.sectionIndex);
     }
   };
 
@@ -410,10 +477,10 @@ export function CoursePlayer() {
         </div>
 
         {/* Center / Right: Progress & Controls */}
-        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Progress Indicator */}
           <div className="hidden md:flex items-center gap-3 bg-[var(--surface-hover)] px-3 py-1.5 rounded-xl border border-[var(--border)]">
-            <div className="w-24 h-2 rounded-full bg-[var(--border)] overflow-hidden">
+            <div className="w-20 h-2 rounded-full bg-[var(--border)] overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full transition-all duration-300"
                 style={{ width: `${progressPercent}%` }}
@@ -422,10 +489,18 @@ export function CoursePlayer() {
             <span className="text-xs font-mono font-bold text-[var(--text-main)]">
               {progressPercent}%
             </span>
-            <span className="text-[11px] text-[var(--text-muted)]">
-              ({completedCount}/{totalLecturesCount})
-            </span>
           </div>
+
+          {/* Share / Copy Lesson URL */}
+          <button
+            type="button"
+            onClick={handleCopyLessonLink}
+            className="p-2 rounded-xl text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] border border-[var(--border)] transition-colors flex items-center gap-1.5"
+            title="Copy direct shareable link for this lecture"
+          >
+            {copiedLessonLink ? <Check size={16} className="text-emerald-500" /> : <Share2 size={16} />}
+            <span className="hidden xl:inline">{copiedLessonLink ? 'Copied!' : 'Share'}</span>
+          </button>
 
           {/* Prev / Next buttons */}
           <div className="flex items-center gap-1">
@@ -445,16 +520,20 @@ export function CoursePlayer() {
             </button>
           </div>
 
-          {/* Toggle Sidebar */}
-          <Button
-            size="sm"
-            variant="secondary"
+          {/* Toggle Curriculum Sidebar (Visible on ALL devices) */}
+          <button
+            type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            icon={<Layers size={16} />}
-            className="hidden sm:inline-flex"
+            className={`p-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all ${
+              sidebarOpen
+                ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm'
+                : 'bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
+            }`}
+            title={sidebarOpen ? 'Hide curriculum' : 'Show curriculum'}
           >
-            {sidebarOpen ? 'Hide Curriculum' : 'Show Curriculum'}
-          </Button>
+            {sidebarOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+            <span className="hidden sm:inline">{sidebarOpen ? 'Hide Curriculum' : 'Curriculum'}</span>
+          </button>
         </div>
       </header>
 
@@ -578,7 +657,7 @@ export function CoursePlayer() {
             <div className="flex items-center border-b border-[var(--border)] bg-[var(--surface-hover)] px-4 overflow-x-auto scrollbar-none">
               <button
                 type="button"
-                onClick={() => setActiveTab('resources')}
+                onClick={() => handleSelectTab('resources')}
                 className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                   activeTab === 'resources'
                     ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--surface)]'
@@ -591,7 +670,7 @@ export function CoursePlayer() {
 
               <button
                 type="button"
-                onClick={() => setActiveTab('transcript')}
+                onClick={() => handleSelectTab('transcript')}
                 className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                   activeTab === 'transcript'
                     ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--surface)]'
@@ -604,7 +683,7 @@ export function CoursePlayer() {
 
               <button
                 type="button"
-                onClick={() => setActiveTab('notes')}
+                onClick={() => handleSelectTab('notes')}
                 className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                   activeTab === 'notes'
                     ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--surface)]'
@@ -620,7 +699,7 @@ export function CoursePlayer() {
 
               <button
                 type="button"
-                onClick={() => setActiveTab('overview')}
+                onClick={() => handleSelectTab('overview')}
                 className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                   activeTab === 'overview'
                     ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--surface)]'
@@ -633,7 +712,7 @@ export function CoursePlayer() {
 
               <button
                 type="button"
-                onClick={() => setActiveTab('qa')}
+                onClick={() => handleSelectTab('qa')}
                 className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
                   activeTab === 'qa'
                     ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--surface)]'
@@ -863,9 +942,9 @@ export function CoursePlayer() {
           </div>
         </main>
 
-        {/* RIGHT CURRICULUM ACCORDION SIDEBAR */}
+        {/* DESKTOP CURRICULUM ACCORDION SIDEBAR */}
         {sidebarOpen && (
-          <aside className="w-full lg:w-96 border-l border-[var(--border)] bg-[var(--surface)] flex flex-col shrink-0 h-auto lg:h-[calc(100vh-60px)] lg:sticky lg:top-[60px]">
+          <aside className="hidden lg:flex w-96 border-l border-[var(--border)] bg-[var(--surface)] flex-col shrink-0 h-[calc(100vh-60px)] sticky top-[60px] animate-fade-in shadow-sm">
             {/* Sidebar Header */}
             <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface-hover)]">
               <div>
@@ -874,6 +953,14 @@ export function CoursePlayer() {
                   {completedCount} / {totalLecturesCount} completed • {course.duration}
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface)] transition-colors"
+                title="Collapse curriculum (Cinema mode)"
+              >
+                <PanelRightClose size={16} />
+              </button>
             </div>
 
             {/* Sections Accordion */}
@@ -924,10 +1011,7 @@ export function CoursePlayer() {
                           return (
                             <div
                               key={lesson.id}
-                              onClick={() => {
-                                setCurrentLesson(lesson);
-                                setCurrentSectionIndex(sIdx);
-                              }}
+                              onClick={() => handleSelectLesson(lesson, sIdx)}
                               className={`p-3.5 pl-4 cursor-pointer flex items-center justify-between gap-3 transition-colors ${
                                 isCurrent
                                   ? 'bg-[var(--primary)]/10 border-l-4 border-[var(--primary)] text-[var(--primary)]'
@@ -987,6 +1071,125 @@ export function CoursePlayer() {
               })}
             </div>
           </aside>
+        )}
+
+        {/* MOBILE / TABLET SLIDE-OVER CURRICULUM DRAWER */}
+        {sidebarOpen && (
+          <div className="lg:hidden fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="w-full max-w-sm h-full bg-[var(--surface)] border-l border-[var(--border)] flex flex-col shadow-2xl">
+              <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface-hover)]">
+                <div>
+                  <h3 className="font-bold text-sm text-[var(--text-main)]">Course Curriculum</h3>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {completedCount} / {totalLecturesCount} completed
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface)]"
+                  title="Close curriculum drawer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto divide-y divide-[var(--border)]">
+                {course.sections?.map((section, sIdx) => {
+                  const isCollapsed = collapsedSections[section.id] || false;
+                  const sectionCompletedCount = section.lessons.filter((l) =>
+                    progress?.completed_lessons?.includes(l.id)
+                  ).length;
+
+                  return (
+                    <div key={section.id} className="bg-[var(--surface)]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCollapsedSections({
+                            ...collapsedSections,
+                            [section.id]: !isCollapsed,
+                          })
+                        }
+                        className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[var(--surface-hover)] transition-colors"
+                      >
+                        <div className="space-y-0.5 overflow-hidden">
+                          <h4 className="text-xs font-bold text-[var(--text-main)] truncate">
+                            Module {sIdx + 1}: {section.title}
+                          </h4>
+                          <span className="text-[11px] text-[var(--text-muted)]">
+                            {sectionCompletedCount}/{section.lessons.length} lectures completed
+                          </span>
+                        </div>
+                        <ChevronDown
+                          size={16}
+                          className={`text-[var(--text-muted)] transform transition-transform ${
+                            isCollapsed ? '-rotate-90' : ''
+                          }`}
+                        />
+                      </button>
+
+                      {!isCollapsed && (
+                        <div className="divide-y divide-[var(--border)] bg-[var(--surface)]">
+                          {section.lessons.map((lesson) => {
+                            const isCurrent = currentLesson?.id === lesson.id;
+                            const isDone = progress?.completed_lessons?.includes(lesson.id);
+
+                            return (
+                              <div
+                                key={lesson.id}
+                                onClick={() => handleSelectLesson(lesson, sIdx)}
+                                className={`p-3.5 pl-4 cursor-pointer flex items-center justify-between gap-3 transition-colors ${
+                                  isCurrent
+                                    ? 'bg-[var(--primary)]/10 border-l-4 border-[var(--primary)] text-[var(--primary)]'
+                                    : 'hover:bg-[var(--surface-hover)] text-[var(--text-main)]'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleComplete(lesson.id);
+                                    }}
+                                    className="text-[var(--text-muted)] hover:text-emerald-500 transition-colors shrink-0"
+                                  >
+                                    {isDone ? (
+                                      <CheckCircle2 size={18} className="text-emerald-500 fill-emerald-500/10" />
+                                    ) : (
+                                      <Circle size={18} />
+                                    )}
+                                  </button>
+
+                                  <div className="overflow-hidden space-y-0.5">
+                                    <span
+                                      className={`text-xs block truncate ${
+                                        isCurrent ? 'font-bold text-[var(--primary)]' : 'font-medium'
+                                      }`}
+                                    >
+                                      {lesson.title}
+                                    </span>
+                                    <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
+                                      <Clock size={10} />
+                                      {formatDuration(lesson.duration_seconds)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {isCurrent && (
+                                  <span className="w-2 h-2 rounded-full bg-[var(--primary)] shrink-0 animate-ping" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
