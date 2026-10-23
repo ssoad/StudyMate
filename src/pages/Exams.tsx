@@ -31,13 +31,17 @@ export function Exams() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 animate-fade-in pb-8">
       <div>
-        <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.25rem' }}>Exams & Quizzes</h1>
-        <p className="text-muted" style={{ fontSize: '1rem' }}>Test your skills, practice mock tests, and climb leaderboard rankings.</p>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-[var(--font-heading)] text-[var(--text-main)] mb-1">
+          Exams & Quizzes
+        </h1>
+        <p className="text-sm sm:text-base text-[var(--text-muted)]">
+          Test your skills, practice mock tests, and climb leaderboard rankings.
+        </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem' }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {loading ? (
           // SKELETON CARDS
           [1, 2].map((i) => (

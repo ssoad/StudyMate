@@ -21,11 +21,15 @@ import {
   Check,
   Menu,
   X,
-  ChevronRight
+  ChevronRight,
+  Search,
+  Download
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useAuthStore } from '../store/authStore';
 import { useSidebarStore } from '../store/sidebarStore';
+import { useAppModalStore } from '../store/appModalStore';
+import { usePWA } from '../lib/pwa';
 import { supabase } from '../lib/supabase';
 import { dataService, type UserProfile } from '../lib/dataService';
 import { playNotificationChime } from '../lib/notificationSound';
@@ -34,6 +38,8 @@ import { useToastStore } from '../store/toastStore';
 export function Navbar() {
   const { user, role } = useAuthStore();
   const { isCollapsed, toggleCollapsed } = useSidebarStore();
+  const { openSearch, openInstall } = useAppModalStore();
+  const { isInstalled } = usePWA();
   const { addToast } = useToastStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -158,11 +164,11 @@ export function Navbar() {
 
   return (
     <>
-      {/* DESKTOP SIDEBAR */}
+      {/* DESKTOP & TABLET SIDEBAR */}
       <aside className={`desktop-sidebar glass-panel ${isCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-logo">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="logo-icon shrink-0">
+            <div className="logo-icon shrink-0 shadow-md shadow-indigo-500/20">
               <GraduationCap size={22} />
             </div>
             {!isCollapsed && (
@@ -180,6 +186,20 @@ export function Navbar() {
             {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
+
+        {/* Global Spotlight Search trigger button */}
+        <button
+          type="button"
+          onClick={openSearch}
+          className={`w-full py-2 px-2.5 mb-2 rounded-xl text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--surface-hover)] border border-[var(--border)] hover:border-[var(--primary)] transition-all flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} shadow-sm`}
+          title="Search App (⌘K)"
+        >
+          <div className="flex items-center gap-2 overflow-hidden">
+            <Search size={16} className="shrink-0 text-[var(--primary)]" />
+            {!isCollapsed && <span className="truncate">Quick Search</span>}
+          </div>
+          {!isCollapsed && <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] opacity-60">⌘K</kbd>}
+        </button>
 
         <nav className="sidebar-nav">
           {navItems.map((item) => (
@@ -226,6 +246,22 @@ export function Navbar() {
         </nav>
 
         <div className="sidebar-footer">
+          {/* Install App CTA (if browser supports install) */}
+          {!isInstalled && (
+            <button
+              type="button"
+              onClick={openInstall}
+              className={`w-full py-2 px-2.5 mb-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md shadow-indigo-500/20 transition-all flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}
+              title="Install StudyMate App to Desktop / Tablet"
+            >
+              <div className="flex items-center gap-2 overflow-hidden">
+                <Download size={15} className="shrink-0" />
+                {!isCollapsed && <span className="truncate">Install App</span>}
+              </div>
+              {!isCollapsed && <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded font-mono uppercase tracking-wider">App</span>}
+            </button>
+          )}
+
           {/* Quick Share / URL Copy button */}
           <button
             type="button"
@@ -290,6 +326,16 @@ export function Navbar() {
             <h3 className="font-bold text-sm font-[var(--font-heading)]">StudyMate AI</h3>
           </div>
           <div className="mobile-header-actions flex items-center gap-1.5">
+            {/* Quick Search Button */}
+            <button
+              type="button"
+              onClick={openSearch}
+              className="p-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors"
+              title="Search (⌘K)"
+            >
+              <Search size={18} />
+            </button>
+
             {/* Quick Share Page Link Button */}
             <button
               type="button"
@@ -299,6 +345,19 @@ export function Navbar() {
             >
               {copiedUrl ? <Check size={16} className="text-emerald-500" /> : <Share2 size={16} />}
             </button>
+
+            {/* Install App button if not in standalone */}
+            {!isInstalled && (
+              <button
+                type="button"
+                onClick={openInstall}
+                className="p-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 border border-indigo-500/20 font-bold text-xs flex items-center gap-1 transition-colors"
+                title="Install App"
+              >
+                <Download size={13} />
+                <span className="text-[11px] font-semibold">App</span>
+              </button>
+            )}
 
             {isAdmin && pendingEnrollmentsCount > 0 && (
               <Link
@@ -396,6 +455,29 @@ export function Navbar() {
 
             {/* Drawer Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-5 space-y-6">
+              {/* Install App Banner in Drawer if not installed */}
+              {!isInstalled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    openInstall();
+                  }}
+                  className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/15 to-indigo-500/15 border border-indigo-500/30 flex items-center justify-between text-left group hover:border-[var(--primary)] transition-all shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-md shrink-0">
+                      <Download size={20} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-[var(--text-main)] block">Install StudyMate App</span>
+                      <span className="text-[11px] text-[var(--text-muted)]">Add to Home Screen for offline access</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-600 text-white shadow-sm">Install</span>
+                </button>
+              )}
+
               {/* Profile Card if user */}
               {user ? (
                 <div className="p-3.5 rounded-2xl bg-[var(--surface-hover)] border border-[var(--border)] flex items-center justify-between gap-3 shadow-sm">
@@ -435,6 +517,22 @@ export function Navbar() {
                   </Link>
                 </div>
               )}
+
+              {/* Quick Search Shortcut */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  openSearch();
+                }}
+                className="w-full p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)] text-xs font-semibold text-[var(--text-main)] flex items-center justify-between hover:border-[var(--primary)] transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Search size={16} className="text-[var(--primary)]" />
+                  <span>Spotlight Search</span>
+                </div>
+                <span className="text-[10px] font-mono text-[var(--text-muted)] bg-[var(--surface)] px-2 py-0.5 rounded border border-[var(--border)]">⌘K</span>
+              </button>
 
               {/* Secondary Study Links */}
               <div className="space-y-2">

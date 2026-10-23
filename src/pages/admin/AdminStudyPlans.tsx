@@ -131,11 +131,15 @@ export function AdminStudyPlans() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex justify-between items-center flex-wrap gap-4" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
+    <div className="flex flex-col gap-6 animate-fade-in pb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-[var(--border)] pb-5">
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.25rem' }}>Manage Study Plans</h1>
-          <p className="text-muted" style={{ fontSize: '1rem' }}>Manage the detailed day-by-day exam curriculum.</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-[var(--font-heading)] text-[var(--text-main)] mb-1">
+            Manage Study Plans
+          </h1>
+          <p className="text-sm sm:text-base text-[var(--text-muted)]">
+            Manage the detailed day-by-day exam curriculum.
+          </p>
         </div>
         
         <div className="flex gap-2">

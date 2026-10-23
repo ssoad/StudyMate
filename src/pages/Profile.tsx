@@ -88,14 +88,16 @@ export function Profile() {
   const initial = (profile?.full_name || userEmail).charAt(0).toUpperCase();
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col gap-8 animate-fade-in">
+    <div className="max-w-3xl mx-auto flex flex-col gap-6 sm:gap-8 animate-fade-in pb-8">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Profile Setup</h1>
-        <p className="text-[var(--text-muted)]">Manage your personal information and avatar.</p>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-[var(--font-heading)] text-[var(--text-main)] mb-1">
+          Profile Setup
+        </h1>
+        <p className="text-sm sm:text-base text-[var(--text-muted)]">Manage your personal information and avatar.</p>
       </div>
 
       <Card glass>
-        <CardBody className="p-8 flex flex-col md:flex-row gap-8 items-start">
+        <CardBody className="p-4 sm:p-8 flex flex-col md:flex-row gap-6 sm:gap-8 items-start">
           
           {/* Avatar Section */}
           <div className="flex flex-col items-center gap-4 w-full md:w-auto">

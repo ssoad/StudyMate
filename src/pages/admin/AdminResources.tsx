@@ -36,12 +36,12 @@ export function AdminResources() {
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in pb-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gradient-to-r from-[var(--surface)] to-[var(--surface-hover)] p-6 rounded-2xl border border-[var(--border)] shadow-sm">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gradient-to-r from-[var(--surface)] to-[var(--surface-hover)] p-4 sm:p-6 rounded-2xl border border-[var(--border)] shadow-sm">
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.25rem', color: 'var(--text-main)' }}>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-[var(--font-heading)] text-[var(--text-main)] mb-1">
             Review Resources
           </h1>
-          <p className="text-[var(--text-muted)]" style={{ fontSize: '1rem' }}>
+          <p className="text-sm sm:text-base text-[var(--text-muted)]">
             Approve or reject community-submitted study resources.
           </p>
         </div>

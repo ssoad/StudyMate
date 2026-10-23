@@ -298,6 +298,77 @@
   }
 }
 
+/* Tablet Responsive Optimization (769px to 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .sidebar-shell:not(.sidebar-force-expanded) {
+    grid-template-columns: 78px 1fr;
+  }
+
+  .sidebar-shell:not(.sidebar-force-expanded) .desktop-sidebar {
+    padding: 1.25rem 0.5rem;
+  }
+
+  .sidebar-shell:not(.sidebar-force-expanded) .desktop-sidebar .sidebar-logo h2,
+  .sidebar-shell:not(.sidebar-force-expanded) .desktop-sidebar .nav-link-item span.nav-text,
+  .sidebar-shell:not(.sidebar-force-expanded) .desktop-sidebar .sidebar-admin-title,
+  .sidebar-shell:not(.sidebar-force-expanded) .desktop-sidebar .user-info {
+    display: none;
+  }
+
+  .sidebar-shell:not(.sidebar-force-expanded) .desktop-sidebar .sidebar-logo {
+    justify-content: center;
+    padding: 0.25rem 0;
+    margin-bottom: 1.25rem;
+    gap: 0;
+  }
+
+  .sidebar-shell:not(.sidebar-force-expanded) .desktop-sidebar .nav-link-item {
+    justify-content: center;
+    padding: 0.75rem 0;
+    position: relative;
+  }
+
+  .sidebar-shell:not(.sidebar-force-expanded) .desktop-sidebar .sidebar-footer {
+    align-items: center;
+    padding-top: 0.75rem;
+  }
+
+  .sidebar-shell:not(.sidebar-force-expanded) .desktop-sidebar .user-profile-widget {
+    margin-left: 0;
+    padding: 0.25rem;
+    justify-content: center;
+  }
+
+  .sidebar-shell:not(.sidebar-force-expanded) .desktop-sidebar .footer-actions {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .main-content {
+    padding: 1.5rem 1.25rem;
+    min-width: 0;
+  }
+}
+
+/* PWA Standalone Mode Optimizations */
+@media all and (display-mode: standalone) {
+  html, body {
+    overscroll-behavior-y: contain;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-header {
+    padding-top: max(env(safe-area-inset-top, 0px), 10px);
+    height: calc(56px + env(safe-area-inset-top, 0px));
+  }
+
+  .mobile-bottom-nav {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
+    height: calc(62px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 
 /* Utilities compatibility layer (Layout removed to fix Tailwind md: breakpoints) */
 .text-muted { color: var(--text-muted); }

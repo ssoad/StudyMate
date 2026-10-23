@@ -47,10 +47,14 @@ export function Leaderboard() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 animate-fade-in pb-8">
       <div>
-        <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.25rem' }}>Community Standings</h1>
-        <p className="text-muted" style={{ fontSize: '1rem' }}>Earn points by doing weekly practice tests and helping in discussion forums.</p>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-[var(--font-heading)] text-[var(--text-main)] mb-1">
+          Community Standings
+        </h1>
+        <p className="text-sm sm:text-base text-[var(--text-muted)]">
+          Earn points by doing weekly practice tests and helping in discussion forums.
+        </p>
       </div>
 
       {loading ? (

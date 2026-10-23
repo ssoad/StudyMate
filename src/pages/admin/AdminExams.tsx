@@ -127,11 +127,15 @@ export function AdminExams() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex justify-between items-center flex-wrap gap-4" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
+    <div className="flex flex-col gap-6 animate-fade-in pb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-[var(--border)] pb-5">
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.25rem' }}>Manage Exams</h1>
-          <p className="text-muted" style={{ fontSize: '1rem' }}>Create and schedule tests and quizzes.</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-[var(--font-heading)] text-[var(--text-main)] mb-1">
+            Manage Exams
+          </h1>
+          <p className="text-sm sm:text-base text-[var(--text-muted)]">
+            Create and schedule tests and quizzes.
+          </p>
         </div>
         
         <Button onClick={() => { setEditingExam({ title: '', type: 'Weekly', duration: 30, questions: 10, due_date: '' }); setIsModalOpen(true); }} className="flex items-center gap-2">

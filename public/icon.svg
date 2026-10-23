@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#7c3aed" />
+    </linearGradient>
+    <linearGradient id="capGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#e0e7ff" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#818cf8" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background with smooth rounded corners -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+
+  <!-- Subtle glow aura in background -->
+  <circle cx="256" cy="220" r="160" fill="#ffffff" opacity="0.08" filter="url(#glow)" />
+
+  <!-- Graduation Cap Main Diamond -->
+  <polygon points="256,128 416,208 256,288 96,208" fill="url(#capGrad)" filter="url(#glow)" />
+
+  <!-- Under-cap base skullcap -->
+  <path d="M152,248 L152,324 C152,368 200,404 256,404 C312,404 360,368 360,324 L360,248 C332,272 296,286 256,286 C216,286 180,272 152,248 Z" fill="#ffffff" opacity="0.94" />
+
+  <!-- Graduation Cap Tassel -->
+  <path d="M400,216 L400,336 C400,344 394,352 386,352 C378,352 372,344 372,336 L372,230" fill="none" stroke="url(#accentGrad)" stroke-width="12" stroke-linecap="round" />
+  <circle cx="386" cy="360" r="14" fill="#38bdf8" />
+
+  <!-- AI Sparkle 1 (Top right) -->
+  <path d="M380,108 Q396,124 412,128 Q396,132 380,148 Q376,132 360,128 Q376,124 380,108 Z" fill="#38bdf8" />
+
+  <!-- AI Sparkle 2 (Left) -->
+  <path d="M112,140 Q124,152 136,155 Q124,158 112,170 Q109,158 97,155 Q109,152 112,140 Z" fill="#a5b4fc" />
+</svg>
