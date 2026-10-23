@@ -17,6 +17,7 @@ export interface CourseResource {
   id: string;
   course_id: string;
   lesson_id?: string | null;
+  section_id?: string | null;
   title: string;
   description?: string;
   resource_type: 'pdf' | 'book' | 'document' | 'link' | 'code' | 'zip';
@@ -50,6 +51,7 @@ export interface CourseSection {
   order_index: number;
   created_at?: string;
   lessons: CourseLesson[];
+  resources?: CourseResource[];
 }
 
 export interface Course {
@@ -743,17 +745,26 @@ export const dataService = {
 
     try {
       if (supabase) {
-        await supabase.from('course_resources').insert({
+        const payload: any = {
           id: newRes.id,
           course_id: newRes.course_id,
-          lesson_id: newRes.lesson_id,
+          lesson_id: newRes.lesson_id || null,
           title: newRes.title,
           description: newRes.description,
           resource_type: newRes.resource_type,
           file_url: newRes.file_url,
           file_size: newRes.file_size,
           uploader_id: newRes.uploader_id
-        });
+        };
+        if (newRes.section_id) {
+          payload.section_id = newRes.section_id;
+        }
+        const { error } = await supabase.from('course_resources').insert(payload);
+        if (error && newRes.section_id) {
+          // If section_id column does not exist in Supabase yet, retry without section_id
+          delete payload.section_id;
+          await supabase.from('course_resources').insert(payload);
+        }
       }
     } catch (e) {
       console.warn('Supabase course_resource insert warning:', e);

@@ -27,12 +27,12 @@ import {
   Search,
   Code2,
   ExternalLink,
-  Paperclip
+  FolderOpen
 } from 'lucide-react';
 import { YoutubeIcon } from '../components/YoutubeIcon';
 import { Button } from '../components/Button';
 import { VideoTranscript } from '../components/VideoTranscript';
-import { dataService, type Course, type CourseLesson, type UserCourseProgress, type CourseResource } from '../lib/dataService';
+import { dataService, type Course, type CourseSection, type CourseLesson, type UserCourseProgress, type CourseResource } from '../lib/dataService';
 import { getYouTubeEmbedUrl, formatDuration } from '../lib/youtube';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
@@ -105,7 +105,47 @@ export function CoursePlayer() {
   const [resourceFilter, setResourceFilter] = useState<string>('all'); // 'all' | 'current' | 'course_wide' | sectionId
   const [resourceSearch, setResourceSearch] = useState<string>('');
   const [expandedResourceSections, setExpandedResourceSections] = useState<Record<string, boolean>>({});
+  const [expandedLessonResources, setExpandedLessonResources] = useState<Record<string, boolean>>({});
+  const [expandedSectionEndResources, setExpandedSectionEndResources] = useState<Record<string, boolean>>({});
   const [readingResource, setReadingResource] = useState<CourseResource | null>(null);
+
+  // Helper to extract clean file name for display
+  const getDisplayFileName = (resource: CourseResource): string => {
+    if (/\.[a-z0-9]{2,5}$/i.test(resource.title.trim())) {
+      return resource.title.trim();
+    }
+    try {
+      const urlObj = new URL(resource.file_url, window.location.origin);
+      const lastSeg = urlObj.pathname.split('/').pop();
+      if (lastSeg && /\.[a-z0-9]{2,5}$/i.test(lastSeg) && !lastSeg.startsWith('blob:')) {
+        return decodeURIComponent(lastSeg);
+      }
+    } catch {}
+    const ext =
+      resource.resource_type === 'pdf' ? '.pdf' :
+      resource.resource_type === 'book' ? '.pdf' :
+      resource.resource_type === 'code' ? '.zip' :
+      resource.resource_type === 'link' ? '' : '.pdf';
+    const sanitized = resource.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return `${sanitized}${ext}`;
+  };
+
+  const toggleLessonResources = (lessonId: string) => {
+    setExpandedLessonResources((prev) => ({
+      ...prev,
+      [lessonId]: !prev[lessonId],
+    }));
+  };
+
+  const toggleSectionEndResources = (sectionId: string) => {
+    setExpandedSectionEndResources((prev) => ({
+      ...prev,
+      [sectionId]: prev[sectionId] === undefined ? false : !prev[sectionId],
+    }));
+  };
 
   // Load Course and Progress
   useEffect(() => {
@@ -392,11 +432,21 @@ export function CoursePlayer() {
       }
     }
 
-    const targetLessonId = uploadTargetLessonId.trim() || undefined;
+    let targetSectionId: string | null = null;
+    let targetLessonId: string | null = null;
+
+    if (uploadTargetLessonId.startsWith('section:')) {
+      targetSectionId = uploadTargetLessonId.replace('section:', '');
+    } else if (uploadTargetLessonId.startsWith('lesson:')) {
+      targetLessonId = uploadTargetLessonId.replace('lesson:', '');
+    } else if (uploadTargetLessonId.trim()) {
+      targetLessonId = uploadTargetLessonId.trim();
+    }
 
     const { data: newRes } = await dataService.addCourseResource({
       course_id: course!.id,
       lesson_id: targetLessonId,
+      section_id: targetSectionId,
       title: uploadTitle.trim(),
       resource_type: uploadType,
       file_url: finalUrl,
@@ -405,7 +455,18 @@ export function CoursePlayer() {
     });
 
     if (newRes && course) {
-      if (targetLessonId && course.sections) {
+      if (targetSectionId && course.sections) {
+        const updatedSections = course.sections.map((sec) =>
+          sec.id === targetSectionId
+            ? { ...sec, resources: [...(sec.resources || []), newRes] }
+            : sec
+        );
+        setCourse({
+          ...course,
+          sections: updatedSections,
+          resources: [...(course.resources || []), newRes],
+        });
+      } else if (targetLessonId && course.sections) {
         const updatedSections = course.sections.map((sec) => ({
           ...sec,
           lessons: sec.lessons.map((les) =>
@@ -469,11 +530,34 @@ export function CoursePlayer() {
   const isCurrentLessonDone = currentLesson ? progress?.completed_lessons?.includes(currentLesson.id) : false;
 
   // Modular Udemy-Style Resources Breakdown
-  const courseLevelResources = course.resources || [];
+  const getSectionResources = (section: CourseSection): CourseResource[] => {
+    const direct = section.resources || [];
+    const fromCourse = (course.resources || []).filter(
+      (r) => (r as any).section_id === section.id
+    );
+    const map = new Map<string, CourseResource>();
+    direct.forEach((r: CourseResource) => map.set(r.id, r));
+    fromCourse.forEach((r: CourseResource) => map.set(r.id, r));
+    return Array.from(map.values());
+  };
+
+  const getSectionTotalFilesCount = (section: CourseSection): number => {
+    const secRes = getSectionResources(section);
+    const lessonResCount = (section.lessons || []).reduce(
+      (acc: number, l: CourseLesson) => acc + (l.resources?.length || 0),
+      0
+    );
+    return secRes.length + lessonResCount;
+  };
+
+  const courseLevelResources = (course.resources || []).filter(
+    (r) => !r.lesson_id && !(r as any).section_id
+  );
   const currentLessonResources = currentLesson?.resources || [];
 
   const modularSections = (course.sections || [])
     .map((sec, sIdx) => {
+      const secRes = getSectionResources(sec);
       const lessonsWithRes = (sec.lessons || [])
         .map((les, lIdx) => ({
           lesson: les,
@@ -482,11 +566,12 @@ export function CoursePlayer() {
         }))
         .filter((l) => l.resources.length > 0);
 
-      const sectionResCount = lessonsWithRes.reduce((acc, l) => acc + l.resources.length, 0);
+      const sectionResCount = secRes.length + lessonsWithRes.reduce((acc, l) => acc + l.resources.length, 0);
 
       return {
         section: sec,
         sectionIndex: sIdx,
+        sectionResources: secRes,
         lessonsWithRes,
         totalResources: sectionResCount,
       };
@@ -517,9 +602,19 @@ export function CoursePlayer() {
       const matchesSectionScope =
         resourceFilter === 'all' ||
         resourceFilter === s.section.id ||
-        (resourceFilter === 'current' && s.lessonsWithRes.some((l) => l.lesson.id === currentLesson?.id));
+        (resourceFilter === 'current' && (s.sectionIndex === currentSectionIndex || s.lessonsWithRes.some((l) => l.lesson.id === currentLesson?.id)));
 
       if (!matchesSectionScope) return null;
+
+      const filteredSecRes = s.sectionResources.filter((res) => {
+        if (!resQuery) return true;
+        return (
+          res.title.toLowerCase().includes(resQuery) ||
+          (res.description || '').toLowerCase().includes(resQuery) ||
+          res.resource_type.toLowerCase().includes(resQuery) ||
+          s.section.title.toLowerCase().includes(resQuery)
+        );
+      });
 
       const filteredLessons = s.lessonsWithRes
         .map((l) => {
@@ -546,11 +641,12 @@ export function CoursePlayer() {
         })
         .filter(Boolean) as typeof s.lessonsWithRes;
 
-      if (filteredLessons.length === 0) return null;
+      if (filteredSecRes.length === 0 && filteredLessons.length === 0) return null;
 
-      const count = filteredLessons.reduce((acc, l) => acc + l.resources.length, 0);
+      const count = filteredSecRes.length + filteredLessons.reduce((acc, l) => acc + l.resources.length, 0);
       return {
         ...s,
+        sectionResources: filteredSecRes,
         lessonsWithRes: filteredLessons,
         totalResources: count,
       };
@@ -1024,8 +1120,100 @@ export function CoursePlayer() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-5">
-                      {/* 1. COURSE-WIDE REFERENCE TEXTBOOKS & CHEATSHEETS */}
+                    <div className="space-y-6">
+                      {/* 1. CURRENT ACTIVE LECTURE MATERIALS (FOCUSED HIGHLIGHT) */}
+                      {currentLesson && (resourceFilter === 'all' || resourceFilter === 'current') && (
+                        <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-5 space-y-3.5 shadow-xs">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <h4 className="text-sm font-bold text-[var(--text-main)]">
+                                Currently Playing: {currentLesson.title}
+                              </h4>
+                            </div>
+                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              {currentLessonResources.length} File{currentLessonResources.length !== 1 ? 's' : ''} Attached
+                            </span>
+                          </div>
+
+                          {currentLessonResources.length === 0 ? (
+                            <p className="text-xs text-[var(--text-muted)] bg-[var(--surface)] p-3 rounded-xl border border-[var(--border)]">
+                              No specific files attached to this single video. You can access the module section materials and course-wide reference handbooks below.
+                            </p>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                              {currentLessonResources.map((res) => (
+                                <div
+                                  key={res.id}
+                                  className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)] transition-all flex flex-col justify-between gap-3 group shadow-xs"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className="p-2 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] shrink-0 mt-0.5">
+                                      {res.resource_type === 'book' ? (
+                                        <BookOpen size={18} />
+                                      ) : res.resource_type === 'code' ? (
+                                        <Code2 size={18} />
+                                      ) : res.resource_type === 'link' ? (
+                                        <ExternalLink size={18} />
+                                      ) : (
+                                        <FileText size={18} />
+                                      )}
+                                    </div>
+                                    <div className="overflow-hidden space-y-1 flex-1">
+                                      <span className="text-xs font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors block truncate" title={res.title}>
+                                        {res.title}
+                                      </span>
+                                      {res.description && (
+                                        <p className="text-[11px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">
+                                          {res.description}
+                                        </p>
+                                      )}
+                                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]">
+                                          {res.resource_type}
+                                        </span>
+                                        <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)]">
+                                          {getDisplayFileName(res)}
+                                        </span>
+                                        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                                          {res.file_size || 'Lecture Material'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                                    <Button
+                                      size="sm"
+                                      variant="primary"
+                                      onClick={() => setReadingResource(res)}
+                                      className="text-xs h-7 px-3"
+                                      icon={<Eye size={12} />}
+                                    >
+                                      Read Online
+                                    </Button>
+                                    {isAdmin && (
+                                      <a
+                                        href={res.file_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        download
+                                        className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                        title="Download Resource (Admin Only)"
+                                      >
+                                        <Download size={12} />
+                                        <span>Download</span>
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 2. COURSE-WIDE REFERENCE TEXTBOOKS & CHEATSHEETS */}
                       {filteredCourseLevel.length > 0 && (
                         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm">
                           <button
@@ -1075,7 +1263,7 @@ export function CoursePlayer() {
                                       {res.resource_type === 'book' ? <BookOpen size={20} /> : <FileText size={20} />}
                                     </div>
                                     <div className="overflow-hidden space-y-1 flex-1">
-                                      <span className="text-sm font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors block truncate">
+                                      <span className="text-sm font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors block truncate" title={res.title}>
                                         {res.title}
                                       </span>
                                       {res.description && (
@@ -1087,11 +1275,11 @@ export function CoursePlayer() {
                                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]">
                                           {res.resource_type}
                                         </span>
+                                        <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)]">
+                                          {getDisplayFileName(res)}
+                                        </span>
                                         <span className="text-[11px] font-mono text-[var(--text-muted)]">
                                           {res.file_size || 'Reference Document'}
-                                        </span>
-                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500">
-                                          All Lectures
                                         </span>
                                       </div>
                                     </div>
@@ -1128,7 +1316,7 @@ export function CoursePlayer() {
                         </div>
                       )}
 
-                      {/* 2. MODULE BY MODULE BREAKDOWN (UDEMY ACCORDION) */}
+                      {/* 3. MODULE BY MODULE BREAKDOWN (UDEMY ACCORDION) */}
                       {filteredModularSections.map((s) => {
                         const isExpanded = expandedResourceSections[s.section.id] !== false;
 
@@ -1157,7 +1345,7 @@ export function CoursePlayer() {
                                     Module {s.sectionIndex + 1}: {s.section.title}
                                   </h4>
                                   <span className="text-[11px] text-[var(--text-muted)]">
-                                    {s.lessonsWithRes.length} lecture{s.lessonsWithRes.length > 1 ? 's' : ''} with attached study resources
+                                    {s.lessonsWithRes.length} lecture{s.lessonsWithRes.length > 1 ? 's' : ''} • {s.sectionResources.length} section material{s.sectionResources.length !== 1 ? 's' : ''}
                                   </span>
                                 </div>
                               </div>
@@ -1173,7 +1361,7 @@ export function CoursePlayer() {
                               </div>
                             </button>
 
-                            {/* MODULE LECTURES & RESOURCES */}
+                            {/* MODULE LECTURES & SECTION RESOURCES */}
                             {isExpanded && (
                               <div className="border-t border-[var(--border)] divide-y divide-[var(--border)] bg-[var(--surface-hover)]/30">
                                 {s.lessonsWithRes.map((l) => {
@@ -1226,7 +1414,7 @@ export function CoursePlayer() {
                                                 )}
                                               </div>
                                               <div className="overflow-hidden space-y-1 flex-1">
-                                                <span className="text-xs font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors block truncate">
+                                                <span className="text-xs font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors block truncate" title={res.title}>
                                                   {res.title}
                                                 </span>
                                                 {res.description && (
@@ -1237,6 +1425,9 @@ export function CoursePlayer() {
                                                 <div className="flex items-center gap-2 pt-1 flex-wrap">
                                                   <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]">
                                                     {res.resource_type}
+                                                  </span>
+                                                  <span className="font-mono text-[9px] px-1 py-0.2 rounded bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)]">
+                                                    {getDisplayFileName(res)}
                                                   </span>
                                                   <span className="text-[10px] font-mono text-[var(--text-muted)]">
                                                     {res.file_size || 'Class Material'}
@@ -1275,6 +1466,84 @@ export function CoursePlayer() {
                                     </div>
                                   );
                                 })}
+
+                                {/* UDEMY-STYLE END OF MODULE SECTION MATERIALS */}
+                                {s.sectionResources.length > 0 && (
+                                  <div className="p-4 bg-indigo-500/5 space-y-3">
+                                    <div className="flex items-center gap-2">
+                                      <FolderOpen size={16} className="text-indigo-500" />
+                                      <h5 className="text-xs font-bold text-[var(--text-main)]">
+                                        Module {s.sectionIndex + 1} Section Materials & Downloads
+                                      </h5>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      {s.sectionResources.map((res) => (
+                                        <div
+                                          key={res.id}
+                                          className="p-3.5 rounded-xl border border-indigo-500/20 bg-[var(--surface)] hover:border-indigo-500 transition-all flex flex-col justify-between gap-3 group shadow-xs"
+                                        >
+                                          <div className="flex items-start gap-3">
+                                            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 shrink-0 mt-0.5">
+                                              {res.resource_type === 'book' ? (
+                                                <BookOpen size={18} />
+                                              ) : res.resource_type === 'code' ? (
+                                                <Code2 size={18} />
+                                              ) : (
+                                                <FileText size={18} />
+                                              )}
+                                            </div>
+                                            <div className="overflow-hidden space-y-1 flex-1">
+                                              <span className="text-xs font-bold text-[var(--text-main)] group-hover:text-indigo-500 transition-colors block truncate" title={res.title}>
+                                                {res.title}
+                                              </span>
+                                              {res.description && (
+                                                <p className="text-[11px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">
+                                                  {res.description}
+                                                </p>
+                                              )}
+                                              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]">
+                                                  {res.resource_type}
+                                                </span>
+                                                <span className="font-mono text-[9px] px-1 py-0.2 rounded bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)]">
+                                                  {getDisplayFileName(res)}
+                                                </span>
+                                                <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                                                  {res.file_size || 'Section Material'}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                                            <Button
+                                              size="sm"
+                                              variant="secondary"
+                                              onClick={() => setReadingResource(res)}
+                                              className="text-xs h-7 px-3 hover:border-indigo-500"
+                                              icon={<Eye size={12} />}
+                                            >
+                                              Read Online
+                                            </Button>
+                                            {isAdmin && (
+                                              <a
+                                                href={res.file_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                download
+                                                className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                                title="Download Resource (Admin Only)"
+                                              >
+                                                <Download size={12} />
+                                                <span>Download</span>
+                                              </a>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1467,77 +1736,354 @@ export function CoursePlayer() {
                     {/* Lessons list */}
                     {!isCollapsed && (
                       <div className="divide-y divide-[var(--border)] bg-[var(--surface)]">
-                        {section.lessons.map((lesson) => {
+                        {section.lessons.map((lesson, lIdx) => {
                           const isCurrent = currentLesson?.id === lesson.id;
                           const isDone = progress?.completed_lessons?.includes(lesson.id);
-                          const hasLessonResources = (lesson.resources?.length || 0) > 0;
+                          const lessonResources = lesson.resources || [];
+                          const hasLessonResources = lessonResources.length > 0;
+                          const isResExpanded = !!expandedLessonResources[lesson.id];
 
                           return (
-                            <div
-                              key={lesson.id}
-                              onClick={() => handleSelectLesson(lesson, sIdx)}
-                              className={`p-3.5 pl-4 cursor-pointer flex items-center justify-between gap-3 transition-colors ${
-                                isCurrent
-                                  ? 'bg-[var(--primary)]/10 border-l-4 border-[var(--primary)] text-[var(--primary)]'
-                                  : 'hover:bg-[var(--surface-hover)] text-[var(--text-main)]'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3 overflow-hidden flex-1">
-                                {/* Completion Checkbox */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleComplete(lesson.id);
-                                  }}
-                                  className="text-[var(--text-muted)] hover:text-emerald-500 transition-colors shrink-0"
-                                >
-                                  {isDone ? (
-                                    <CheckCircle2 size={18} className="text-emerald-500 fill-emerald-500/10" />
-                                  ) : (
-                                    <Circle size={18} />
-                                  )}
-                                </button>
-
-                                <div className="overflow-hidden space-y-0.5">
-                                  <span
-                                    className={`text-xs block truncate ${
-                                      isCurrent ? 'font-bold text-[var(--primary)]' : 'font-medium'
-                                    }`}
+                            <div key={lesson.id} className="transition-colors">
+                              {/* Lecture Row */}
+                              <div
+                                onClick={() => handleSelectLesson(lesson, sIdx)}
+                                className={`p-3.5 pl-4 cursor-pointer flex items-center justify-between gap-3 transition-colors ${
+                                  isCurrent
+                                    ? 'bg-[var(--primary)]/10 border-l-4 border-[var(--primary)] text-[var(--primary)]'
+                                    : 'hover:bg-[var(--surface-hover)] text-[var(--text-main)]'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                  {/* Completion Checkbox */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleComplete(lesson.id);
+                                    }}
+                                    className="text-[var(--text-muted)] hover:text-emerald-500 transition-colors shrink-0"
                                   >
-                                    {lesson.title}
-                                  </span>
-                                  <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
-                                    <span className="flex items-center gap-1">
-                                      <Clock size={10} />
-                                      {formatDuration(lesson.duration_seconds)}
-                                    </span>
-                                    {hasLessonResources && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleSelectLesson(lesson, sIdx);
-                                          handleSelectTab('resources');
-                                          setResourceFilter('current');
-                                        }}
-                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-[9px] border border-emerald-500/20 transition-colors"
-                                        title="View attached resources for this lecture"
-                                      >
-                                        <Paperclip size={9} />
-                                        <span>{lesson.resources!.length} File{lesson.resources!.length > 1 ? 's' : ''}</span>
-                                      </button>
+                                    {isDone ? (
+                                      <CheckCircle2 size={18} className="text-emerald-500 fill-emerald-500/10" />
+                                    ) : (
+                                      <Circle size={18} />
                                     )}
+                                  </button>
+
+                                  <div className="overflow-hidden space-y-0.5 flex-1 min-w-0">
+                                    <span
+                                      className={`text-xs block truncate ${
+                                        isCurrent ? 'font-bold text-[var(--primary)]' : 'font-medium'
+                                      }`}
+                                    >
+                                      {lesson.title}
+                                    </span>
+                                    <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                                      <span className="flex items-center gap-1">
+                                        <Clock size={10} />
+                                        {formatDuration(lesson.duration_seconds)}
+                                      </span>
+
+                                      {/* UDEMY-STYLE INLINE VIDEO ROW RESOURCE EXPANDER */}
+                                      {hasLessonResources && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleLessonResources(lesson.id);
+                                          }}
+                                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all ${
+                                            isResExpanded
+                                              ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
+                                              : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                          }`}
+                                          title="Toggle attached files for this lecture"
+                                        >
+                                          <FolderOpen size={10} />
+                                          <span>Resources ({lessonResources.length})</span>
+                                          <ChevronDown
+                                            size={10}
+                                            className={`transform transition-transform ${isResExpanded ? 'rotate-180' : ''}`}
+                                          />
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
+
+                                {isCurrent && (
+                                  <span className="w-2 h-2 rounded-full bg-[var(--primary)] shrink-0 animate-ping" />
+                                )}
                               </div>
 
-                              {isCurrent && (
-                                <span className="w-2 h-2 rounded-full bg-[var(--primary)] shrink-0 animate-ping" />
+                              {/* INLINE RESOURCE DROPDOWN DIRECTLY UNDER THIS VIDEO ROW */}
+                              {isResExpanded && hasLessonResources && (
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="bg-[var(--surface-hover)]/90 border-t border-b border-[var(--border)] px-4 py-2.5 space-y-2 animate-fade-in"
+                                >
+                                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                                    <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                                      <FolderOpen size={11} />
+                                      Lecture {sIdx + 1}.{lIdx + 1} Attached Materials
+                                    </span>
+                                    <span>{lessonResources.length} file{lessonResources.length > 1 ? 's' : ''}</span>
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                    {lessonResources.map((res) => (
+                                      <div
+                                        key={res.id}
+                                        className="p-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--primary)] transition-all flex items-center justify-between gap-2 shadow-xs group"
+                                      >
+                                        <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                                          <div className="p-1.5 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] shrink-0">
+                                            {res.resource_type === 'book' ? (
+                                              <BookOpen size={13} />
+                                            ) : res.resource_type === 'code' ? (
+                                              <Code2 size={13} />
+                                            ) : res.resource_type === 'link' ? (
+                                              <ExternalLink size={13} />
+                                            ) : (
+                                              <FileText size={13} />
+                                            )}
+                                          </div>
+                                          <div className="overflow-hidden min-w-0 flex-1">
+                                            <span
+                                              className="text-xs font-semibold text-[var(--text-main)] block truncate group-hover:text-[var(--primary)] transition-colors"
+                                              title={res.title}
+                                            >
+                                              {res.title}
+                                            </span>
+                                            <div className="flex items-center gap-1.5 text-[9px] text-[var(--text-muted)] truncate">
+                                              <span className="font-mono px-1 py-0.2 rounded bg-[var(--surface-hover)] border border-[var(--border)]">
+                                                {getDisplayFileName(res)}
+                                              </span>
+                                              <span>•</span>
+                                              <span>{res.file_size || 'Document'}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => setReadingResource(res)}
+                                            className="px-2 py-1 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-[10px] font-semibold flex items-center gap-1 transition-colors shadow-xs"
+                                            title="Read online in secure viewer"
+                                          >
+                                            <Eye size={11} />
+                                            <span>Read</span>
+                                          </button>
+                                          {isAdmin && (
+                                            <a
+                                              href={res.file_url}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              download
+                                              className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
+                                              title="Download File (Admin Only)"
+                                            >
+                                              <Download size={12} />
+                                            </a>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
                             </div>
                           );
                         })}
+
+                        {/* UDEMY-STYLE END-OF-MODULE SECTION MATERIALS CARD */}
+                        {(() => {
+                          const secRes = getSectionResources(section);
+                          const totalSecFiles = getSectionTotalFilesCount(section);
+                          const isEndExpanded = expandedSectionEndResources[section.id] ?? false;
+
+                          return (
+                            <div className="border-t border-[var(--border)] bg-[var(--surface-hover)]/40">
+                              <button
+                                type="button"
+                                onClick={() => toggleSectionEndResources(section.id)}
+                                className="w-full p-3.5 flex items-center justify-between gap-3 text-left hover:bg-[var(--surface-hover)] transition-colors"
+                              >
+                                <div className="flex items-center gap-2.5 overflow-hidden">
+                                  <div className="w-6 h-6 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 font-bold text-xs">
+                                    <FolderOpen size={13} />
+                                  </div>
+                                  <div className="overflow-hidden">
+                                    <h5 className="text-xs font-bold text-[var(--text-main)] truncate">
+                                      Module {sIdx + 1} Section Materials
+                                    </h5>
+                                    <p className="text-[10px] text-[var(--text-muted)]">
+                                      {totalSecFiles > 0
+                                        ? `${totalSecFiles} resource${totalSecFiles > 1 ? 's' : ''} in this module`
+                                        : 'Module study resources'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)]">
+                                    {totalSecFiles}
+                                  </span>
+                                  <ChevronDown
+                                    size={14}
+                                    className={`text-[var(--text-muted)] transform transition-transform ${
+                                      isEndExpanded ? 'rotate-180' : ''
+                                    }`}
+                                  />
+                                </div>
+                              </button>
+
+                              {isEndExpanded && (
+                                <div className="px-3.5 pb-3.5 space-y-2 bg-[var(--surface-hover)]/70 animate-fade-in border-t border-[var(--border)]">
+                                  {totalSecFiles === 0 ? (
+                                    <div className="p-3 text-center rounded-xl bg-[var(--surface)] border border-[var(--border)] text-xs text-[var(--text-muted)]">
+                                      No section materials attached yet.
+                                      {isAdmin && (
+                                        <div className="pt-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setUploadTargetLessonId(`section:${section.id}`);
+                                              setUploadModalOpen(true);
+                                            }}
+                                            className="text-xs font-bold text-[var(--primary)] hover:underline inline-flex items-center gap-1"
+                                          >
+                                            <Plus size={12} />
+                                            Attach Module Material
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-1.5 pt-2">
+                                      {/* Direct section resources */}
+                                      {secRes.map((res) => (
+                                        <div
+                                          key={res.id}
+                                          className="p-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-indigo-500 transition-all flex items-center justify-between gap-2 shadow-xs group"
+                                        >
+                                          <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                                            <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500 shrink-0">
+                                              {res.resource_type === 'book' ? (
+                                                <BookOpen size={13} />
+                                              ) : res.resource_type === 'code' ? (
+                                                <Code2 size={13} />
+                                              ) : (
+                                                <FileText size={13} />
+                                              )}
+                                            </div>
+                                            <div className="overflow-hidden min-w-0 flex-1">
+                                              <span className="text-xs font-semibold text-[var(--text-main)] block truncate group-hover:text-indigo-500 transition-colors" title={res.title}>
+                                                {res.title}
+                                              </span>
+                                              <div className="flex items-center gap-1.5 text-[9px] text-[var(--text-muted)] truncate">
+                                                <span className="font-mono px-1 py-0.2 rounded bg-[var(--surface-hover)] border border-[var(--border)]">
+                                                  {getDisplayFileName(res)}
+                                                </span>
+                                                <span>•</span>
+                                                <span>{res.file_size || 'Section File'}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => setReadingResource(res)}
+                                              className="px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold flex items-center gap-1 transition-colors shadow-xs"
+                                              title="Read online in secure viewer"
+                                            >
+                                              <Eye size={11} />
+                                              <span>Read</span>
+                                            </button>
+                                            {isAdmin && (
+                                              <a
+                                                href={res.file_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                download
+                                                className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
+                                                title="Download File (Admin Only)"
+                                              >
+                                                <Download size={12} />
+                                              </a>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+
+                                      {/* Lecture resources in this section */}
+                                      {section.lessons.flatMap((les, lIdx) =>
+                                        (les.resources || []).map((res) => (
+                                          <div
+                                            key={res.id}
+                                            className="p-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--primary)] transition-all flex items-center justify-between gap-2 shadow-xs group"
+                                          >
+                                            <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                                              <div className="p-1.5 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] shrink-0">
+                                                {res.resource_type === 'book' ? (
+                                                  <BookOpen size={13} />
+                                                ) : res.resource_type === 'code' ? (
+                                                  <Code2 size={13} />
+                                                ) : (
+                                                  <FileText size={13} />
+                                                )}
+                                              </div>
+                                              <div className="overflow-hidden min-w-0 flex-1">
+                                                <span className="text-xs font-semibold text-[var(--text-main)] block truncate group-hover:text-[var(--primary)] transition-colors" title={res.title}>
+                                                  {res.title}
+                                                </span>
+                                                <div className="flex items-center gap-1.5 text-[9px] text-[var(--text-muted)] truncate">
+                                                  <span className="text-emerald-500 font-semibold">
+                                                    Lec {sIdx + 1}.{lIdx + 1}
+                                                  </span>
+                                                  <span>•</span>
+                                                  <span className="font-mono px-1 py-0.2 rounded bg-[var(--surface-hover)] border border-[var(--border)]">
+                                                    {getDisplayFileName(res)}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-1 shrink-0">
+                                              <button
+                                                type="button"
+                                                onClick={() => setReadingResource(res)}
+                                                className="px-2 py-1 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-[10px] font-semibold flex items-center gap-1 transition-colors shadow-xs"
+                                              >
+                                                <Eye size={11} />
+                                                <span>Read</span>
+                                              </button>
+                                              {isAdmin && (
+                                                <a
+                                                  href={res.file_url}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  download
+                                                  className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
+                                                  title="Download File (Admin Only)"
+                                                >
+                                                  <Download size={12} />
+                                                </a>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -1606,75 +2152,360 @@ export function CoursePlayer() {
 
                       {!isCollapsed && (
                         <div className="divide-y divide-[var(--border)] bg-[var(--surface)]">
-                          {section.lessons.map((lesson) => {
+                          {section.lessons.map((lesson, lIdx) => {
                             const isCurrent = currentLesson?.id === lesson.id;
                             const isDone = progress?.completed_lessons?.includes(lesson.id);
+                            const lessonResources = lesson.resources || [];
+                            const hasLessonResources = lessonResources.length > 0;
+                            const isResExpanded = !!expandedLessonResources[lesson.id];
 
                             return (
-                              <div
-                                key={lesson.id}
-                                onClick={() => handleSelectLesson(lesson, sIdx)}
-                                className={`p-3.5 pl-4 cursor-pointer flex items-center justify-between gap-3 transition-colors ${
-                                  isCurrent
-                                    ? 'bg-[var(--primary)]/10 border-l-4 border-[var(--primary)] text-[var(--primary)]'
-                                    : 'hover:bg-[var(--surface-hover)] text-[var(--text-main)]'
-                                }`}
-                              >
-                                <div className="flex items-center gap-3 overflow-hidden flex-1">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleComplete(lesson.id);
-                                    }}
-                                    className="text-[var(--text-muted)] hover:text-emerald-500 transition-colors shrink-0"
-                                  >
-                                    {isDone ? (
-                                      <CheckCircle2 size={18} className="text-emerald-500 fill-emerald-500/10" />
-                                    ) : (
-                                      <Circle size={18} />
-                                    )}
-                                  </button>
-
-                                  <div className="overflow-hidden space-y-0.5">
-                                    <span
-                                      className={`text-xs block truncate ${
-                                        isCurrent ? 'font-bold text-[var(--primary)]' : 'font-medium'
-                                      }`}
+                              <div key={lesson.id} className="transition-colors">
+                                <div
+                                  onClick={() => handleSelectLesson(lesson, sIdx)}
+                                  className={`p-3.5 pl-4 cursor-pointer flex items-center justify-between gap-3 transition-colors ${
+                                    isCurrent
+                                      ? 'bg-[var(--primary)]/10 border-l-4 border-[var(--primary)] text-[var(--primary)]'
+                                      : 'hover:bg-[var(--surface-hover)] text-[var(--text-main)]'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleComplete(lesson.id);
+                                      }}
+                                      className="text-[var(--text-muted)] hover:text-emerald-500 transition-colors shrink-0"
                                     >
-                                      {lesson.title}
-                                    </span>
-                                    <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
-                                      <span className="flex items-center gap-1">
-                                        <Clock size={10} />
-                                        {formatDuration(lesson.duration_seconds)}
-                                      </span>
-                                      {(lesson.resources?.length || 0) > 0 && (
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleSelectLesson(lesson, sIdx);
-                                            handleSelectTab('resources');
-                                            setResourceFilter('current');
-                                            setSidebarOpen(false);
-                                          }}
-                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[9px] border border-emerald-500/20"
-                                        >
-                                          <Paperclip size={9} />
-                                          <span>{lesson.resources!.length} File{lesson.resources!.length > 1 ? 's' : ''}</span>
-                                        </button>
+                                      {isDone ? (
+                                        <CheckCircle2 size={18} className="text-emerald-500 fill-emerald-500/10" />
+                                      ) : (
+                                        <Circle size={18} />
                                       )}
+                                    </button>
+
+                                    <div className="overflow-hidden space-y-0.5 flex-1 min-w-0">
+                                      <span
+                                        className={`text-xs block truncate ${
+                                          isCurrent ? 'font-bold text-[var(--primary)]' : 'font-medium'
+                                        }`}
+                                      >
+                                        {lesson.title}
+                                      </span>
+                                      <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                                        <span className="flex items-center gap-1">
+                                          <Clock size={10} />
+                                          {formatDuration(lesson.duration_seconds)}
+                                        </span>
+                                        {hasLessonResources && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              toggleLessonResources(lesson.id);
+                                            }}
+                                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all ${
+                                              isResExpanded
+                                                ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
+                                                : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                            }`}
+                                            title="Toggle attached files for this lecture"
+                                          >
+                                            <FolderOpen size={10} />
+                                            <span>Resources ({lessonResources.length})</span>
+                                            <ChevronDown
+                                              size={10}
+                                              className={`transform transition-transform ${isResExpanded ? 'rotate-180' : ''}`}
+                                            />
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
+
+                                  {isCurrent && (
+                                    <span className="w-2 h-2 rounded-full bg-[var(--primary)] shrink-0 animate-ping" />
+                                  )}
                                 </div>
 
-                                {isCurrent && (
-                                  <span className="w-2 h-2 rounded-full bg-[var(--primary)] shrink-0 animate-ping" />
+                                {/* MOBILE INLINE RESOURCE DROPDOWN DIRECTLY UNDER THIS VIDEO ROW */}
+                                {isResExpanded && hasLessonResources && (
+                                  <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="bg-[var(--surface-hover)]/90 border-t border-b border-[var(--border)] px-4 py-2.5 space-y-2 animate-fade-in"
+                                  >
+                                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                                      <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                                        <FolderOpen size={11} />
+                                        Lecture {sIdx + 1}.{lIdx + 1} Attached Materials
+                                      </span>
+                                      <span>{lessonResources.length} file{lessonResources.length > 1 ? 's' : ''}</span>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                      {lessonResources.map((res) => (
+                                        <div
+                                          key={res.id}
+                                          className="p-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--primary)] transition-all flex items-center justify-between gap-2 shadow-xs group"
+                                        >
+                                          <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                                            <div className="p-1.5 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] shrink-0">
+                                              {res.resource_type === 'book' ? (
+                                                <BookOpen size={13} />
+                                              ) : res.resource_type === 'code' ? (
+                                                <Code2 size={13} />
+                                              ) : res.resource_type === 'link' ? (
+                                                <ExternalLink size={13} />
+                                              ) : (
+                                                <FileText size={13} />
+                                              )}
+                                            </div>
+                                            <div className="overflow-hidden min-w-0 flex-1">
+                                              <span
+                                                className="text-xs font-semibold text-[var(--text-main)] block truncate group-hover:text-[var(--primary)] transition-colors"
+                                                title={res.title}
+                                              >
+                                                {res.title}
+                                              </span>
+                                              <div className="flex items-center gap-1.5 text-[9px] text-[var(--text-muted)] truncate">
+                                                <span className="font-mono px-1 py-0.2 rounded bg-[var(--surface-hover)] border border-[var(--border)]">
+                                                  {getDisplayFileName(res)}
+                                                </span>
+                                                <span>•</span>
+                                                <span>{res.file_size || 'Document'}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setReadingResource(res);
+                                                setSidebarOpen(false);
+                                              }}
+                                              className="px-2 py-1 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-[10px] font-semibold flex items-center gap-1 transition-colors shadow-xs"
+                                              title="Read online in secure viewer"
+                                            >
+                                              <Eye size={11} />
+                                              <span>Read</span>
+                                            </button>
+                                            {isAdmin && (
+                                              <a
+                                                href={res.file_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                download
+                                                className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
+                                                title="Download File (Admin Only)"
+                                              >
+                                                <Download size={12} />
+                                              </a>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             );
                           })}
+
+                          {/* MOBILE END-OF-MODULE SECTION MATERIALS CARD */}
+                          {(() => {
+                            const secRes = getSectionResources(section);
+                            const totalSecFiles = getSectionTotalFilesCount(section);
+                            const isEndExpanded = expandedSectionEndResources[section.id] ?? false;
+
+                            return (
+                              <div className="border-t border-[var(--border)] bg-[var(--surface-hover)]/40">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSectionEndResources(section.id)}
+                                  className="w-full p-3.5 flex items-center justify-between gap-3 text-left hover:bg-[var(--surface-hover)] transition-colors"
+                                >
+                                  <div className="flex items-center gap-2.5 overflow-hidden">
+                                    <div className="w-6 h-6 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 font-bold text-xs">
+                                      <FolderOpen size={13} />
+                                    </div>
+                                    <div className="overflow-hidden">
+                                      <h5 className="text-xs font-bold text-[var(--text-main)] truncate">
+                                        Module {sIdx + 1} Section Materials
+                                      </h5>
+                                      <p className="text-[10px] text-[var(--text-muted)]">
+                                        {totalSecFiles > 0
+                                          ? `${totalSecFiles} resource${totalSecFiles > 1 ? 's' : ''} in this module`
+                                          : 'Module study resources'}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)]">
+                                      {totalSecFiles}
+                                    </span>
+                                    <ChevronDown
+                                      size={14}
+                                      className={`text-[var(--text-muted)] transform transition-transform ${
+                                        isEndExpanded ? 'rotate-180' : ''
+                                      }`}
+                                    />
+                                  </div>
+                                </button>
+
+                                {isEndExpanded && (
+                                  <div className="px-3.5 pb-3.5 space-y-2 bg-[var(--surface-hover)]/70 animate-fade-in border-t border-[var(--border)]">
+                                    {totalSecFiles === 0 ? (
+                                      <div className="p-3 text-center rounded-xl bg-[var(--surface)] border border-[var(--border)] text-xs text-[var(--text-muted)]">
+                                        No section materials attached yet.
+                                        {isAdmin && (
+                                          <div className="pt-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setUploadTargetLessonId(`section:${section.id}`);
+                                                setUploadModalOpen(true);
+                                                setSidebarOpen(false);
+                                              }}
+                                              className="text-xs font-bold text-[var(--primary)] hover:underline inline-flex items-center gap-1"
+                                            >
+                                              <Plus size={12} />
+                                              Attach Module Material
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-1.5 pt-2">
+                                        {/* Direct section resources */}
+                                        {secRes.map((res) => (
+                                          <div
+                                            key={res.id}
+                                            className="p-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-indigo-500 transition-all flex items-center justify-between gap-2 shadow-xs group"
+                                          >
+                                            <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                                              <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500 shrink-0">
+                                                {res.resource_type === 'book' ? (
+                                                  <BookOpen size={13} />
+                                                ) : res.resource_type === 'code' ? (
+                                                  <Code2 size={13} />
+                                                ) : (
+                                                  <FileText size={13} />
+                                                )}
+                                              </div>
+                                              <div className="overflow-hidden min-w-0 flex-1">
+                                                <span className="text-xs font-semibold text-[var(--text-main)] block truncate group-hover:text-indigo-500 transition-colors" title={res.title}>
+                                                  {res.title}
+                                                </span>
+                                                <div className="flex items-center gap-1.5 text-[9px] text-[var(--text-muted)] truncate">
+                                                  <span className="font-mono px-1 py-0.2 rounded bg-[var(--surface-hover)] border border-[var(--border)]">
+                                                    {getDisplayFileName(res)}
+                                                  </span>
+                                                  <span>•</span>
+                                                  <span>{res.file_size || 'Section File'}</span>
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-1 shrink-0">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setReadingResource(res);
+                                                  setSidebarOpen(false);
+                                                }}
+                                                className="px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold flex items-center gap-1 transition-colors shadow-xs"
+                                                title="Read online in secure viewer"
+                                              >
+                                                <Eye size={11} />
+                                                <span>Read</span>
+                                              </button>
+                                              {isAdmin && (
+                                                <a
+                                                  href={res.file_url}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  download
+                                                  className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
+                                                  title="Download File (Admin Only)"
+                                                >
+                                                  <Download size={12} />
+                                                </a>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+
+                                        {/* Lecture resources in this section */}
+                                        {section.lessons.flatMap((les, lIdx) =>
+                                          (les.resources || []).map((res) => (
+                                            <div
+                                              key={res.id}
+                                              className="p-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--primary)] transition-all flex items-center justify-between gap-2 shadow-xs group"
+                                            >
+                                              <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                                                <div className="p-1.5 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] shrink-0">
+                                                  {res.resource_type === 'book' ? (
+                                                    <BookOpen size={13} />
+                                                  ) : res.resource_type === 'code' ? (
+                                                    <Code2 size={13} />
+                                                  ) : (
+                                                    <FileText size={13} />
+                                                  )}
+                                                </div>
+                                                <div className="overflow-hidden min-w-0 flex-1">
+                                                  <span className="text-xs font-semibold text-[var(--text-main)] block truncate group-hover:text-[var(--primary)] transition-colors" title={res.title}>
+                                                    {res.title}
+                                                  </span>
+                                                  <div className="flex items-center gap-1.5 text-[9px] text-[var(--text-muted)] truncate">
+                                                    <span className="text-emerald-500 font-semibold">
+                                                      Lec {sIdx + 1}.{lIdx + 1}
+                                                    </span>
+                                                    <span>•</span>
+                                                    <span className="font-mono px-1 py-0.2 rounded bg-[var(--surface-hover)] border border-[var(--border)]">
+                                                      {getDisplayFileName(res)}
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              </div>
+
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setReadingResource(res);
+                                                    setSidebarOpen(false);
+                                                  }}
+                                                  className="px-2 py-1 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-[10px] font-semibold flex items-center gap-1 transition-colors shadow-xs"
+                                                >
+                                                  <Eye size={11} />
+                                                  <span>Read</span>
+                                                </button>
+                                                {isAdmin && (
+                                                  <a
+                                                    href={res.file_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    download
+                                                    className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
+                                                    title="Download File (Admin Only)"
+                                                  >
+                                                    <Download size={12} />
+                                                  </a>
+                                                )}
+                                              </div>
+                                            </div>
+                                          ))
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
@@ -1701,12 +2532,13 @@ export function CoursePlayer() {
                 onChange={(e) => setUploadTargetLessonId(e.target.value)}
                 className="input text-sm"
               >
-                <option value="">🌐 General Course Material (All Lectures)</option>
+                <option value="">🌐 Course-Wide Reference (All Modules & Lectures)</option>
                 {course.sections?.map((sec, sIdx) => (
-                  <optgroup key={sec.id} label={`Module ${sIdx + 1}: ${sec.title}`}>
+                  <optgroup key={sec.id} label={`📦 Module ${sIdx + 1}: ${sec.title}`}>
+                    <option value={`section:${sec.id}`}>📁 End of Module {sIdx + 1} Section Materials</option>
                     {sec.lessons.map((les, lIdx) => (
-                      <option key={les.id} value={les.id}>
-                        Lecture {sIdx + 1}.{lIdx + 1}: {les.title}
+                      <option key={les.id} value={`lesson:${les.id}`}>
+                        📄 Lecture {sIdx + 1}.{lIdx + 1}: {les.title}
                       </option>
                     ))}
                   </optgroup>

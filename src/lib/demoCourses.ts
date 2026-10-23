@@ -46,6 +46,18 @@ export const INITIAL_DEMO_COURSES: Course[] = [
         course_id: 'course-react-fullstack',
         title: 'Module 1: Foundations & Architecture',
         order_index: 0,
+        resources: [
+          {
+            id: 'res-sec-1-summary',
+            course_id: 'course-react-fullstack',
+            section_id: 'sec-react-1',
+            title: 'Module-01-Architecture-Diagrams-Summary.pdf',
+            description: 'Complete high-resolution visual flowcharts and component lifecycle diagrams for Module 1.',
+            resource_type: 'pdf',
+            file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+            file_size: '2.4 MB',
+          },
+        ],
         lessons: [
           {
             id: 'les-react-1',
@@ -63,7 +75,7 @@ export const INITIAL_DEMO_COURSES: Course[] = [
                 id: 'res-les-1',
                 course_id: 'course-react-fullstack',
                 lesson_id: 'les-react-1',
-                title: 'Lesson 1 Slide Deck & Setup Notes (PDF)',
+                title: '01-Environment-Setup-and-Tools.pdf',
                 description: 'Lecture slides and step-by-step CLI setup instructions.',
                 resource_type: 'pdf',
                 file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
@@ -82,6 +94,18 @@ export const INITIAL_DEMO_COURSES: Course[] = [
             duration_seconds: 1080,
             order_index: 1,
             is_preview: false,
+            resources: [
+              {
+                id: 'res-les-2',
+                course_id: 'course-react-fullstack',
+                lesson_id: 'les-react-2',
+                title: '02-JSX-Component-Patterns-Guide.pdf',
+                description: 'Component patterns, higher-order components, and compound components cheatsheet.',
+                resource_type: 'pdf',
+                file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                file_size: '890 KB',
+              },
+            ],
           },
           {
             id: 'les-react-3',
@@ -102,6 +126,18 @@ export const INITIAL_DEMO_COURSES: Course[] = [
         course_id: 'course-react-fullstack',
         title: 'Module 2: Advanced Patterns, API Integration & Deployment',
         order_index: 1,
+        resources: [
+          {
+            id: 'res-sec-2-starter',
+            course_id: 'course-react-fullstack',
+            section_id: 'sec-react-2',
+            title: 'Module-02-Production-Boilerplate-Code.zip',
+            description: 'Clean Next.js 15 + Supabase full-stack starter repository with authentication and database schema.',
+            resource_type: 'code',
+            file_url: 'https://raw.githubusercontent.com/enaqx/awesome-react/master/readme.md',
+            file_size: '1.8 MB',
+          },
+        ],
         lessons: [
           {
             id: 'les-react-4',
@@ -119,7 +155,7 @@ export const INITIAL_DEMO_COURSES: Course[] = [
                 id: 'res-les-4',
                 course_id: 'course-react-fullstack',
                 lesson_id: 'les-react-4',
-                title: 'Supabase Data Fetching Code Blueprint & Cheatsheet (PDF)',
+                title: '04-Supabase-Integration-Cheatsheet.pdf',
                 description: 'Code snippets and PostgreSQL schema definitions.',
                 resource_type: 'code',
                 file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
