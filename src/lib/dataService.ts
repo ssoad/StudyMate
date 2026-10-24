@@ -573,16 +573,60 @@ export const dataService = {
 
   updateLessonTranscript: async (lessonId: string, transcript: string): Promise<{ error: any }> => {
     try {
+      // First try dedicated server endpoint
+      const resp = await fetch('/api/transcripts/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessonId, transcript }),
+      });
+      if (resp.ok) {
+        return { error: null };
+      }
+    } catch (apiErr) {
+      console.warn('API /api/transcripts/save error, attempting direct PostgREST update:', apiErr);
+    }
+
+    try {
       if (supabase) {
         const { error } = await supabase
           .from('course_lessons')
-          .update({ transcript })
+          .update({ transcript: transcript && transcript.trim().length > 0 ? transcript.trim() : null })
           .eq('id', lessonId);
         if (error) throw error;
         return { error: null };
       }
     } catch (e: any) {
       console.warn('Supabase updateLessonTranscript error:', e);
+      return { error: e };
+    }
+    return { error: null };
+  },
+
+  deleteLessonTranscript: async (lessonId: string): Promise<{ error: any }> => {
+    try {
+      const resp = await fetch('/api/transcripts/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessonId }),
+      });
+      if (resp.ok) {
+        return { error: null };
+      }
+    } catch (apiErr) {
+      console.warn('API /api/transcripts/delete error, attempting direct PostgREST update:', apiErr);
+    }
+
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from('course_lessons')
+          .update({ transcript: null })
+          .eq('id', lessonId);
+        if (error) throw error;
+        return { error: null };
+      }
+    } catch (e: any) {
+      console.warn('Supabase deleteLessonTranscript error:', e);
       return { error: e };
     }
     return { error: null };

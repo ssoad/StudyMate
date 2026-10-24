@@ -318,241 +318,8 @@ async function fetchYouTubeAsrTranscript(videoId, requestedLang = 'auto') {
   }
 }
 
-/**
- * Contextual Machine Speech & Outline Generator with Auto-Language Detection
- */
-function generateLocalMachineTranscript({ title = 'Lecture', courseTitle = '', durationSeconds = 600, language = 'auto' }) {
-  const fullContext = `${title} ${courseTitle}`.toLowerCase();
-  const hasBengali = /[\u0980-\u09FF]/.test(`${title} ${courseTitle}`);
-  const isBanglaCourse = hasBengali || /(?:complexity\s*it|ict|hsc|bangla|c\s*programming|data\s*structure|dld|dbms|bangladesh)/i.test(fullContext);
+// Fake transcript generator removed
 
-  let detectedLanguage = 'en';
-  let languageName = 'English';
-
-  if (language === 'bn' || (language === 'auto' && isBanglaCourse)) {
-    detectedLanguage = 'bn';
-    languageName = 'বাংলা (Bengali)';
-  } else if (language !== 'auto') {
-    detectedLanguage = language;
-    languageName = language === 'bn' ? 'বাংলা (Bengali)' : 'English';
-  }
-
-  const cleanTitle = title.replace(/^(Lecture\s*\d+:|Module\s*\d+:)\s*/i, '').trim();
-  const dur = Math.max(60, durationSeconds || 600);
-  const targetSegmentDuration = 25; // seconds per spoken cue
-  const totalCuesCount = Math.max(6, Math.floor(dur / targetSegmentDuration));
-  const segmentDuration = Math.round(dur / totalCuesCount);
-
-  // Topic classification
-  const isC = /c\s*prog|loop|array|pointer|struct|function/i.test(title);
-  const isDS = /data\s*struct|linked\s*list|stack|queue|tree|graph|heap|big-o|sorting|searching/i.test(title);
-  const isDB = /database|dbms|sql|relational|normaliz|er\s*diagram|acid|query/i.test(title);
-  const isDLD = /dld|digital|logic|gate|flip\s*flop|k-map|binary|multiplexer|circuit/i.test(title);
-
-  let middleSentences = [];
-  let introSentences = [];
-  let endingSentences = [];
-
-  if (detectedLanguage === 'bn') {
-    introSentences = [
-      `সবাইকে আজকের ক্লাসে স্বাগতম। আজকের বিষয়: ${cleanTitle}।`,
-      `শুরুতেই আমরা এই পাঠের মূল উদ্দেশ্য, গুরুত্ব এবং বাস্তব জীবনের প্রয়োজনীয়তা দেখে নেব।`,
-    ];
-
-    if (isC) {
-      middleSentences = [
-        'সি প্রোগ্রামিংয়ে সিনট্যাক্স এবং মেমোরি কাঠামোর সঠিক বোঝাপড়া অত্যন্ত জরুরি।',
-        'এখানে ডেটা টাইপ, ভেরিয়েবল ডিক্লারেশন এবং মেমোরিতে স্পেস বরাদ্দের বিষয়টি লক্ষ্য করুন।',
-        'কন্ট্রোল স্টেটমেন্ট প্রোগ্রামের এক্সিকিউশন ফ্লো কার্যকরভাবে নিয়ন্ত্রণ করে।',
-        'শর্ত সত্য হলে সংশ্লিষ্ট কোড ব্লক রান করে, আর মিথ্যা হলে বিকল্প ব্লকে যায়।',
-        'লুপ কন্ট্রোলে ইনিশিয়ালাইজেশন, কন্ডিশন চেকিং ও ইনক্রিমেন্ট/ডিক্রিমেন্ট ক্রমান্বয়ে ঘটে।',
-        'ফর লুপ এবং হোয়াইল লুপের কাজের প্রক্রিয়া একই হলেও সিনট্যাক্সে ব্যবহারের বৈচিত্র্য রয়েছে।',
-        'অ্যারে হলো একই ডেটা টাইপের উপাদানসমূহের ধারাবাহিক মেমোরি সংগ্রহ।',
-        'অ্যারে ইনডেক্সিং সবসময় ০ থেকে শুরু হয় এবং সাইজ মাইনাস ১ পর্যন্ত অ্যাক্সেসযোগ্য।',
-        'পয়েন্টার হলো এমন একটি বিশেষ ভেরিয়েবল যা অন্য ভেরিয়েবলের মেমোরি অ্যাড্রেস ধারণ করে।',
-        'পয়েন্টার ডি-রেফারেন্সিংয়ের মাধ্যমে সরাসরি মেমোরি লোকেশনের মান পরিবর্তন সম্ভব।',
-        'ফাংশন ব্যবহারের ফলে কোড মডুলার, পুনর্ব্যবহারযোগ্য এবং সহজে ডিবাগ করা যায়।',
-      ];
-    } else if (isDS) {
-      middleSentences = [
-        'ডেটা স্ট্রাকচারে ডেটা সংরক্ষণ ও পুনরুদ্ধারের কার্যকারিতা গভীরভাবে বিশ্লেষণ করা হয়।',
-        'অ্যাসিম্পটটিক অ্যানালাইসিস এবং বিগ-ও নোটেশন অ্যালগরিদমের কর্মক্ষমতা পরিমাপ করে।',
-        'লিংকড লিস্ট ডায়নামিক সাইজের সুবিধা দেয় কিন্তু র‍্যান্ডম মেমোরি অ্যাক্সেস সমর্থন করে না।',
-        'স্ট্যাক হলো লাস্ট-ইন ফার্স্ট-আউট (LIFO) ডেটা স্ট্রাকচার, যা রিকার্শনে অপরিহার্য।',
-        'কিউ হলো ফার্স্ট-ইন ফার্স্ট-আউট (FIFO) ডেটা স্ট্রাকচার, যা প্রসেস শিডিউলিংয়ে ব্যবহৃত হয়।',
-        'ট্রি স্ট্রাকচারে রুট নোড, চাইল্ড নোড এবং সাব-ট্রির হায়ারার্কিকাল সম্পর্ক বজায় থাকে।',
-        'গ্রাফের এজ এবং ভার্টেক্স রিপ্রেজেন্টেশনের জন্য অ্যাডজাসেন্সি ম্যাট্রিক্স ও লিস্ট প্রযোজ্য।',
-        'সার্চিং এবং সর্টিং অ্যালগরিদমগুলোর বেস্ট, অ্যাভারেজ ও ওর্স্ট কেস কমপ্লেক্সিটি বিবেচনা করুন।',
-      ];
-    } else if (isDB) {
-      middleSentences = [
-        'ডাটাবেজ ম্যানেজমেন্ট সিস্টেমে ডেটার নির্ভুলতা ও নির্ভরযোগ্যতা বজায় রাখা প্রধান লক্ষ্য।',
-        'রিলেশনাল মডেলে টেবিল, রো (টাপল) এবং কলাম (অ্যাট্রিবিউট) নিয়ে সংগঠিত ডেটা সংরক্ষিত হয়।',
-        'প্রাইমারি কি প্রতিটি রেকর্ডকে স্বতন্ত্রভাবে শনাক্ত করে এবং কখনো নাল হতে পারে না।',
-        'ফরেন কি দুটি ভিন্ন টেবিলের মধ্যে দৃঢ় রেফারেনশিয়াল ইন্টিগ্রিটি নিশ্চিত করে।',
-        'নরমালাইজেশনের মাধ্যমে ডেটা রিডান্ডেন্সি দূর করা হয় এবং অ্যানোমালি প্রতিরোধ হয়।',
-        'এসকিউএল কোয়েরিতে সিলেক্ট, হোয়্যার, গ্রুপ বাই এবং জয়েন ক্লজের সঠিক প্রয়োগ দেখুন।',
-        'ট্রানজ্যাকশনের এসিড (ACID) প্রোপার্টি ডাটাবেজের দীর্ঘমেয়াদী ধারাবাহিকতা রক্ষা করে।',
-      ];
-    } else if (isDLD) {
-      middleSentences = [
-        'ডিজিটাল সিস্টেমে সমস্ত ডেটা ও নির্দেশাবলী বাইনারি সংকেত ০ এবং ১ আকারে প্রসেস করা হয়।',
-        'লজিক গেট হলো সমস্ত আধুনিক ডিজিটাল সার্কিটের মৌলিক বিল্ডিং ব্লক।',
-        'অ্যান্ড, অর এবং নট গেটের সত্যক সারণী (ট্রুথ টেবিল) পুঙ্খানুপুঙ্খভাবে বুঝতে হবে।',
-        'বুলিয়ান অ্যালজেবরা ও ডিমরগ্যানের সূত্রের মাধ্যমে জটিল লজিক এক্সপ্রেশন সহজে সরলীকরণ করা যায়।',
-        'কে-ম্যাপ (Karnaugh Map) ব্যবহার করে সর্বনিম্ন সংখ্যক গেট দিয়ে অপটিমাইজড সার্কিট ডিজাইন করা সম্ভব।',
-        'কম্বিনেশনাল সার্কিটে কোনো মেমোরি থাকে না, কিন্তু সিকোয়েনশিয়াল সার্কিটে ফ্লিপ-ফ্লপ তথ্য মনে রাখে।',
-      ];
-    } else {
-      middleSentences = [
-        'এই বিষয়ের ফান্ডামেন্টাল আর্কিটেকচার এবং কার্যপ্রণালী স্ক্রিনে ধাপে ধাপে দেখানো হচ্ছে।',
-        'কনসেপ্টের মূল উপাদান এবং বাস্তব প্রয়োগের ক্ষেত্রগুলো মনোযোগ সহকারে লক্ষ্য করুন।',
-        'বাস্তব প্রজেক্ট বাস্তবায়নে এই পদ্ধতির সুবিধা ও সীমাবদ্ধতাগুলো বিবেচনায় রাখা জরুরি।',
-        'দক্ষতা ও দক্ষতা বৃদ্ধির জন্য প্রতিটি বিষয়ের ছোট ছোট সমস্যা নিজে নিজে সমাধান করুন।',
-      ];
-    }
-
-    middleSentences.push(
-      'এখন আমরা একটি সম্পূর্ণ প্র্যাক্টিক্যাল সমস্যা ও কোডিং উদাহরণ নিয়ে আলোচনা করব।',
-      'লক্ষ্য করুন, কীভাবে সমস্যাটিকে যৌক্তিক ছোট ছোট সাব-প্রবলেমে বিভক্ত করা হচ্ছে।',
-      'এই পর্যায়ে শিক্ষার্থীরা প্রায়শই কিছু সাধারণ ভুল করে থাকে, যা সতর্কতার সাথে এড়াতে হবে।',
-      'পরীক্ষায় এই ধরণের প্রশ্নের ক্ষেত্রে চিত্রসহ ধাপে ধাপে উত্তর দেওয়া সর্বোচ্চ নম্বর নিশ্চিত করে।',
-      'কোড অপটিমাইজেশন এবং স্ট্যান্ডার্ড কনভেনশন মেনে চলা একজন দক্ষ ইঞ্জিনিয়ারের অন্যতম গুণ।'
-    );
-
-    endingSentences = [
-      'আজকের ক্লাসের সার্বিক সারসংক্ষেপ এবং মূল শিখনফলগুলো পুনরায় পর্যালোচনা করে নিলাম।',
-      'আজকের ক্লাসে আলোচিত বিষয়গুলো ভালো করে অনুশীলন করুন।',
-      'পরবর্তী ক্লাসে আমরা নতুন মডিউল ও অ্যাডভান্সড কনসেপ্ট নিয়ে আলোচনা করব। ধন্যবাদ সবাইকে।',
-    ];
-  } else {
-    // English Speech Generator
-    introSentences = [
-      `Welcome everyone to today's lecture on ${cleanTitle}.`,
-      `In this session, we will examine the core conceptual foundations and practical applications.`,
-    ];
-
-    if (isC) {
-      middleSentences = [
-        'In C programming, mastering syntax and low-level memory allocation is paramount.',
-        'Note how primitive data types and memory footprints vary across architectures.',
-        'Conditional branching governs control flow based on boolean expressions.',
-        'Iteration structures execute repetitively while invariant loop conditions hold true.',
-        'Arrays provide contiguous memory allocation for homogeneous data collections.',
-        'Pointers hold physical memory addresses, enabling direct memory manipulation.',
-        'Functions provide modular abstraction, clean variable scope, and reusable routines.',
-      ];
-    } else if (isDS) {
-      middleSentences = [
-        'Data structures balance storage efficiency with algorithmic time complexity.',
-        'Asymptotic analysis via Big-O notation measures computational scalability.',
-        'Linked lists allocate nodes dynamically, offering efficient mid-list insertion.',
-        'Stacks operate via Last-In First-Out semantics, serving call-stack execution.',
-        'Queues process elements via First-In First-Out order, critical for event loops.',
-        'Hierarchical trees partition data into parent and child pointer relationships.',
-        'Graph structures model arbitrary networks via adjacency matrices and edge lists.',
-      ];
-    } else if (isDB) {
-      middleSentences = [
-        'Database management systems guarantee high-integrity transactional persistence.',
-        'The relational model organizes structured attributes into normalized relations.',
-        'Primary keys enforce unique row identity, while foreign keys ensure referential integrity.',
-        'Functional dependency decomposition eliminates duplicate redundancy in 3NF and BCNF.',
-        'Structured Query Language handles declarative data manipulation and filtering.',
-        'ACID transactions ensure atomic execution and durable state across hardware failures.',
-      ];
-    } else if (isDLD) {
-      middleSentences = [
-        'Digital logic systems represent state exclusively through binary voltage levels.',
-        'Logic gates serve as the fundamental Boolean operators within integrated circuits.',
-        'Truth tables formalize the combinatorial relationship between inputs and outputs.',
-        'De Morgan laws and Karnaugh maps reduce gate count and propagation delay.',
-        'Sequential circuits employ clocked bistable multivibrators to maintain memory state.',
-      ];
-    } else {
-      middleSentences = [
-        'Here we examine the architectural layout and behavioral flow across components.',
-        'Understanding how data traverses each layer ensures reliable execution.',
-        'Production systems require defensive handling for network and memory anomalies.',
-        'Iterative testing and automated profiling reveal hidden bottlenecks early.',
-      ];
-    }
-
-    middleSentences.push(
-      'Now let us work through a concrete implementation scenario step by step.',
-      'Notice how we decompose the complex requirement into isolated deterministic modules.',
-      'A frequent pitfall here is overlooking subtle boundary conditions and null states.',
-      'Following industry best practices guarantees high maintainability and test coverage.'
-    );
-
-    endingSentences = [
-      `Summarizing the key takeaways and architectural conclusions from ${cleanTitle}.`,
-      'Review the practice materials and code repositories provided in the course resources.',
-      'Thank you for joining today\'s session. We look forward to seeing you in the next lecture.',
-    ];
-  }
-
-  const cues = [];
-  const middleSlotsCount = Math.max(1, totalCuesCount - introSentences.length - endingSentences.length);
-
-  // Add intro cues
-  let cueIdx = 0;
-  for (let i = 0; i < introSentences.length && cueIdx < totalCuesCount; i++) {
-    const start = cueIdx * segmentDuration;
-    const end = Math.min(dur, (cueIdx + 1) * segmentDuration);
-    cues.push({
-      id: `cue-${cueIdx}`,
-      start,
-      end,
-      text: introSentences[i],
-    });
-    cueIdx++;
-  }
-
-  // Add middle cues
-  for (let i = 0; i < middleSlotsCount && cueIdx < totalCuesCount - endingSentences.length; i++) {
-    const start = cueIdx * segmentDuration;
-    const end = Math.min(dur, (cueIdx + 1) * segmentDuration);
-    cues.push({
-      id: `cue-${cueIdx}`,
-      start,
-      end,
-      text: middleSentences[i % middleSentences.length],
-    });
-    cueIdx++;
-  }
-
-  // Add ending cues
-  for (let i = 0; i < endingSentences.length && cueIdx < totalCuesCount; i++) {
-    const start = cueIdx * segmentDuration;
-    const end = Math.min(dur, (cueIdx + 1) * segmentDuration);
-    cues.push({
-      id: `cue-${cueIdx}`,
-      start,
-      end,
-      text: endingSentences[i],
-    });
-    cueIdx++;
-  }
-
-  // Ensure last cue reaches the end
-  if (cues.length > 0) {
-    cues[cues.length - 1].end = dur;
-  }
-
-  return {
-    isMachineGenerated: true,
-    engine: 'studymate-asr',
-    detectedLanguage,
-    languageName,
-    availableLanguages: [
-      { code: 'bn', name: 'বাংলা (Bengali)', isAsr: true },
-      { code: 'en', name: 'English', isAsr: true },
-    ],
-    cues,
-    generatedAt: new Date().toISOString(),
-  };
-}
 
 // ---------------------------------------------------------------------------
 // HTTP Server
@@ -742,31 +509,34 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 3.5 Machine Generated ASR Transcript Engine: /api/transcripts/*
+  // 3.5 Transcript Engine: /api/transcripts/*
   if (pathname === '/api/transcripts/generate' && req.method === 'POST') {
     try {
       const body = await readBodyJson(req);
-      const { lessonId, videoId, videoUrl, title, courseTitle, durationSeconds, language = 'auto' } = body;
+      const { lessonId, videoId, videoUrl, language = 'auto' } = body;
 
       const ytId = extractYouTubeVideoId(videoId || videoUrl);
       let result = null;
 
       if (ytId) {
-        console.log(`[Transcript Engine] Attempting YouTube ASR for: ${ytId} (Language: ${language})`);
+        console.log(`[Transcript Engine] Attempting YouTube captions for: ${ytId} (Language: ${language})`);
         result = await fetchYouTubeAsrTranscript(ytId, language);
       }
 
       if (!result || !result.cues || result.cues.length === 0) {
-        console.log(`[Transcript Engine] Generating machine contextual ASR for: "${title || 'Lecture'}" (Language: ${language})`);
-        result = generateLocalMachineTranscript({
-          title: title || 'Lecture',
-          courseTitle: courseTitle || '',
-          durationSeconds: parseInt(durationSeconds, 10) || 600,
-          language,
-        });
+        // Honest response: do NOT generate fake mock sentences!
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            success: false,
+            cues: [],
+            message: 'No online captions found for this video. You can create or upload manual transcripts.',
+          })
+        );
+        return;
       }
 
-      // Persist generated transcript to PostgreSQL via PostgREST if lessonId provided
+      // Persist verified online transcript to PostgreSQL via PostgREST if lessonId provided
       if (lessonId) {
         try {
           const serialized = JSON.stringify(result);
@@ -789,9 +559,64 @@ const server = http.createServer(async (req, res) => {
       );
       return;
     } catch (err) {
-      console.error(`[Transcript Engine] Error generating transcript:`, err);
+      console.error(`[Transcript Engine] Error checking transcript:`, err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Failed to generate transcript', details: err.message }));
+      res.end(JSON.stringify({ error: 'Failed to fetch transcript', details: err.message }));
+      return;
+    }
+  }
+
+  // 3.6 Manual Transcript Save / Delete Endpoints
+  if (pathname === '/api/transcripts/save' && req.method === 'POST') {
+    try {
+      const body = await readBodyJson(req);
+      const { lessonId, transcript } = body;
+
+      if (!lessonId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'lessonId is required' }));
+        return;
+      }
+
+      await queryPostgREST(`/course_lessons?id=eq.${encodeURIComponent(lessonId)}`, 'PATCH', {
+        transcript: transcript && transcript.trim().length > 0 ? transcript.trim() : null,
+      });
+
+      console.log(`[Transcript Engine] Saved manual transcript for lesson ${lessonId} (length: ${(transcript || '').length})`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+      return;
+    } catch (err) {
+      console.error(`[Transcript Engine] Error saving transcript:`, err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to save transcript', details: err.message }));
+      return;
+    }
+  }
+
+  if (pathname === '/api/transcripts/delete' && req.method === 'POST') {
+    try {
+      const body = await readBodyJson(req);
+      const { lessonId } = body;
+
+      if (!lessonId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'lessonId is required' }));
+        return;
+      }
+
+      await queryPostgREST(`/course_lessons?id=eq.${encodeURIComponent(lessonId)}`, 'PATCH', {
+        transcript: null,
+      });
+
+      console.log(`[Transcript Engine] Cleared transcript for lesson ${lessonId}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+      return;
+    } catch (err) {
+      console.error(`[Transcript Engine] Error clearing transcript:`, err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to clear transcript', details: err.message }));
       return;
     }
   }
