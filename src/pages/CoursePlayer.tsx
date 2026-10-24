@@ -643,10 +643,21 @@ export function CoursePlayer() {
   const isCurrentLessonDone = currentLesson ? progress?.completed_lessons?.includes(currentLesson.id) : false;
 
   // Modular Udemy-Style Resources Breakdown
+  const getLessonResources = (lesson: CourseLesson): CourseResource[] => {
+    const direct = lesson.resources || [];
+    const fromCourse = (course?.resources || []).filter(
+      (r) => r.lesson_id === lesson.id
+    );
+    const map = new Map<string, CourseResource>();
+    direct.forEach((r: CourseResource) => map.set(r.id, r));
+    fromCourse.forEach((r: CourseResource) => map.set(r.id, r));
+    return Array.from(map.values());
+  };
+
   const getSectionResources = (section: CourseSection): CourseResource[] => {
-    const direct = section.resources || [];
-    const fromCourse = (course.resources || []).filter(
-      (r) => (r as any).section_id === section.id
+    const direct = (section.resources || []).filter((r) => !r.lesson_id);
+    const fromCourse = (course?.resources || []).filter(
+      (r) => (r as any).section_id === section.id && !r.lesson_id
     );
     const map = new Map<string, CourseResource>();
     direct.forEach((r: CourseResource) => map.set(r.id, r));
@@ -657,7 +668,7 @@ export function CoursePlayer() {
   const getSectionTotalFilesCount = (section: CourseSection): number => {
     const secRes = getSectionResources(section);
     const lessonResCount = (section.lessons || []).reduce(
-      (acc: number, l: CourseLesson) => acc + (l.resources?.length || 0),
+      (acc: number, l: CourseLesson) => acc + getLessonResources(l).length,
       0
     );
     return secRes.length + lessonResCount;
@@ -666,7 +677,7 @@ export function CoursePlayer() {
   const courseLevelResources = (course.resources || []).filter(
     (r) => !r.lesson_id && !(r as any).section_id
   );
-  const currentLessonResources = currentLesson?.resources || [];
+  const currentLessonResources = currentLesson ? getLessonResources(currentLesson) : [];
 
   const modularSections = (course.sections || [])
     .map((sec, sIdx) => {
@@ -675,7 +686,7 @@ export function CoursePlayer() {
         .map((les, lIdx) => ({
           lesson: les,
           lessonIndex: lIdx,
-          resources: les.resources || [],
+          resources: getLessonResources(les),
         }))
         .filter((l) => l.resources.length > 0);
 
@@ -1896,7 +1907,7 @@ export function CoursePlayer() {
                         {section.lessons.map((lesson, lIdx) => {
                           const isCurrent = currentLesson?.id === lesson.id;
                           const isDone = progress?.completed_lessons?.includes(lesson.id);
-                          const lessonResources = lesson.resources || [];
+                          const lessonResources = getLessonResources(lesson);
                           const hasLessonResources = lessonResources.length > 0;
                           const isResExpanded = !!expandedLessonResources[lesson.id];
 
@@ -2204,7 +2215,7 @@ export function CoursePlayer() {
 
                                       {/* Lecture resources in this section */}
                                       {section.lessons.flatMap((les, lIdx) =>
-                                        (les.resources || []).map((res) => (
+                                        getLessonResources(les).map((res) => (
                                           <div
                                             key={res.id}
                                             className="p-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--primary)] transition-all flex items-center justify-between gap-2 shadow-xs group"
@@ -2352,7 +2363,7 @@ export function CoursePlayer() {
                           {section.lessons.map((lesson, lIdx) => {
                             const isCurrent = currentLesson?.id === lesson.id;
                             const isDone = progress?.completed_lessons?.includes(lesson.id);
-                            const lessonResources = lesson.resources || [];
+                            const lessonResources = getLessonResources(lesson);
                             const hasLessonResources = lessonResources.length > 0;
                             const isResExpanded = !!expandedLessonResources[lesson.id];
 
@@ -2664,7 +2675,7 @@ export function CoursePlayer() {
 
                                         {/* Lecture resources in this section */}
                                         {section.lessons.flatMap((les, lIdx) =>
-                                          (les.resources || []).map((res) => (
+                                          getLessonResources(les).map((res) => (
                                             <div
                                               key={res.id}
                                               className="p-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--primary)] transition-all flex items-center justify-between gap-2 shadow-xs group"

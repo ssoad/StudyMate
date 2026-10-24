@@ -441,7 +441,7 @@ export const dataService = {
       if (supabase) {
         const { data, error } = await supabase
           .from('courses')
-          .select('*, sections:course_sections(*, lessons:course_lessons(*, resources:course_resources(*))), resources:course_resources(*)')
+          .select('*, sections:course_sections(*, resources:course_resources(*), lessons:course_lessons(*, resources:course_resources(*))), resources:course_resources(*)')
           .order('created_at', { ascending: false });
 
         if (!error && data && data.length > 0) {
@@ -468,7 +468,7 @@ export const dataService = {
       if (supabase) {
         const { data, error } = await supabase
           .from('courses')
-          .select('*, sections:course_sections(*, lessons:course_lessons(*, resources:course_resources(*))), resources:course_resources(*)')
+          .select('*, sections:course_sections(*, resources:course_resources(*), lessons:course_lessons(*, resources:course_resources(*))), resources:course_resources(*)')
           .eq('id', id)
           .maybeSingle();
 
