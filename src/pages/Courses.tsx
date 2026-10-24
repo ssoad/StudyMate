@@ -313,10 +313,7 @@ export function Courses() {
                 </div>
 
                 {/* CONTENT */}
-                <CardBody 
-                  className="p-5 flex-1 flex flex-col justify-between space-y-4"
-                  style={{ padding: '1.25rem' }}
-                >
+                <CardBody className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
                       <div className="flex items-center text-amber-500 font-bold gap-1">
@@ -385,6 +382,19 @@ export function Courses() {
                       )}
                     </div>
                   </div>
+
+                  {/* Quick Action Button for Mobile & Touch Accessibility */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/courses/${course.id}`);
+                    }}
+                    className="w-full py-2.5 px-3 rounded-xl bg-[var(--surface-hover)] hover:bg-[var(--primary)] text-[var(--text-main)] hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-200 border border-[var(--border)] group-hover:border-[var(--primary)] shadow-sm"
+                  >
+                    <Play size={13} className="fill-current" />
+                    <span>{prog && prog.completed_lessons?.length ? 'Resume Course' : 'Start Course'}</span>
+                  </button>
                 </CardBody>
               </Card>
             );

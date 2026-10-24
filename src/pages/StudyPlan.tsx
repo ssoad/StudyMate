@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardBody } from '../components/Card';
-import { ChevronDown, ChevronUp, BookOpen, Compass, CheckCircle2, Circle, Clock, CheckSquare } from 'lucide-react';
+import { 
+  ChevronDown, 
+  BookOpen, 
+  Compass, 
+  CheckCircle2, 
+  Circle, 
+  Clock, 
+  CheckSquare
+} from 'lucide-react';
 import { dataService, type StudyDay } from '../lib/dataService';
 import { useToastStore } from '../store/toastStore';
 
@@ -8,16 +15,16 @@ export function StudyPlan() {
   const [studyDays, setStudyDays] = useState<StudyDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedPhase, setExpandedPhase] = useState<string | null>(null);
-  const addToast = useToastStore(state => state.addToast);
+  const addToast = useToastStore((state) => state.addToast);
 
   useEffect(() => {
     async function fetchStudyDays() {
       const { data, error } = await dataService.getStudyDays();
       if (!error && data) {
         setStudyDays(data as StudyDay[]);
-        
+
         // Auto-expand the first phase
-        const phases = Array.from(new Set(data.map(d => d.phase)));
+        const phases = Array.from(new Set(data.map((d) => d.phase)));
         if (phases.length > 0) {
           setExpandedPhase(phases[0]);
         }
@@ -29,16 +36,23 @@ export function StudyPlan() {
 
   const toggleDayStatus = async (day: StudyDay) => {
     const newStatus = day.status === 'Complete' ? 'Pending' : 'Complete';
-    
+
     // Optimistic UI update
-    setStudyDays(prev => prev.map(d => d.id === day.id ? { ...d, status: newStatus } : d));
-    
+    setStudyDays((prev) => prev.map((d) => (d.id === day.id ? { ...d, status: newStatus } : d)));
+
     // Backend update
     const { error } = await dataService.updateStudyDay(day.id, { status: newStatus });
     if (error) {
       addToast('Failed to update status', 'error');
       // Revert on error
-      setStudyDays(prev => prev.map(d => d.id === day.id ? { ...d, status: day.status } : d));
+      setStudyDays((prev) => prev.map((d) => (d.id === day.id ? { ...d, status: day.status } : d)));
+    } else {
+      addToast(
+        newStatus === 'Complete'
+          ? 'Study day marked as complete! (+10 XP)'
+          : 'Study day marked as pending',
+        'success'
+      );
     }
   };
 
@@ -50,23 +64,24 @@ export function StudyPlan() {
   }, {} as Record<string, StudyDay[]>);
 
   const totalDays = studyDays.length;
-  const completedDays = studyDays.filter(d => d.status === 'Complete').length;
+  const completedDays = studyDays.filter((d) => d.status === 'Complete').length;
   const progressPercent = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
 
   const renderChecklist = (text: string) => {
     if (!text) return null;
-    const items = text.split('\n')
-      .map(t => t.replace(/^[•\-*]\s*/, '').trim())
+    const items = text
+      .split('\n')
+      .map((t) => t.replace(/^[•\-*]\s*/, '').trim())
       .filter(Boolean);
-      
-    if (items.length === 1) return <div className="text-xs text-muted">{items[0]}</div>;
-    
+
+    if (items.length === 1) return <div className="text-xs text-[var(--text-muted)]">{items[0]}</div>;
+
     return (
-      <ul className="flex flex-col gap-1 m-0 p-0 pl-1 list-none">
+      <ul className="space-y-1 pl-1 list-none">
         {items.map((item, idx) => (
           <li key={idx} className="flex items-start gap-2">
-            <CheckSquare size={12} className="text-blue-500 mt-[2px] flex-shrink-0" />
-            <span className="text-xs text-muted">{item}</span>
+            <CheckSquare size={13} className="text-[var(--primary)] mt-0.5 shrink-0" />
+            <span className="text-xs text-[var(--text-muted)] leading-relaxed">{item}</span>
           </li>
         ))}
       </ul>
@@ -74,58 +89,64 @@ export function StudyPlan() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-xl sm:text-3xl font-bold text-[var(--text-main)] mb-1 font-[var(--font-heading)]">Study Plan</h1>
-          <p className="text-sm sm:text-base text-[var(--text-muted)]">Track your daily exam preparation progress.</p>
+    <div className="flex flex-col gap-6 sm:gap-8 animate-fade-in pb-12 max-w-7xl mx-auto">
+      {/* HEADER BANNER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 sm:p-7 rounded-3xl border border-[var(--border)] bg-gradient-to-br from-[var(--surface)] via-[var(--surface)] to-[var(--surface-hover)] shadow-sm">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider">
+            <Compass size={14} />
+            <span>Structured Syllabus</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] font-[var(--font-heading)] tracking-tight">
+            Study Plan & Daily Deliverables
+          </h1>
+          <p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-xl">
+            Track daily topics, solve practice targets, and mark completed sessions as you advance through the curriculum.
+          </p>
         </div>
-        
+
         {!loading && totalDays > 0 && (
-          <div className="flex flex-col items-start sm:items-end gap-1.5 w-full sm:w-auto">
-            <div className="badge badge-primary flex gap-2 items-center text-xs sm:text-sm py-1.5 px-3">
-              <Compass size={15} />
-              <span>{completedDays} / {totalDays} Days Completed</span>
+          <div className="flex flex-col items-start sm:items-end gap-2 w-full sm:w-auto shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[var(--text-muted)] font-semibold">Total Progress:</span>
+              <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs border border-emerald-500/20">
+                {completedDays} / {totalDays} Days ({progressPercent}%)
+              </span>
             </div>
-            <div className="w-full sm:w-48 bg-[var(--surface-hover)] rounded-full h-1.5 overflow-hidden">
-              <div className="bg-[var(--primary)] h-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
+            <div className="w-full sm:w-48 bg-[var(--surface-hover)] rounded-full h-2 overflow-hidden border border-[var(--border)]">
+              <div
+                className="bg-emerald-500 h-full transition-all duration-500 rounded-full"
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
           </div>
         )}
       </div>
 
-      <div className="flex flex-col gap-6">
+      {/* SYLLABUS PHASES ACCORDION */}
+      <div className="space-y-4 sm:space-y-6">
         {loading ? (
-          // SKELETON LOADER
-          <div className="flex flex-col gap-4">
-            {[1, 2, 3].map((i) => (
-              <Card key={i}>
-                <CardBody className="flex flex-col gap-3">
-                  <div className="skeleton" style={{ height: '24px', width: '120px', borderRadius: '4px' }} />
-                  <div className="skeleton" style={{ height: '16px', width: '240px', borderRadius: '4px' }} />
-                </CardBody>
-              </Card>
-            ))}
-          </div>
+          [1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="p-6 rounded-3xl border border-[var(--border)] bg-[var(--surface)] space-y-4 animate-pulse h-36"
+            />
+          ))
         ) : Object.keys(groupByPhase).length === 0 ? (
-          <Card glass style={{ borderStyle: 'dashed', borderColor: 'var(--border)' }}>
-            <CardBody className="text-center flex flex-col items-center justify-center p-8 gap-3">
-              <div style={{ background: 'var(--surface-hover)', padding: '1rem', borderRadius: '50%', color: 'var(--text-muted)' }}>
-                <BookOpen size={36} />
-              </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Curriculum is empty</h3>
-              <p className="text-muted text-sm m-0" style={{ maxWidth: '360px' }}>
-                There are no study days assigned yet. Admins can import the curriculum CSV in the Admin Panel.
-              </p>
-            </CardBody>
-          </Card>
+          <div className="text-center py-20 border-2 border-dashed border-[var(--border)] rounded-3xl bg-[var(--surface)] space-y-3">
+            <BookOpen size={44} className="mx-auto text-[var(--text-muted)] opacity-40" />
+            <h3 className="text-base font-bold text-[var(--text-main)]">Curriculum is empty</h3>
+            <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
+              There are no study days assigned yet. Admins can import the curriculum CSV in the Admin Panel.
+            </p>
+          </div>
         ) : (
           Object.entries(groupByPhase).map(([phase, days]) => {
             const isExpanded = expandedPhase === phase;
-            const phaseCompletedDays = days.filter(d => d.status === 'Complete').length;
+            const phaseCompletedDays = days.filter((d) => d.status === 'Complete').length;
             const isPhaseComplete = phaseCompletedDays === days.length && days.length > 0;
 
-            // Group by week inside the phase
+            // Group by week inside phase
             const phaseByWeek = days.reduce((acc, day) => {
               if (!acc[day.week]) acc[day.week] = [];
               acc[day.week].push(day);
@@ -133,128 +154,183 @@ export function StudyPlan() {
             }, {} as Record<number, StudyDay[]>);
 
             return (
-              <Card key={phase} style={{ overflow: 'hidden' }}>
-                <div 
+              <div
+                key={phase}
+                className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-xs overflow-hidden transition-all"
+              >
+                {/* Phase Header */}
+                <button
+                  type="button"
                   onClick={() => setExpandedPhase(isExpanded ? null : phase)}
-                  style={{ cursor: 'pointer', transition: 'background-color var(--transition-fast)' }}
-                  className="hover:bg-[var(--surface-hover)]"
+                  className="w-full p-4 sm:p-5 flex items-center justify-between gap-4 text-left hover:bg-[var(--surface-hover)] transition-colors select-none"
                 >
-                  <CardHeader style={{ borderBottom: isExpanded ? '1px solid var(--border)' : 'none', padding: '1.25rem 1.5rem' }}>
-                    <div className="flex justify-between items-center w-full">
-                      <div className="flex items-center gap-3">
-                        {isPhaseComplete ? (
-                          <CheckCircle2 size={24} className="text-success" />
-                        ) : (
-                          <Circle size={24} className="text-muted" />
-                        )}
-                        <div>
-                          <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>
-                            {phase}
-                          </h3>
-                          <span className="text-sm text-muted">
-                            {phaseCompletedDays} / {days.length} Days Completed
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-muted">
-                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                      </div>
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    {isPhaseComplete ? (
+                      <CheckCircle2 size={24} className="text-emerald-500 fill-emerald-500/10 shrink-0" />
+                    ) : (
+                      <Circle size={24} className="text-[var(--text-muted)] shrink-0" />
+                    )}
+                    <div className="overflow-hidden">
+                      <h3 className="text-base font-bold text-[var(--text-main)] truncate font-[var(--font-heading)]">
+                        {phase}
+                      </h3>
+                      <span className="text-xs text-[var(--text-muted)]">
+                        {phaseCompletedDays} / {days.length} Days Completed
+                      </span>
                     </div>
-                  </CardHeader>
-                </div>
-                
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]">
+                      {days.length} Days
+                    </span>
+                    <ChevronDown
+                      size={18}
+                      className={`text-[var(--text-muted)] transform transition-transform ${
+                        isExpanded ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </div>
+                </button>
+
+                {/* Phase Content */}
                 {isExpanded && (
-                  <CardBody className="flex flex-col gap-6" style={{ padding: '1.5rem', backgroundColor: 'var(--surface-hover)' }}>
+                  <div className="p-4 sm:p-6 bg-[var(--surface-hover)]/40 border-t border-[var(--border)] space-y-6 animate-fade-in">
                     {Object.entries(phaseByWeek).map(([week, weekDays]) => (
-                      <div key={week} className="flex flex-col gap-3">
-                        <h4 className="text-sm font-bold uppercase tracking-wider text-[var(--primary)] pl-1">Week {week}</h4>
-                        
+                      <div key={week} className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-[var(--primary)]" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--primary)]">
+                            Week {week}
+                          </h4>
+                        </div>
+
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                          {weekDays.map(day => (
-                            <div 
-                              key={day.id}
-                              className={`flex flex-col p-4 rounded-lg border transition-all ${
-                                day.status === 'Complete' 
-                                  ? 'bg-[var(--surface)] border-success/30 opacity-80' 
-                                  : 'bg-[var(--surface)] border-[var(--border)] hover:border-[var(--primary)]'
-                              }`}
-                            >
-                              <div className="flex justify-between items-start gap-4">
-                                <div className="flex gap-3">
-                                  <div className="flex flex-col items-center justify-center bg-[var(--surface-hover)] rounded-md px-3 py-1 flex-shrink-0 h-fit">
-                                    <span className="text-[10px] text-muted font-bold uppercase">Day</span>
-                                    <span className="text-lg font-bold">{day.day}</span>
+                          {weekDays.map((day) => {
+                            const isDone = day.status === 'Complete';
+
+                            return (
+                              <div
+                                key={day.id}
+                                className={`p-4 sm:p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between gap-3 shadow-xs ${
+                                  isDone
+                                    ? 'bg-[var(--surface)] border-emerald-500/30 opacity-90'
+                                    : 'bg-[var(--surface)] border-[var(--border)] hover:border-[var(--primary)]'
+                                }`}
+                              >
+                                <div className="space-y-3">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)] flex flex-col items-center justify-center shrink-0 text-center leading-none">
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                                          Day
+                                        </span>
+                                        <span className="text-sm font-extrabold text-[var(--text-main)] mt-0.5">
+                                          {day.day}
+                                        </span>
+                                      </div>
+
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[var(--primary)]/10 text-[var(--primary)]">
+                                            {day.subject}
+                                          </span>
+                                          <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1 font-medium">
+                                            <Clock size={11} />
+                                            {day.hours}h session
+                                          </span>
+                                        </div>
+                                        <h5 className="font-bold text-sm text-[var(--text-main)] mt-0.5">
+                                          {day.module || day.subject || 'Study Session'}
+                                        </h5>
+                                      </div>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleDayStatus(day)}
+                                      className="p-1.5 rounded-full hover:bg-[var(--surface-hover)] transition-colors shrink-0"
+                                      title={isDone ? 'Mark as Pending' : 'Mark as Complete'}
+                                    >
+                                      {isDone ? (
+                                        <CheckCircle2 size={22} className="text-emerald-500 fill-emerald-500/10" />
+                                      ) : (
+                                        <Circle size={22} className="text-[var(--text-muted)] hover:text-emerald-500" />
+                                      )}
+                                    </button>
                                   </div>
-                                  
-                                  <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="badge badge-secondary text-[10px]">{day.subject}</span>
-                                      <span className="text-xs text-muted font-medium flex items-center gap-1">
-                                        <Clock size={12}/> {day.hours}h
+
+                                  {day.detailed_topics && (
+                                    <p className="text-xs text-[var(--text-muted)] leading-relaxed whitespace-pre-wrap">
+                                      {day.detailed_topics}
+                                    </p>
+                                  )}
+
+                                  {/* MCQ & Written targets */}
+                                  <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+                                    <div className="p-2 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)]">
+                                      <span className="text-sm font-bold text-[var(--text-main)] block">
+                                        {day.mcq_target || 30}
+                                      </span>
+                                      <span className="text-[9px] uppercase font-bold text-[var(--text-muted)]">
+                                        MCQs
                                       </span>
                                     </div>
-                                    <h5 className="font-bold text-base m-0 leading-tight">
-                                      {day.subject || day.module || 'Study Session'}
-                                    </h5>
+                                    <div className="p-2 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)]">
+                                      <span className="text-sm font-bold text-[var(--text-main)] block">
+                                        {day.written_target || 5}
+                                      </span>
+                                      <span className="text-[9px] uppercase font-bold text-[var(--text-muted)]">
+                                        Written
+                                      </span>
+                                    </div>
+                                    <div className="p-2 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)]">
+                                      <span className="text-sm font-bold text-[var(--text-main)] block">
+                                        {day.pyq_target || 10}
+                                      </span>
+                                      <span className="text-[9px] uppercase font-bold text-[var(--text-muted)]">
+                                        PYQs
+                                      </span>
+                                    </div>
                                   </div>
-                                </div>
-                                
-                                <button 
-                                  onClick={() => toggleDayStatus(day)}
-                                  className={`p-2 rounded-full transition-colors flex-shrink-0 ${
-                                    day.status === 'Complete' 
-                                      ? 'text-success bg-success/10 hover:bg-success/20' 
-                                      : 'text-muted hover:text-primary hover:bg-[var(--surface-hover)]'
-                                  }`}
-                                  title={day.status === 'Complete' ? 'Mark Pending' : 'Mark Complete'}
-                                >
-                                  {day.status === 'Complete' ? <CheckCircle2 size={24} /> : <Circle size={24} />}
-                                </button>
-                              </div>
 
-                              <div className="mt-3 pl-[3.25rem]">
-                                <p className="text-sm text-muted m-0 mb-3 whitespace-pre-wrap">{day.detailed_topics}</p>
-                                
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-                                  <div className="bg-[var(--surface-hover)] p-2 rounded text-center">
-                                    <div className="text-lg font-bold text-main leading-none">{day.mcq_target}</div>
-                                    <div className="text-[10px] text-muted uppercase mt-1">MCQ</div>
-                                  </div>
-                                  <div className="bg-[var(--surface-hover)] p-2 rounded text-center">
-                                    <div className="text-lg font-bold text-main leading-none">{day.written_target}</div>
-                                    <div className="text-[10px] text-muted uppercase mt-1">Written</div>
-                                  </div>
-                                  <div className="bg-[var(--surface-hover)] p-2 rounded text-center">
-                                    <div className="text-lg font-bold text-main leading-none">{day.pyq_target}</div>
-                                    <div className="text-[10px] text-muted uppercase mt-1">PYQ</div>
-                                  </div>
+                                  {/* Practice checklist & Daily deliverable */}
+                                  {(day.practice_checklist || day.daily_deliverable) && (
+                                    <div className="p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/15 space-y-2 text-xs">
+                                      {day.practice_checklist && (
+                                        <div className="space-y-1">
+                                          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] block">
+                                            Practice Checklist
+                                          </span>
+                                          {renderChecklist(day.practice_checklist)}
+                                        </div>
+                                      )}
+                                      {day.daily_deliverable && (
+                                        <div
+                                          className={`space-y-0.5 ${
+                                            day.practice_checklist ? 'pt-2 border-t border-indigo-500/10' : ''
+                                          }`}
+                                        >
+                                          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] block">
+                                            Deliverable
+                                          </span>
+                                          <p className="text-xs font-semibold text-[var(--text-main)]">
+                                            {day.daily_deliverable}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
-                                
-                                {(day.practice_checklist || day.daily_deliverable) && (
-                                  <div className="flex flex-col gap-3 bg-blue-500/5 p-3 rounded border border-blue-500/10">
-                                    {day.practice_checklist && (
-                                      <div className="flex flex-col gap-1">
-                                        <div className="text-[10px] font-bold text-blue-500 uppercase">Checklist</div>
-                                        {renderChecklist(day.practice_checklist)}
-                                      </div>
-                                    )}
-                                    {day.daily_deliverable && (
-                                      <div className={`flex flex-col gap-1 ${day.practice_checklist ? 'border-t border-blue-500/10 pt-2' : ''}`}>
-                                        <div className="text-[10px] font-bold text-blue-500 uppercase">Deliverable</div>
-                                        <div className="text-xs font-medium">{day.daily_deliverable}</div>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
-                  </CardBody>
+                  </div>
                 )}
-              </Card>
+              </div>
             );
           })
         )}

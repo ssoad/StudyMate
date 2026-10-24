@@ -37,45 +37,37 @@ export function Login() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-80" style={{ padding: '2rem 1rem' }}>
-      <Card className="w-full max-w-md glass-panel" style={{ border: '1px solid var(--glass-border)' }}>
-        <CardHeader className="text-center" style={{ borderBottom: '1px solid var(--border)' }}>
+    <div className="flex flex-col items-center justify-center min-h-[75vh] px-4 py-8">
+      <Card className="w-full max-w-md glass-panel border border-[var(--border)] shadow-xl rounded-2xl overflow-hidden">
+        <CardHeader className="text-center p-6 border-b border-[var(--border)] bg-[var(--surface-hover)]/30">
           <div className="flex justify-center mb-4">
-            <div
-              className="p-4 bg-primary text-white rounded-full flex items-center justify-center shadow-lg"
-              style={{ width: '56px', height: '56px' }}
-            >
+            <div className="w-14 h-14 bg-gradient-to-tr from-indigo-600 to-purple-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
               <GraduationCap size={28} />
             </div>
           </div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+          <h2 className="text-2xl font-bold font-[var(--font-heading)] text-[var(--text-main)]">
             {mode === 'login' ? 'Welcome Back' : 'Create Account'}
           </h2>
-          <p className="text-muted text-sm mt-2">
+          <p className="text-[var(--text-muted)] text-sm mt-1.5">
             {mode === 'login'
               ? 'Log in to continue your learning journey'
               : 'Start tracking your study plan and courses'}
           </p>
         </CardHeader>
-        <CardBody>
+        <CardBody className="p-6">
           <form onSubmit={handleAuth} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <label
-                className="text-xs font-semibold text-muted"
-                style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
-              >
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
                 Email Address
               </label>
-              <div style={{ position: 'relative' }}>
+              <div className="relative">
                 <Mail
                   size={16}
-                  color="var(--text-muted)"
-                  style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
                 />
                 <input
                   type="email"
-                  className="input"
-                  style={{ paddingLeft: '2.75rem' }}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] text-sm text-[var(--text-main)] focus:outline-none focus:border-[var(--primary)] transition-colors"
                   placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -84,23 +76,18 @@ export function Login() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label
-                className="text-xs font-semibold text-muted"
-                style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
-              >
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
                 Password
               </label>
-              <div style={{ position: 'relative' }}>
+              <div className="relative">
                 <Lock
                   size={16}
-                  color="var(--text-muted)"
-                  style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
                 />
                 <input
                   type="password"
-                  className="input"
-                  style={{ paddingLeft: '2.75rem' }}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] text-sm text-[var(--text-main)] focus:outline-none focus:border-[var(--primary)] transition-colors"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -109,33 +96,30 @@ export function Login() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full mt-2" disabled={loading}>
+            <Button type="submit" variant="primary" className="w-full mt-2 py-2.5 rounded-xl text-sm font-semibold shadow-md shadow-indigo-500/20" disabled={loading}>
               {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Sign Up'}
             </Button>
           </form>
 
-          <div
-            className="mt-6 text-center text-sm"
-            style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}
-          >
+          <div className="mt-6 text-center text-sm border-t border-[var(--border)] pt-5">
             {mode === 'login' ? (
-              <p className="text-muted">
+              <p className="text-[var(--text-muted)]">
                 Don't have an account?{' '}
                 <button
+                  type="button"
                   onClick={() => setMode('signup')}
-                  className="text-primary hover:underline bg-transparent border-none cursor-pointer font-semibold"
-                  style={{ color: 'var(--primary)' }}
+                  className="text-[var(--primary)] hover:underline font-semibold ml-1 cursor-pointer"
                 >
                   Sign up
                 </button>
               </p>
             ) : (
-              <p className="text-muted">
+              <p className="text-[var(--text-muted)]">
                 Already have an account?{' '}
                 <button
+                  type="button"
                   onClick={() => setMode('login')}
-                  className="text-primary hover:underline bg-transparent border-none cursor-pointer font-semibold"
-                  style={{ color: 'var(--primary)' }}
+                  className="text-[var(--primary)] hover:underline font-semibold ml-1 cursor-pointer"
                 >
                   Sign in
                 </button>

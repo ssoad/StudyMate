@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardBody } from '../components/Card';
 import { Button } from '../components/Button';
-import { Users, BookOpen, MessageSquare, PlusCircle, PlayCircle } from 'lucide-react';
+import { Users, BookOpen, MessageSquare, PlusCircle, PlayCircle, ShieldCheck } from 'lucide-react';
 import { dataService } from '../lib/dataService';
 
 export function AdminDashboard() {
@@ -22,107 +22,147 @@ export function AdminDashboard() {
       <div className="flex justify-between items-center flex-wrap gap-4 border-b border-[var(--border)] pb-5">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-[var(--font-heading)] text-[var(--text-main)] mb-1">
-            Admin Dashboard
+            Admin Command Center
           </h1>
           <p className="text-sm sm:text-base text-[var(--text-muted)]">
-            Manage the curriculum syllabus, exams, and community parameters.
+            Manage curriculum syllabus, video courses, exams, and student enrollments.
           </p>
         </div>
       </div>
 
       {/* OVERVIEW STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        <Card glass>
-          <CardBody className="flex flex-col gap-2">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="text-muted" style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Users</h3>
-              <Users size={20} color="var(--primary)" />
+        <Card glass className="border border-[var(--border)]">
+          <CardBody className="p-5 flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Total Users</h3>
+              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500">
+                <Users size={18} />
+              </div>
             </div>
-            {loading ? <div className="h-8 bg-[var(--surface-hover)] rounded w-16 animate-pulse mt-1 mb-1"></div> : <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-main)]">{stats.users.toLocaleString()}</h2>}
-            <p className="text-muted text-xs">Registered members</p>
+            {loading ? (
+              <div className="h-8 bg-[var(--surface-hover)] rounded w-16 animate-pulse my-1" />
+            ) : (
+              <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-main)]">
+                {stats.users.toLocaleString()}
+              </h2>
+            )}
+            <p className="text-xs text-[var(--text-muted)]">Registered student accounts</p>
           </CardBody>
         </Card>
         
-        <Card glass>
-          <CardBody className="flex flex-col gap-2">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="text-muted" style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Study Topics</h3>
-              <BookOpen size={20} color="var(--primary)" />
+        <Card glass className="border border-[var(--border)]">
+          <CardBody className="p-5 flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Study Topics</h3>
+              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                <BookOpen size={18} />
+              </div>
             </div>
-            {loading ? <div className="h-8 bg-[var(--surface-hover)] rounded w-16 animate-pulse mt-1 mb-1"></div> : <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-main)]">{stats.topics.toLocaleString()}</h2>}
-            <p className="text-muted text-xs">Manage syllabus curriculum</p>
+            {loading ? (
+              <div className="h-8 bg-[var(--surface-hover)] rounded w-16 animate-pulse my-1" />
+            ) : (
+              <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-main)]">
+                {stats.topics.toLocaleString()}
+              </h2>
+            )}
+            <p className="text-xs text-[var(--text-muted)]">Curriculum syllabus modules</p>
           </CardBody>
         </Card>
 
-        <Card glass>
-          <CardBody className="flex flex-col gap-2">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="text-muted" style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Forum Discussions</h3>
-              <MessageSquare size={20} color="var(--primary)" />
+        <Card glass className="border border-[var(--border)]">
+          <CardBody className="p-5 flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Community Posts</h3>
+              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500">
+                <MessageSquare size={18} />
+              </div>
             </div>
-            {loading ? <div className="h-8 bg-[var(--surface-hover)] rounded w-16 animate-pulse mt-1 mb-1"></div> : <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-main)]">{stats.discussions.toLocaleString()}</h2>}
-            <p className="text-muted text-xs">Monitor community boards</p>
+            {loading ? (
+              <div className="h-8 bg-[var(--surface-hover)] rounded w-16 animate-pulse my-1" />
+            ) : (
+              <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-main)]">
+                {stats.discussions.toLocaleString()}
+              </h2>
+            )}
+            <p className="text-xs text-[var(--text-muted)]">Active forum conversations</p>
           </CardBody>
         </Card>
       </div>
 
       {/* QUICK ACTIONS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1.5rem' }} className="mt-4">
-        <Card>
-          <CardHeader style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
-            <div className="flex items-center gap-2">
-              <BookOpen size={18} className="text-[var(--primary)]" />
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Study Plans</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-2">
+        <Card className="flex flex-col border border-[var(--border)] hover:border-[var(--primary)] transition-all">
+          <CardHeader className="p-5 border-b border-[var(--border)]">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)]">
+                <BookOpen size={18} />
+              </div>
+              <h3 className="text-base font-bold text-[var(--text-main)]">Study Plans</h3>
             </div>
           </CardHeader>
-          <CardBody style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <p className="text-sm text-muted">Create new curriculum topics, upload PDFs, attach book references, and use AI to generate complete study guides.</p>
-            <Button onClick={() => window.location.href = '/admin/study-plans'} className="w-full justify-center mt-auto">
+          <CardBody className="p-5 flex flex-col justify-between flex-1 gap-4">
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+              Create curriculum topics, attach books, upload PDFs, and generate complete study guides with AI.
+            </p>
+            <Button onClick={() => window.location.href = '/admin/study-plans'} variant="secondary" className="w-full justify-center text-xs">
               Manage Study Plans
             </Button>
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
-            <div className="flex items-center gap-2">
-              <PlayCircle size={18} className="text-[var(--primary)]" />
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Video Courses</h3>
+        <Card className="flex flex-col border border-[var(--border)] hover:border-[var(--primary)] transition-all">
+          <CardHeader className="p-5 border-b border-[var(--border)]">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-red-500/10 text-red-500">
+                <PlayCircle size={18} />
+              </div>
+              <h3 className="text-base font-bold text-[var(--text-main)]">Video Courses</h3>
             </div>
           </CardHeader>
-          <CardBody style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <p className="text-sm text-muted">Create courses from YouTube playlist URLs, organize modules and lectures, and attach textbooks & PDFs for student classrooms.</p>
-            <Button onClick={() => window.location.href = '/admin/courses'} className="w-full justify-center mt-auto">
+          <CardBody className="p-5 flex flex-col justify-between flex-1 gap-4">
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+              Import YouTube playlists, structure modular sections, and attach downloadable textbooks & lecture notes.
+            </p>
+            <Button onClick={() => window.location.href = '/admin/courses'} variant="secondary" className="w-full justify-center text-xs">
               Manage Courses
             </Button>
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
-            <div className="flex items-center gap-2">
-              <PlusCircle size={18} className="text-[var(--primary)]" />
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Exams & Quizzes</h3>
+        <Card className="flex flex-col border border-[var(--border)] hover:border-[var(--primary)] transition-all">
+          <CardHeader className="p-5 border-b border-[var(--border)]">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
+                <PlusCircle size={18} />
+              </div>
+              <h3 className="text-base font-bold text-[var(--text-main)]">Exams & Quizzes</h3>
             </div>
           </CardHeader>
-          <CardBody style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <p className="text-sm text-muted">Schedule new exams, set duration and question counts, and track upcoming mock tests for students.</p>
-            <Button onClick={() => window.location.href = '/admin/exams'} className="w-full justify-center mt-auto">
+          <CardBody className="p-5 flex flex-col justify-between flex-1 gap-4">
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+              Schedule live mock exams, configure question banks, time limits, and review real-time student submissions.
+            </p>
+            <Button onClick={() => window.location.href = '/admin/exams'} variant="secondary" className="w-full justify-center text-xs">
               Manage Exams
             </Button>
           </CardBody>
         </Card>
 
-        <Card className="border-indigo-500/20 bg-indigo-500/5">
-          <CardHeader style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
-            <div className="flex items-center gap-2">
-              <PlayCircle size={18} className="text-indigo-500" />
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Course Enrollments</h3>
+        <Card className="flex flex-col border border-indigo-500/30 bg-indigo-500/5 hover:border-indigo-500 transition-all">
+          <CardHeader className="p-5 border-b border-indigo-500/20">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-500">
+                <ShieldCheck size={18} />
+              </div>
+              <h3 className="text-base font-bold text-[var(--text-main)]">Course Enrollments</h3>
             </div>
           </CardHeader>
-          <CardBody style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <p className="text-sm text-muted">Verify student manual payment details (bKash/Nagad/Rocket/Bank TrxID & receipts) and approve access.</p>
-            <Button onClick={() => window.location.href = '/admin/enrollments'} className="w-full justify-center mt-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
+          <CardBody className="p-5 flex flex-col justify-between flex-1 gap-4">
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+              Review student manual payments (bKash/Nagad/Rocket/Bank TrxID), verify transaction receipts, and approve access.
+            </p>
+            <Button onClick={() => window.location.href = '/admin/enrollments'} variant="primary" className="w-full justify-center text-xs font-bold shadow-md shadow-indigo-500/20">
               Review Enrollments
             </Button>
           </CardBody>

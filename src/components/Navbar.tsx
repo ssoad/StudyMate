@@ -218,7 +218,7 @@ export function Navbar() {
           {isAdmin && (
             <>
               {!isCollapsed ? (
-                <div className="sidebar-admin-title" style={{ marginTop: '0.85rem', padding: '0 0.85rem', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <div className="sidebar-admin-title mt-3.5 px-3.5 text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
                   Admin
                 </div>
               ) : (

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Card, CardBody } from '../components/Card';
+import { MessageSquare, Send, Plus, Search, MessageCircle, X } from 'lucide-react';
 import { Button } from '../components/Button';
-import { MessageCircle, Send, PlusCircle, Globe } from 'lucide-react';
 import { dataService } from '../lib/dataService';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
@@ -16,18 +15,22 @@ interface DiscussionPost {
 
 export function Discussion() {
   const { user } = useAuthStore();
+  const { addToast } = useToastStore();
+
   const [posts, setPosts] = useState<DiscussionPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const addToast = useToastStore((state) => state.addToast);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchPosts();
   }, []);
 
   async function fetchPosts() {
+    setLoading(true);
     const { data, error } = await dataService.getDiscussions();
     if (!error && data) setPosts(data);
     setLoading(false);
@@ -36,167 +39,205 @@ export function Discussion() {
   async function handlePost(e: React.FormEvent) {
     e.preventDefault();
     if (!user) {
-      addToast('You must be signed in to post.', 'error');
+      addToast('Please sign in to post in the community forum.', 'error');
       return;
     }
     if (!newTitle.trim() || !newContent.trim()) {
-      addToast('Please enter both title and content.', 'error');
+      addToast('Please enter both a title and topic description.', 'info');
       return;
     }
 
+    setIsSubmitting(true);
     const { error } = await dataService.addDiscussion({
-      title: newTitle,
-      content: newContent,
-      author_id: user.id
+      title: newTitle.trim(),
+      content: newContent.trim(),
+      author_id: user.id,
     });
+
+    setIsSubmitting(false);
 
     if (!error) {
       setNewTitle('');
       setNewContent('');
-      setShowForm(false);
-      addToast('Discussion post published successfully!', 'success');
+      setShowModal(false);
+      addToast('Discussion posted to community board! (+5 XP)', 'success');
       fetchPosts();
     } else {
-      addToast('Error posting discussion: ' + error, 'error');
+      addToast('Failed to publish post: ' + error, 'error');
     }
   }
 
+  const filteredPosts = posts.filter(
+    (p) =>
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.content.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="flex flex-col gap-6 animate-fade-in pb-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-[var(--font-heading)] text-[var(--text-main)] mb-1">
-            Community Board
+    <div className="flex flex-col gap-6 sm:gap-8 animate-fade-in pb-12 max-w-5xl mx-auto">
+      {/* HEADER BANNER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 sm:p-7 rounded-3xl border border-[var(--border)] bg-gradient-to-br from-[var(--surface)] via-[var(--surface)] to-[var(--surface-hover)] shadow-sm">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider">
+            <MessageSquare size={14} />
+            <span>Peer Learning Forum</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] font-[var(--font-heading)] tracking-tight">
+            Community Discussions
           </h1>
-          <p className="text-sm sm:text-base text-[var(--text-muted)]">
-            Share code, ask preparation queries, or organize study sessions.
+          <p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-xl">
+            Ask homework doubts, share code blueprints, discuss exam questions, and collaborate with peers.
           </p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 w-full sm:w-auto justify-center">
-          <PlusCircle size={16} /> {showForm ? 'Cancel Post' : 'New Discussion'}
+
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => setShowModal(true)}
+          icon={<Plus size={16} />}
+          className="shadow-sm"
+        >
+          New Topic
         </Button>
       </div>
 
-      {showForm && (
-        <Card className="glass-panel" style={{ border: '1px solid var(--glass-border)' }}>
-          <CardBody>
-            <form onSubmit={handlePost} className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Topic Title</label>
-                <input 
-                  type="text" 
-                  placeholder="What is your topic?" 
-                  className="input" 
-                  value={newTitle}
-                  onChange={e => setNewTitle(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description / Content</label>
-                <textarea 
-                  placeholder="Describe your issue or question..." 
-                  className="input min-h-[120px] resize-y"
-                  value={newContent}
-                  onChange={e => setNewContent(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="flex justify-end gap-2 mt-2">
-                <Button variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
-                <Button type="submit" className="flex items-center gap-2">
-                  <Send size={14} /> Publish Post
-                </Button>
-              </div>
-            </form>
-          </CardBody>
-        </Card>
-      )}
+      {/* SEARCH BAR */}
+      <div className="relative">
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search discussions by keyword, topic, or question..."
+          className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-xs sm:text-sm text-[var(--text-main)] focus:outline-none focus:border-[var(--primary)] shadow-xs"
+        />
+      </div>
 
-      <div className="flex flex-col gap-4">
+      {/* POSTS LIST */}
+      <div className="space-y-3.5">
         {loading ? (
-          // SKELETON LISTING
-          <div className="flex flex-col gap-4">
-            {[1, 2].map((i) => (
-              <Card key={i}>
-                <CardBody className="flex flex-col gap-2">
-                  <div className="skeleton" style={{ height: '20px', width: '250px', borderRadius: '4px' }} />
-                  <div className="skeleton" style={{ height: '14px', width: '100%', borderRadius: '4px' }} />
-                </CardBody>
-              </Card>
-            ))}
+          [1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="p-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] space-y-3 animate-pulse h-32"
+            />
+          ))
+        ) : filteredPosts.length === 0 ? (
+          <div className="text-center py-16 border-2 border-dashed border-[var(--border)] rounded-3xl bg-[var(--surface)] space-y-3">
+            <MessageCircle size={44} className="mx-auto text-[var(--text-muted)] opacity-40" />
+            <h3 className="text-base font-bold text-[var(--text-main)]">No discussions found</h3>
+            <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
+              {searchQuery
+                ? `No posts matched "${searchQuery}". Try a different keyword.`
+                : 'Start the very first conversation on this board!'}
+            </p>
+            <Button size="sm" variant="primary" onClick={() => setShowModal(true)} icon={<Plus size={14} />}>
+              Start First Discussion
+            </Button>
           </div>
-        ) : posts.length === 0 ? (
-          <Card glass style={{ borderStyle: 'dashed', borderColor: 'var(--border)' }}>
-            <CardBody className="text-center flex flex-col items-center justify-center p-8 gap-3">
-              <div style={{ background: 'var(--surface-hover)', padding: '1rem', borderRadius: '50%', color: 'var(--text-muted)' }}>
-                <Globe size={36} />
-              </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>No conversations yet</h3>
-              <p className="text-muted text-sm m-0" style={{ maxWidth: '360px' }}>
-                There are no posts on this board. Create a new topic to start the discussion!
-              </p>
-            </CardBody>
-          </Card>
         ) : (
-          posts.map((post) => {
-            const initials = post.author_id.substring(0, 2).toUpperCase();
+          filteredPosts.map((post) => {
+            const authorInitial = post.author_id ? post.author_id.substring(0, 2).toUpperCase() : 'ST';
+
             return (
-              <Card key={post.id} glass style={{ overflow: 'hidden' }}>
-                <CardBody className="flex gap-4" style={{ padding: '1.25rem 1.5rem' }}>
-                  {/* Avatar column */}
-                  <div style={{ 
-                    width: '40px', 
-                    height: '40px', 
-                    borderRadius: '50%', 
-                    background: 'var(--surface-hover)',
-                    border: '1px solid var(--border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: 'var(--primary)',
-                    flexShrink: 0
-                  }}>
-                    {initials}
-                  </div>
-                  
-                  {/* Content column */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>{post.title}</h3>
-                      <span className="text-muted text-xs">
-                        {new Date(post.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </span>
+              <div
+                key={post.id}
+                className="p-5 sm:p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)] transition-all duration-200 shadow-xs space-y-3 group"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                      {authorInitial}
                     </div>
-                    <p className="text-muted text-sm m-0 mt-2" style={{ lineHeight: '1.6', wordBreak: 'break-word' }}>{post.content}</p>
-                    
-                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
-                      <button 
-                        style={{ 
-                          background: 'none', 
-                          border: 'none', 
-                          color: 'var(--primary)', 
-                          fontSize: '0.8rem', 
-                          fontWeight: 600, 
-                          cursor: 'pointer',
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '0.25rem' 
-                        }}
-                        className="hover:underline"
-                      >
-                        <MessageCircle size={14} /> Reply
-                      </button>
+
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <h3 className="text-sm sm:text-base font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors line-clamp-2">
+                        {post.title}
+                      </h3>
+                      <p className="text-xs text-[var(--text-muted)] line-clamp-3 leading-relaxed whitespace-pre-wrap">
+                        {post.content}
+                      </p>
                     </div>
                   </div>
-                </CardBody>
-              </Card>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-[var(--border)] text-[11px] text-[var(--text-muted)]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-[var(--text-main)]">Peer Member</span>
+                    <span>•</span>
+                    <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                  </div>
+
+                  <span className="text-[var(--primary)] font-semibold flex items-center gap-1 group-hover:underline">
+                    <MessageCircle size={13} />
+                    <span>Join Discussion</span>
+                  </span>
+                </div>
+              </div>
             );
           })
         )}
       </div>
+
+      {/* NEW DISCUSSION MODAL */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-3xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+              <div className="flex items-center gap-2">
+                <MessageSquare size={18} className="text-[var(--primary)]" />
+                <h3 className="font-bold text-base text-[var(--text-main)]">Start a New Discussion</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="p-1 rounded-full text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handlePost} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                  Topic Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g. How to deploy Next.js with Supabase?"
+                  className="input text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                  Question or Description *
+                </label>
+                <textarea
+                  rows={5}
+                  required
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  placeholder="Detail your question, share code snippets, or explain what you are trying to solve..."
+                  className="input text-sm resize-y"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                <Button variant="ghost" onClick={() => setShowModal(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" disabled={isSubmitting} icon={<Send size={14} />}>
+                  {isSubmitting ? 'Posting...' : 'Publish Topic'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
