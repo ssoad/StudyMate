@@ -730,18 +730,42 @@ export const dataService = {
       created_at: new Date().toISOString()
     };
 
-    // Update in local courses if found
-    const local = dataService.getLocalCourses();
-    const updated = local.map(c => {
-      if (c.id === resource.course_id) {
-        return {
-          ...c,
-          resources: [...(c.resources || []), newRes]
-        };
+    // Update in local courses if found; clone from demo if needed
+    let local = dataService.getLocalCourses();
+    let courseMatch = local.find(c => c.id === resource.course_id);
+    if (!courseMatch) {
+      const demoMatch = INITIAL_DEMO_COURSES.find(c => c.id === resource.course_id);
+      if (demoMatch) {
+        courseMatch = JSON.parse(JSON.stringify(demoMatch));
+        local = [...local, courseMatch!];
       }
-      return c;
-    });
-    dataService.saveLocalCourses(updated);
+    }
+
+    if (courseMatch) {
+      if (newRes.lesson_id && courseMatch.sections) {
+        courseMatch.sections = courseMatch.sections.map(s => ({
+          ...s,
+          lessons: (s.lessons || []).map(l => {
+            if (l.id === newRes.lesson_id) {
+              return { ...l, resources: [...(l.resources || []), newRes] };
+            }
+            return l;
+          })
+        }));
+      } else if (newRes.section_id && courseMatch.sections) {
+        courseMatch.sections = courseMatch.sections.map(s => {
+          if (s.id === newRes.section_id) {
+            return { ...s, resources: [...(s.resources || []), newRes] };
+          }
+          return s;
+        });
+        courseMatch.resources = [...(courseMatch.resources || []), newRes];
+      } else {
+        courseMatch.resources = [...(courseMatch.resources || []), newRes];
+      }
+      const updatedAll = local.map(c => c.id === resource.course_id ? courseMatch! : c);
+      dataService.saveLocalCourses(updatedAll);
+    }
 
     try {
       if (supabase) {
@@ -761,7 +785,6 @@ export const dataService = {
         }
         const { error } = await supabase.from('course_resources').insert(payload);
         if (error && newRes.section_id) {
-          // If section_id column does not exist in Supabase yet, retry without section_id
           delete payload.section_id;
           await supabase.from('course_resources').insert(payload);
         }
@@ -771,6 +794,178 @@ export const dataService = {
     }
 
     return { data: newRes, error: null };
+  },
+
+  updateCourseResource: async (
+    courseId: string,
+    resourceId: string,
+    updates: Partial<CourseResource>
+  ): Promise<{ data: CourseResource | null; error: any }> => {
+    let local = dataService.getLocalCourses();
+    let courseMatch = local.find(c => c.id === courseId);
+    if (!courseMatch) {
+      const demoMatch = INITIAL_DEMO_COURSES.find(c => c.id === courseId);
+      if (demoMatch) {
+        courseMatch = JSON.parse(JSON.stringify(demoMatch));
+        local = [...local, courseMatch!];
+      }
+    }
+
+    if (!courseMatch) {
+      return { data: null, error: new Error('Course not found') };
+    }
+
+    // Find the resource anywhere in the course
+    let targetResource: CourseResource | null = null;
+    if (courseMatch.resources) {
+      const found = courseMatch.resources.find(r => r.id === resourceId);
+      if (found) targetResource = { ...found };
+    }
+    if (!targetResource && courseMatch.sections) {
+      for (const s of courseMatch.sections) {
+        if (s.resources) {
+          const found = s.resources.find(r => r.id === resourceId);
+          if (found) {
+            targetResource = { ...found };
+            break;
+          }
+        }
+      }
+    }
+    if (!targetResource && courseMatch.sections) {
+      for (const s of courseMatch.sections) {
+        for (const l of s.lessons || []) {
+          if (l.resources) {
+            const found = l.resources.find(r => r.id === resourceId);
+            if (found) {
+              targetResource = { ...found };
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (!targetResource) {
+      targetResource = {
+        id: resourceId,
+        course_id: courseId,
+        title: updates.title || 'Updated Resource',
+        file_url: updates.file_url || '',
+        resource_type: updates.resource_type || 'pdf'
+      };
+    }
+
+    // Merge updates
+    const mergedResource: CourseResource = {
+      ...targetResource,
+      ...updates,
+      id: resourceId,
+      course_id: courseId
+    };
+
+    // Remove old resource from everywhere
+    courseMatch.resources = (courseMatch.resources || []).filter(r => r.id !== resourceId);
+    if (courseMatch.sections) {
+      courseMatch.sections = courseMatch.sections.map(s => ({
+        ...s,
+        resources: (s.resources || []).filter(r => r.id !== resourceId),
+        lessons: (s.lessons || []).map(l => ({
+          ...l,
+          resources: (l.resources || []).filter(r => r.id !== resourceId)
+        }))
+      }));
+    }
+
+    // Place into new destination:
+    if (mergedResource.lesson_id) {
+      if (courseMatch.sections) {
+        courseMatch.sections = courseMatch.sections.map(s => ({
+          ...s,
+          lessons: (s.lessons || []).map(l => {
+            if (l.id === mergedResource.lesson_id) {
+              return { ...l, resources: [...(l.resources || []), mergedResource] };
+            }
+            return l;
+          })
+        }));
+      }
+    } else if (mergedResource.section_id) {
+      if (courseMatch.sections) {
+        courseMatch.sections = courseMatch.sections.map(s => {
+          if (s.id === mergedResource.section_id) {
+            return { ...s, resources: [...(s.resources || []), mergedResource] };
+          }
+          return s;
+        });
+      }
+      courseMatch.resources = [...(courseMatch.resources || []), mergedResource];
+    } else {
+      courseMatch.resources = [...(courseMatch.resources || []), mergedResource];
+    }
+
+    const updatedAll = local.map(c => c.id === courseId ? courseMatch! : c);
+    dataService.saveLocalCourses(updatedAll);
+
+    try {
+      if (supabase) {
+        await supabase
+          .from('course_resources')
+          .update({
+            title: mergedResource.title,
+            description: mergedResource.description,
+            resource_type: mergedResource.resource_type,
+            section_id: mergedResource.section_id || null,
+            lesson_id: mergedResource.lesson_id || null
+          })
+          .eq('id', resourceId);
+      }
+    } catch (e) {
+      console.warn('Supabase update course_resource error:', e);
+    }
+
+    return { data: mergedResource, error: null };
+  },
+
+  deleteCourseResource: async (
+    courseId: string,
+    resourceId: string
+  ): Promise<{ success: boolean; error: any }> => {
+    let local = dataService.getLocalCourses();
+    let courseMatch = local.find(c => c.id === courseId);
+    if (!courseMatch) {
+      const demoMatch = INITIAL_DEMO_COURSES.find(c => c.id === courseId);
+      if (demoMatch) {
+        courseMatch = JSON.parse(JSON.stringify(demoMatch));
+        local = [...local, courseMatch!];
+      }
+    }
+
+    if (courseMatch) {
+      courseMatch.resources = (courseMatch.resources || []).filter(r => r.id !== resourceId);
+      if (courseMatch.sections) {
+        courseMatch.sections = courseMatch.sections.map(s => ({
+          ...s,
+          resources: (s.resources || []).filter(r => r.id !== resourceId),
+          lessons: (s.lessons || []).map(l => ({
+            ...l,
+            resources: (l.resources || []).filter(r => r.id !== resourceId)
+          }))
+        }));
+      }
+      const updatedAll = local.map(c => c.id === courseId ? courseMatch! : c);
+      dataService.saveLocalCourses(updatedAll);
+    }
+
+    try {
+      if (supabase) {
+        await supabase.from('course_resources').delete().eq('id', resourceId);
+      }
+    } catch (e) {
+      console.warn('Supabase delete course_resource error:', e);
+    }
+
+    return { success: true, error: null };
   },
 
   getUserCourseProgress: async (userId: string, courseId: string): Promise<UserCourseProgress | null> => {

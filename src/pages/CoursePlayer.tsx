@@ -27,7 +27,9 @@ import {
   Search,
   Code2,
   ExternalLink,
-  FolderOpen
+  FolderOpen,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { YoutubeIcon } from '../components/YoutubeIcon';
 import { Button } from '../components/Button';
@@ -108,6 +110,13 @@ export function CoursePlayer() {
   const [expandedLessonResources, setExpandedLessonResources] = useState<Record<string, boolean>>({});
   const [expandedSectionEndResources, setExpandedSectionEndResources] = useState<Record<string, boolean>>({});
   const [readingResource, setReadingResource] = useState<CourseResource | null>(null);
+
+  // Rename & Move Resource State
+  const [editingResource, setEditingResource] = useState<CourseResource | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editType, setEditType] = useState<CourseResource['resource_type']>('pdf');
+  const [editTarget, setEditTarget] = useState<string>('course:general');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Helper to extract clean file name for display
   const getDisplayFileName = (resource: CourseResource): string => {
@@ -499,6 +508,110 @@ export function CoursePlayer() {
     setUploadTitle('');
     setUploadFile(null);
     setUploadUrl('');
+  };
+
+  const handleOpenEditModal = (res: CourseResource) => {
+    setEditingResource(res);
+    setEditTitle(res.title);
+    setEditType(res.resource_type || 'pdf');
+    if (res.lesson_id) {
+      setEditTarget(`lesson:${res.lesson_id}`);
+    } else if (res.section_id) {
+      setEditTarget(`section:${res.section_id}`);
+    } else {
+      setEditTarget('course:general');
+    }
+  };
+
+  const handleSaveEditResource = async () => {
+    if (!editingResource || !course) return;
+    if (!editTitle.trim()) {
+      addToast('Please enter a valid title/filename for the resource.', 'info');
+      return;
+    }
+
+    setIsSavingEdit(true);
+
+    let targetSectionId: string | undefined = undefined;
+    let targetLessonId: string | undefined = undefined;
+
+    if (editTarget.startsWith('section:')) {
+      targetSectionId = editTarget.replace('section:', '');
+    } else if (editTarget.startsWith('lesson:')) {
+      targetLessonId = editTarget.replace('lesson:', '');
+      for (const s of course.sections || []) {
+        if (s.lessons.some((l) => l.id === targetLessonId)) {
+          targetSectionId = s.id;
+          break;
+        }
+      }
+    }
+
+    const updates: Partial<CourseResource> = {
+      title: editTitle.trim(),
+      resource_type: editType,
+      section_id: targetSectionId,
+      lesson_id: targetLessonId,
+    };
+
+    const { data: updatedRes, error } = await dataService.updateCourseResource(
+      course.id,
+      editingResource.id,
+      updates
+    );
+
+    if (error || !updatedRes) {
+      addToast('Failed to update resource.', 'error');
+      setIsSavingEdit(false);
+      return;
+    }
+
+    const refreshedCourse = await dataService.getCourseById(course.id);
+    if (refreshedCourse) {
+      setCourse(refreshedCourse);
+      if (currentLesson) {
+        const foundLesson = refreshedCourse.sections
+          ?.flatMap((s) => s.lessons)
+          .find((l) => l.id === currentLesson.id);
+        if (foundLesson) {
+          setCurrentLesson(foundLesson);
+        }
+      }
+    }
+
+    setIsSavingEdit(false);
+    setEditingResource(null);
+    addToast('Resource renamed and moved to target module successfully!', 'success');
+  };
+
+  const handleDeleteResource = async () => {
+    if (!editingResource || !course) return;
+    if (!window.confirm(`Are you sure you want to delete "${editingResource.title}"?`)) return;
+
+    setIsSavingEdit(true);
+    const { error } = await dataService.deleteCourseResource(course.id, editingResource.id);
+    if (error) {
+      addToast('Failed to delete resource.', 'error');
+      setIsSavingEdit(false);
+      return;
+    }
+
+    const refreshedCourse = await dataService.getCourseById(course.id);
+    if (refreshedCourse) {
+      setCourse(refreshedCourse);
+      if (currentLesson) {
+        const foundLesson = refreshedCourse.sections
+          ?.flatMap((s) => s.lessons)
+          .find((l) => l.id === currentLesson.id);
+        if (foundLesson) {
+          setCurrentLesson(foundLesson);
+        }
+      }
+    }
+
+    setIsSavingEdit(false);
+    setEditingResource(null);
+    addToast('Resource deleted successfully.', 'success');
   };
 
   if (loading) {
@@ -1193,17 +1306,28 @@ export function CoursePlayer() {
                                       Read Online
                                     </Button>
                                     {isAdmin && (
-                                      <a
-                                        href={res.file_url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        download
-                                        className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm"
-                                        title="Download Resource (Admin Only)"
-                                      >
-                                        <Download size={12} />
-                                        <span>Download</span>
-                                      </a>
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenEditModal(res)}
+                                          className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm text-indigo-500 hover:text-indigo-600 hover:bg-indigo-500/10 border-indigo-500/20"
+                                          title="Rename or Move Resource"
+                                        >
+                                          <Edit3 size={12} />
+                                          <span>Move / Rename</span>
+                                        </button>
+                                        <a
+                                          href={res.file_url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          download
+                                          className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                          title="Download Resource (Admin Only)"
+                                        >
+                                          <Download size={12} />
+                                          <span>Download</span>
+                                        </a>
+                                      </>
                                     )}
                                   </div>
                                 </div>
@@ -1296,17 +1420,28 @@ export function CoursePlayer() {
                                       Read Online
                                     </Button>
                                     {isAdmin && (
-                                      <a
-                                        href={res.file_url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        download
-                                        className="btn btn-secondary text-xs h-7 px-3 shrink-0 flex items-center gap-1.5 shadow-sm"
-                                        title="Download Resource (Admin Only)"
-                                      >
-                                        <Download size={13} />
-                                        <span>Download</span>
-                                      </a>
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenEditModal(res)}
+                                          className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm text-indigo-500 hover:text-indigo-600 hover:bg-indigo-500/10 border-indigo-500/20"
+                                          title="Rename or Move Resource"
+                                        >
+                                          <Edit3 size={12} />
+                                          <span>Move / Rename</span>
+                                        </button>
+                                        <a
+                                          href={res.file_url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          download
+                                          className="btn btn-secondary text-xs h-7 px-3 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                          title="Download Resource (Admin Only)"
+                                        >
+                                          <Download size={13} />
+                                          <span>Download</span>
+                                        </a>
+                                      </>
                                     )}
                                   </div>
                                 </div>
@@ -1447,17 +1582,28 @@ export function CoursePlayer() {
                                                 Read Online
                                               </Button>
                                               {isAdmin && (
-                                                <a
-                                                  href={res.file_url}
-                                                  target="_blank"
-                                                  rel="noreferrer"
-                                                  download
-                                                  className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm"
-                                                  title="Download Resource (Admin Only)"
-                                                >
-                                                  <Download size={12} />
-                                                  <span>Download</span>
-                                                </a>
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleOpenEditModal(res)}
+                                                    className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm text-indigo-500 hover:text-indigo-600 hover:bg-indigo-500/10 border-indigo-500/20"
+                                                    title="Rename or Move Resource"
+                                                  >
+                                                    <Edit3 size={12} />
+                                                    <span>Move / Rename</span>
+                                                  </button>
+                                                  <a
+                                                    href={res.file_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    download
+                                                    className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                                    title="Download Resource (Admin Only)"
+                                                  >
+                                                    <Download size={12} />
+                                                    <span>Download</span>
+                                                  </a>
+                                                </>
                                               )}
                                             </div>
                                           </div>
@@ -1526,17 +1672,28 @@ export function CoursePlayer() {
                                               Read Online
                                             </Button>
                                             {isAdmin && (
-                                              <a
-                                                href={res.file_url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                download
-                                                className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm"
-                                                title="Download Resource (Admin Only)"
-                                              >
-                                                <Download size={12} />
-                                                <span>Download</span>
-                                              </a>
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleOpenEditModal(res)}
+                                                  className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm text-indigo-500 hover:text-indigo-600 hover:bg-indigo-500/10 border-indigo-500/20"
+                                                  title="Rename or Move Resource"
+                                                >
+                                                  <Edit3 size={12} />
+                                                  <span>Move / Rename</span>
+                                                </button>
+                                                <a
+                                                  href={res.file_url}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  download
+                                                  className="btn btn-secondary text-xs h-7 px-2.5 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                                  title="Download Resource (Admin Only)"
+                                                >
+                                                  <Download size={12} />
+                                                  <span>Download</span>
+                                                </a>
+                                              </>
                                             )}
                                           </div>
                                         </div>
@@ -1877,16 +2034,29 @@ export function CoursePlayer() {
                                             <span>Read</span>
                                           </button>
                                           {isAdmin && (
-                                            <a
-                                              href={res.file_url}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              download
-                                              className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
-                                              title="Download File (Admin Only)"
-                                            >
-                                              <Download size={12} />
-                                            </a>
+                                            <>
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleOpenEditModal(res);
+                                                }}
+                                                className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-indigo-500/10 text-[var(--text-muted)] hover:text-indigo-500 transition-colors border border-[var(--border)]"
+                                                title="Rename or Move Resource"
+                                              >
+                                                <Edit3 size={11} />
+                                              </button>
+                                              <a
+                                                href={res.file_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                download
+                                                className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
+                                                title="Download File (Admin Only)"
+                                              >
+                                                <Download size={12} />
+                                              </a>
+                                            </>
                                           )}
                                         </div>
                                       </div>
@@ -2004,16 +2174,29 @@ export function CoursePlayer() {
                                               <span>Read</span>
                                             </button>
                                             {isAdmin && (
-                                              <a
-                                                href={res.file_url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                download
-                                                className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
-                                                title="Download File (Admin Only)"
-                                              >
-                                                <Download size={12} />
-                                              </a>
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleOpenEditModal(res);
+                                                  }}
+                                                  className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-indigo-500/10 text-[var(--text-muted)] hover:text-indigo-500 transition-colors border border-[var(--border)]"
+                                                  title="Rename or Move Resource"
+                                                >
+                                                  <Edit3 size={11} />
+                                                </button>
+                                                <a
+                                                  href={res.file_url}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  download
+                                                  className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
+                                                  title="Download File (Admin Only)"
+                                                >
+                                                  <Download size={12} />
+                                                </a>
+                                              </>
                                             )}
                                           </div>
                                         </div>
@@ -2062,16 +2245,30 @@ export function CoursePlayer() {
                                                 <span>Read</span>
                                               </button>
                                               {isAdmin && (
-                                                <a
-                                                  href={res.file_url}
-                                                  target="_blank"
-                                                  rel="noreferrer"
-                                                  download
-                                                  className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
-                                                  title="Download File (Admin Only)"
-                                                >
-                                                  <Download size={12} />
-                                                </a>
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleOpenEditModal(res);
+                                                      setSidebarOpen(false);
+                                                    }}
+                                                    className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-indigo-500/10 text-[var(--text-muted)] hover:text-indigo-500 transition-colors border border-[var(--border)]"
+                                                    title="Rename or Move Resource"
+                                                  >
+                                                    <Edit3 size={11} />
+                                                  </button>
+                                                  <a
+                                                    href={res.file_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    download
+                                                    className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
+                                                    title="Download File (Admin Only)"
+                                                  >
+                                                    <Download size={12} />
+                                                  </a>
+                                                </>
                                               )}
                                             </div>
                                           </div>
@@ -2292,16 +2489,29 @@ export function CoursePlayer() {
                                               <span>Read</span>
                                             </button>
                                             {isAdmin && (
-                                              <a
-                                                href={res.file_url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                download
-                                                className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
-                                                title="Download File (Admin Only)"
-                                              >
-                                                <Download size={12} />
-                                              </a>
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleOpenEditModal(res);
+                                                  }}
+                                                  className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-indigo-500/10 text-[var(--text-muted)] hover:text-indigo-500 transition-colors border border-[var(--border)]"
+                                                  title="Rename or Move Resource"
+                                                >
+                                                  <Edit3 size={11} />
+                                                </button>
+                                                <a
+                                                  href={res.file_url}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  download
+                                                  className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
+                                                  title="Download File (Admin Only)"
+                                                >
+                                                  <Download size={12} />
+                                                </a>
+                                              </>
                                             )}
                                           </div>
                                         </div>
@@ -2423,16 +2633,30 @@ export function CoursePlayer() {
                                                 <span>Read</span>
                                               </button>
                                               {isAdmin && (
-                                                <a
-                                                  href={res.file_url}
-                                                  target="_blank"
-                                                  rel="noreferrer"
-                                                  download
-                                                  className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
-                                                  title="Download File (Admin Only)"
-                                                >
-                                                  <Download size={12} />
-                                                </a>
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleOpenEditModal(res);
+                                                      setSidebarOpen(false);
+                                                    }}
+                                                    className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-indigo-500/10 text-[var(--text-muted)] hover:text-indigo-500 transition-colors border border-[var(--border)]"
+                                                    title="Rename or Move Resource"
+                                                  >
+                                                    <Edit3 size={11} />
+                                                  </button>
+                                                  <a
+                                                    href={res.file_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    download
+                                                    className="p-1 rounded-lg bg-[var(--surface-hover)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border)]"
+                                                    title="Download File (Admin Only)"
+                                                  >
+                                                    <Download size={12} />
+                                                  </a>
+                                                </>
                                               )}
                                             </div>
                                           </div>
@@ -2516,6 +2740,112 @@ export function CoursePlayer() {
           </div>
         )}
       </div>
+
+      {/* RENAME & MOVE RESOURCE MODAL */}
+      {editingResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+              <h3 className="text-base font-bold text-[var(--text-main)] flex items-center gap-2">
+                <Edit3 size={18} className="text-indigo-500" />
+                <span>Rename & Move Resource</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingResource(null)}
+                className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                Resource File Name / Title *
+              </label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="e.g. 01-Lecture-Notes-Summary.pdf"
+                className="input text-sm"
+              />
+              <span className="text-[11px] text-[var(--text-muted)] mt-1 block">
+                Give a clear descriptive name ending in .pdf, .zip, etc.
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                Destination Target (Move To)
+              </label>
+              <select
+                value={editTarget}
+                onChange={(e) => setEditTarget(e.target.value)}
+                className="input text-sm"
+              >
+                <option value="course:general">🌐 Entire Course (Course-Wide Master Reference)</option>
+                {course.sections?.map((sec, sIdx) => (
+                  <optgroup key={sec.id} label={`📦 Module ${sIdx + 1}: ${sec.title}`}>
+                    <option value={`section:${sec.id}`}>📁 End of Module {sIdx + 1} Section Materials</option>
+                    {sec.lessons.map((les, lIdx) => (
+                      <option key={les.id} value={`lesson:${les.id}`}>
+                        📄 Lecture {sIdx + 1}.{lIdx + 1}: {les.title}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <span className="text-[11px] text-[var(--text-muted)] mt-1 block">
+                Moving here will instantly place this resource in the selected module/lecture row.
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                Resource Type
+              </label>
+              <select
+                value={editType}
+                onChange={(e) => setEditType(e.target.value as any)}
+                className="input text-sm"
+              >
+                <option value="book">📕 Book / E-Book</option>
+                <option value="pdf">📄 PDF Notes</option>
+                <option value="document">📑 Document / Slides</option>
+                <option value="code">💻 Source Code (.zip)</option>
+                <option value="link">🔗 External Link</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">
+              <Button
+                variant="ghost"
+                onClick={handleDeleteResource}
+                disabled={isSavingEdit}
+                className="text-red-500 hover:bg-red-500/10 text-xs px-2.5"
+                icon={<Trash2 size={14} />}
+              >
+                Delete
+              </Button>
+
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" onClick={() => setEditingResource(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleSaveEditResource}
+                  disabled={isSavingEdit}
+                  icon={isSavingEdit ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                >
+                  {isSavingEdit ? 'Saving...' : 'Save & Move'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* QUICK RESOURCE UPLOAD MODAL */}
       {uploadModalOpen && (
