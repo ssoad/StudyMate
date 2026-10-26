@@ -296,14 +296,20 @@ export function CoursePlayer() {
     });
   }, [currentLesson, user]);
 
-  // Synchronize playback time from YouTube iframe
+  // Synchronize playback time & state from YouTube iframe
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       try {
         if (typeof e.data === 'string') {
           const data = JSON.parse(e.data);
-          if (data.event === 'infoDelivery' && data.info && data.info.currentTime !== undefined) {
-            setCurrentVideoTime(data.info.currentTime);
+          if (data.event === 'infoDelivery' && data.info) {
+            if (data.info.currentTime !== undefined) {
+              setCurrentVideoTime(data.info.currentTime);
+            }
+            if (data.info.playerState !== undefined) {
+              if (data.info.playerState === 1) setIsPlaying(true);
+              else if (data.info.playerState === 2 || data.info.playerState === 0) setIsPlaying(false);
+            }
           }
         }
       } catch {}
@@ -332,6 +338,40 @@ export function CoursePlayer() {
     osdTimerRef.current = setTimeout(() => {
       setOsdInfo(null);
     }, 850);
+  };
+
+  // Central Play/Pause Toggle with safety guards
+  const togglePlayPause = () => {
+    const video = videoRef.current;
+    if (video) {
+      if (video.paused || video.ended) {
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setIsPlaying(true);
+              showOsdFeedback('Play', <Play size={22} className="fill-current" />);
+            })
+            .catch(() => {});
+        }
+      } else {
+        video.pause();
+        setIsPlaying(false);
+        showOsdFeedback('Pause', <Pause size={22} className="fill-current" />);
+      }
+    } else if (iframeRef.current?.contentWindow) {
+      const willPlay = !isPlaying;
+      const command = willPlay ? 'playVideo' : 'pauseVideo';
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: command }),
+        '*'
+      );
+      setIsPlaying(willPlay);
+      showOsdFeedback(
+        willPlay ? 'Play' : 'Pause',
+        willPlay ? <Play size={22} className="fill-current" /> : <Pause size={22} className="fill-current" />
+      );
+    }
   };
 
   const getPlaybackStorageKey = (lessonId: string) => `studymate_playback_${courseId}_${lessonId}`;
@@ -593,15 +633,38 @@ export function CoursePlayer() {
 
       // If any modal is open (upload, edit resource, etc.), skip player shortcuts except Escape
       if (uploadModalOpen || editingResource || readingResource) {
+        if (e.key === 'Escape') {
+          setUploadModalOpen(false);
+          setEditingResource(null);
+          setReadingResource(null);
+        }
         return;
       }
 
-      const video = videoRef.current;
       const key = e.key.toLowerCase();
+      const isSpace = e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar';
+
+      // 1. Play / Pause: 'k' or 'Space'
+      if (key === 'k' || isSpace) {
+        // Ignore key repeat to prevent rapid flickering loop
+        if (e.repeat) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        // If focus is on a button or link, blur it so Space doesn't activate it
+        if (activeEl instanceof HTMLElement && activeEl !== document.body) {
+          activeEl.blur();
+        }
+
+        togglePlayPause();
+        return;
+      }
 
       // Help Modal: '?' or Shift + '/'
       if (e.key === '?' || (e.shiftKey && key === '/')) {
         e.preventDefault();
+        e.stopPropagation();
         setShowShortcutsModal((prev) => !prev);
         return;
       }
@@ -609,36 +672,22 @@ export function CoursePlayer() {
       // Escape: close shortcuts modal or exit fullscreen
       if (e.key === 'Escape') {
         if (showShortcutsModal) {
+          e.preventDefault();
+          e.stopPropagation();
           setShowShortcutsModal(false);
           return;
         }
       }
 
-      // 1. Play / Pause: 'k' or 'Space'
-      if (key === 'k' || e.code === 'Space') {
-        e.preventDefault();
-        if (video) {
-          if (video.paused) {
-            video.play().catch(() => {});
-            setIsPlaying(true);
-            showOsdFeedback('Play', <Play size={20} className="fill-current" />);
-          } else {
-            video.pause();
-            setIsPlaying(false);
-            showOsdFeedback('Pause', <Pause size={20} className="fill-current" />);
-          }
-        } else if (iframeRef.current?.contentWindow) {
-          const command = isPlaying ? 'pauseVideo' : 'playVideo';
-          iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: command }), '*');
-          setIsPlaying(!isPlaying);
-          showOsdFeedback(isPlaying ? 'Pause' : 'Play');
-        }
+      // For other single-action keys, ignore auto-repeat
+      if (e.repeat && !['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'j', 'l'].includes(key)) {
         return;
       }
 
       // 2. Rewind 10s: 'j'
       if (key === 'j') {
         e.preventDefault();
+        e.stopPropagation();
         handleSeekRelative(-10);
         return;
       }
@@ -646,6 +695,7 @@ export function CoursePlayer() {
       // 3. Fast-forward 10s: 'l'
       if (key === 'l') {
         e.preventDefault();
+        e.stopPropagation();
         handleSeekRelative(10);
         return;
       }
@@ -653,6 +703,7 @@ export function CoursePlayer() {
       // 4. Rewind 5s: ArrowLeft
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
+        e.stopPropagation();
         handleSeekRelative(-5);
         return;
       }
@@ -660,6 +711,7 @@ export function CoursePlayer() {
       // 5. Fast-forward 5s: ArrowRight
       if (e.key === 'ArrowRight') {
         e.preventDefault();
+        e.stopPropagation();
         handleSeekRelative(5);
         return;
       }
@@ -667,10 +719,11 @@ export function CoursePlayer() {
       // 6. Volume Up (+10%): ArrowUp
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        if (video) {
-          const newVol = Math.min(1, Math.round((video.volume + 0.1) * 10) / 10);
-          video.volume = newVol;
-          video.muted = false;
+        e.stopPropagation();
+        if (videoRef.current) {
+          const newVol = Math.min(1, Math.round((videoRef.current.volume + 0.1) * 10) / 10);
+          videoRef.current.volume = newVol;
+          videoRef.current.muted = false;
           setVolume(newVol);
           setIsMuted(false);
           localStorage.setItem('studymate_playback_volume', String(newVol));
@@ -683,9 +736,10 @@ export function CoursePlayer() {
       // 7. Volume Down (-10%): ArrowDown
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (video) {
-          const newVol = Math.max(0, Math.round((video.volume - 0.1) * 10) / 10);
-          video.volume = newVol;
+        e.stopPropagation();
+        if (videoRef.current) {
+          const newVol = Math.max(0, Math.round((videoRef.current.volume - 0.1) * 10) / 10);
+          videoRef.current.volume = newVol;
           setVolume(newVol);
           localStorage.setItem('studymate_playback_volume', String(newVol));
           showOsdFeedback(newVol === 0 ? 'Muted' : `${Math.round(newVol * 100)}%`, newVol === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />);
@@ -696,9 +750,10 @@ export function CoursePlayer() {
       // 8. Mute / Unmute: 'm'
       if (key === 'm') {
         e.preventDefault();
-        if (video) {
-          const newMuted = !video.muted;
-          video.muted = newMuted;
+        e.stopPropagation();
+        if (videoRef.current) {
+          const newMuted = !videoRef.current.muted;
+          videoRef.current.muted = newMuted;
           setIsMuted(newMuted);
           localStorage.setItem('studymate_playback_muted', String(newMuted));
           showOsdFeedback(newMuted ? 'Muted' : 'Unmuted', newMuted ? <VolumeX size={20} /> : <Volume2 size={20} />);
@@ -714,6 +769,7 @@ export function CoursePlayer() {
       // 9. Fullscreen: 'f'
       if (key === 'f') {
         e.preventDefault();
+        e.stopPropagation();
         handleToggleFullscreen();
         return;
       }
@@ -721,6 +777,7 @@ export function CoursePlayer() {
       // 10. Picture-in-Picture: 'p' or 'i'
       if (key === 'p' || key === 'i') {
         e.preventDefault();
+        e.stopPropagation();
         handleTogglePiP();
         return;
       }
@@ -728,6 +785,7 @@ export function CoursePlayer() {
       // 11. Captions / Transcript Drawer: 'c'
       if (key === 'c') {
         e.preventDefault();
+        e.stopPropagation();
         setShowSideTranscript((prev) => {
           const next = !prev;
           showOsdFeedback(next ? 'Side Transcript Open' : 'Side Transcript Hidden', <FileText size={18} />);
@@ -739,6 +797,7 @@ export function CoursePlayer() {
       // 12. Speed Down: '<' or (Shift + ',')
       if (e.key === '<' || (e.shiftKey && e.key === ',')) {
         e.preventDefault();
+        e.stopPropagation();
         handleChangeSpeed(-1);
         return;
       }
@@ -746,6 +805,7 @@ export function CoursePlayer() {
       // 13. Speed Up: '>' or (Shift + '.')
       if (e.key === '>' || (e.shiftKey && e.key === '.')) {
         e.preventDefault();
+        e.stopPropagation();
         handleChangeSpeed(1);
         return;
       }
@@ -753,10 +813,11 @@ export function CoursePlayer() {
       // 14. Seek to % of video: '0' to '9'
       if (/^[0-9]$/.test(e.key)) {
         e.preventDefault();
+        e.stopPropagation();
         const percent = parseInt(e.key, 10) * 10;
-        if (video && video.duration) {
-          const target = (video.duration * percent) / 100;
-          video.currentTime = target;
+        if (videoRef.current && videoRef.current.duration) {
+          const target = (videoRef.current.duration * percent) / 100;
+          videoRef.current.currentTime = target;
           setCurrentVideoTime(target);
           showOsdFeedback(`${percent}% (${formatSecondsToTimestamp(target)})`, <Clock size={20} />);
         }
@@ -766,11 +827,13 @@ export function CoursePlayer() {
       // 15. Next / Prev Lesson: Shift + 'n' / Shift + 'p'
       if (e.shiftKey && key === 'n') {
         e.preventDefault();
+        e.stopPropagation();
         handleNextLesson();
         return;
       }
       if (e.shiftKey && key === 'p') {
         e.preventDefault();
+        e.stopPropagation();
         handlePrevLesson();
         return;
       }
@@ -778,8 +841,9 @@ export function CoursePlayer() {
       // 16. Home / End
       if (e.key === 'Home') {
         e.preventDefault();
-        if (video) {
-          video.currentTime = 0;
+        e.stopPropagation();
+        if (videoRef.current) {
+          videoRef.current.currentTime = 0;
           setCurrentVideoTime(0);
           showOsdFeedback('00:00', <RotateCcw size={20} />);
         }
@@ -787,16 +851,17 @@ export function CoursePlayer() {
       }
       if (e.key === 'End') {
         e.preventDefault();
-        if (video && video.duration) {
-          video.currentTime = video.duration;
+        e.stopPropagation();
+        if (videoRef.current && videoRef.current.duration) {
+          videoRef.current.currentTime = videoRef.current.duration;
           showOsdFeedback('End', <RotateCw size={20} />);
         }
         return;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [uploadModalOpen, editingResource, readingResource, showShortcutsModal, isPlaying, isMuted, showSideTranscript, directVideoUrl]);
 
   const handleSeekVideo = (seconds: number) => {
