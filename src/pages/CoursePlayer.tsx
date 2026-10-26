@@ -29,11 +29,22 @@ import {
   ExternalLink,
   FolderOpen,
   Edit3,
-  Trash2
+  Trash2,
+  PictureInPicture2,
+  Maximize,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  RotateCcw,
+  RotateCw,
+  Gauge,
+  Keyboard
 } from 'lucide-react';
 import { YoutubeIcon } from '../components/YoutubeIcon';
 import { Button } from '../components/Button';
 import { VideoTranscript } from '../components/VideoTranscript';
+import { formatSecondsToTimestamp } from '../lib/transcriptParser';
 import { dataService, type Course, type CourseSection, type CourseLesson, type UserCourseProgress, type CourseResource } from '../lib/dataService';
 import { getYouTubeEmbedUrl, formatDuration } from '../lib/youtube';
 import { useAuthStore } from '../store/authStore';
@@ -53,6 +64,22 @@ export function CoursePlayer() {
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
+  // Video playback source: check for local or direct MP4/WebM video stream
+  const directVideoUrl =
+    currentLesson?.video_url ||
+    (currentLesson?.youtube_video_url &&
+    (currentLesson.youtube_video_url.endsWith('.mp4') ||
+      currentLesson.youtube_video_url.includes('/api/storage/files/'))
+      ? currentLesson.youtube_video_url
+      : null);
+
+  // YouTube embed URL fallback
+  const embedUrl = !directVideoUrl && currentLesson?.youtube_video_id
+    ? getYouTubeEmbedUrl({ videoId: currentLesson.youtube_video_id, playlistId: course?.youtube_playlist_id })
+    : !directVideoUrl && course?.youtube_playlist_id
+    ? getYouTubeEmbedUrl({ playlistId: course.youtube_playlist_id })
+    : null;
+
   const isAdmin =
     role === 'admin' ||
     user?.email === 'admin@studymate.org' ||
@@ -71,6 +98,18 @@ export function CoursePlayer() {
   const [showSideTranscript, setShowSideTranscript] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const playerContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Playback, PiP & YouTube-Style Shortcuts state
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPipActive, setIsPipActive] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [, setVolume] = useState(1);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [osdInfo, setOsdInfo] = useState<{ text: string; icon?: React.ReactNode } | null>(null);
+  const osdTimerRef = useRef<any>(null);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const lastSavedTimeRef = useRef<number>(0);
 
   // Notes state
   const [lessonNote, setLessonNote] = useState('');
@@ -160,10 +199,13 @@ export function CoursePlayer() {
   useEffect(() => {
     if (!courseId) return;
     loadCourseData(courseId);
-  }, [courseId, user]);
+  }, [courseId, user?.id]);
 
   const loadCourseData = async (cId: string) => {
-    setLoading(true);
+    // Only display full-page loading spinner if no course data loaded yet
+    if (!course || course.id !== cId) {
+      setLoading(true);
+    }
     const data = await dataService.getCourseById(cId);
     if (!data) {
       addToast('Course not found.', 'error');
@@ -192,9 +234,9 @@ export function CoursePlayer() {
     userProg = await dataService.getUserCourseProgress(user.id, cId);
     setProgress(userProg);
 
-    // Determine initial lesson from searchParams, userProg, or first lesson
-    let initialLesson: CourseLesson | null = null;
-    let initialSecIdx = 0;
+    // Keep currently active lesson if already selected, otherwise pick from URL/progress/first lesson
+    let initialLesson: CourseLesson | null = currentLesson;
+    let initialSecIdx = currentSectionIndex;
     const requestedLessonId = searchParams.get('lesson');
     const requestedTab = searchParams.get('tab') as any;
 
@@ -203,7 +245,7 @@ export function CoursePlayer() {
     }
 
     if (data.sections && data.sections.length > 0) {
-      // 1. Try URL requested lesson
+      // 1. Try URL requested lesson if specified
       if (requestedLessonId) {
         data.sections.forEach((sec, sIdx) => {
           const match = sec.lessons.find((l) => l.id === requestedLessonId);
@@ -214,7 +256,7 @@ export function CoursePlayer() {
         });
       }
 
-      // 2. Try last active lesson from progress
+      // 2. Try last active lesson from progress if no lesson currently active
       if (!initialLesson && userProg?.last_lesson_id) {
         data.sections.forEach((sec, sIdx) => {
           const match = sec.lessons.find((l) => l.id === userProg?.last_lesson_id);
@@ -228,6 +270,7 @@ export function CoursePlayer() {
       // 3. Fallback to first lesson
       if (!initialLesson && data.sections[0].lessons.length > 0) {
         initialLesson = data.sections[0].lessons[0];
+        initialSecIdx = 0;
       }
     }
 
@@ -282,10 +325,485 @@ export function CoursePlayer() {
     };
   }, []);
 
+  // Helpers for OSD, PiP & Playback Persistence
+  const showOsdFeedback = (text: string, icon?: React.ReactNode) => {
+    if (osdTimerRef.current) clearTimeout(osdTimerRef.current);
+    setOsdInfo({ text, icon });
+    osdTimerRef.current = setTimeout(() => {
+      setOsdInfo(null);
+    }, 850);
+  };
+
+  const getPlaybackStorageKey = (lessonId: string) => `studymate_playback_${courseId}_${lessonId}`;
+
+  const savePlaybackPosition = (time: number) => {
+    if (!currentLesson?.id) return;
+    if (Math.abs(time - lastSavedTimeRef.current) < 1.5) return;
+    lastSavedTimeRef.current = time;
+    try {
+      localStorage.setItem(
+        getPlaybackStorageKey(currentLesson.id),
+        JSON.stringify({
+          time,
+          duration: videoRef.current?.duration || currentLesson.duration_seconds || 0,
+          updatedAt: Date.now(),
+        })
+      );
+    } catch {}
+  };
+
+  const handleVideoLoadedMetadata = () => {
+    if (!videoRef.current || !currentLesson?.id) return;
+
+    // Enable Chrome auto picture-in-picture on tab change
+    try {
+      (videoRef.current as any).autoPictureInPicture = true;
+    } catch {}
+
+    // Apply saved rate
+    const savedRate = localStorage.getItem('studymate_playback_rate');
+    if (savedRate) {
+      const rate = parseFloat(savedRate);
+      if (!isNaN(rate) && rate > 0) {
+        videoRef.current.playbackRate = rate;
+        setPlaybackRate(rate);
+      }
+    }
+
+    // Apply saved volume
+    const savedVol = localStorage.getItem('studymate_playback_volume');
+    if (savedVol !== null) {
+      const vol = parseFloat(savedVol);
+      if (!isNaN(vol)) {
+        videoRef.current.volume = Math.max(0, Math.min(1, vol));
+        setVolume(vol);
+      }
+    }
+
+    // Apply saved muted
+    const savedMuted = localStorage.getItem('studymate_playback_muted');
+    if (savedMuted !== null) {
+      const m = savedMuted === 'true';
+      videoRef.current.muted = m;
+      setIsMuted(m);
+    }
+
+    // Restore saved playback time
+    try {
+      const raw = localStorage.getItem(getPlaybackStorageKey(currentLesson.id));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const dur = videoRef.current.duration;
+        if (parsed.time && parsed.time > 2 && (!dur || parsed.time < dur - 8)) {
+          videoRef.current.currentTime = parsed.time;
+          setCurrentVideoTime(parsed.time);
+          showOsdFeedback(`Resumed from ${formatSecondsToTimestamp(parsed.time)}`, <Clock size={18} />);
+        }
+      }
+    } catch {}
+  };
+
+  const handleTogglePiP = async () => {
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+        setIsPipActive(false);
+        showOsdFeedback('Exited Picture-in-Picture', <PictureInPicture2 size={20} />);
+      } else if (videoRef.current) {
+        if (document.pictureInPictureEnabled) {
+          await videoRef.current.requestPictureInPicture();
+          setIsPipActive(true);
+          showOsdFeedback('Picture-in-Picture Active', <PictureInPicture2 size={20} />);
+        } else {
+          addToast('Picture-in-Picture is not supported in this browser.', 'info');
+        }
+      }
+    } catch (err: any) {
+      console.warn('PiP toggle error:', err);
+      addToast('Picture-in-Picture could not be toggled.', 'error');
+    }
+  };
+
+  const handleSeekRelative = (seconds: number) => {
+    if (videoRef.current) {
+      const dur = videoRef.current.duration || 9999;
+      const target = Math.max(0, Math.min(dur, videoRef.current.currentTime + seconds));
+      videoRef.current.currentTime = target;
+      setCurrentVideoTime(target);
+      savePlaybackPosition(target);
+      showOsdFeedback(
+        seconds > 0 ? `+${seconds}s` : `${seconds}s`,
+        seconds > 0 ? <RotateCw size={20} /> : <RotateCcw size={20} />
+      );
+    } else if (iframeRef.current?.contentWindow) {
+      const target = Math.max(0, currentVideoTime + seconds);
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: 'seekTo', args: [target, true] }),
+        '*'
+      );
+      setCurrentVideoTime(target);
+      showOsdFeedback(
+        seconds > 0 ? `+${seconds}s` : `${seconds}s`,
+        seconds > 0 ? <RotateCw size={20} /> : <RotateCcw size={20} />
+      );
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    const el = playerContainerRef.current;
+    if (!el) return;
+
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+      showOsdFeedback('Fullscreen', <Maximize size={20} />);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      showOsdFeedback('Exit Fullscreen', <Maximize size={20} />);
+    }
+  };
+
+  const SPEED_PRESETS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
+  const handleChangeSpeed = (direction: 1 | -1 | number) => {
+    if (!videoRef.current) return;
+    const currentRate = videoRef.current.playbackRate || 1;
+    let closestIdx = SPEED_PRESETS.findIndex((r) => Math.abs(r - currentRate) < 0.05);
+    if (closestIdx === -1) closestIdx = 3; // 1.0
+
+    let nextIdx = closestIdx + direction;
+    if (nextIdx < 0) nextIdx = 0;
+    if (nextIdx >= SPEED_PRESETS.length) nextIdx = SPEED_PRESETS.length - 1;
+
+    const newRate = SPEED_PRESETS[nextIdx];
+    videoRef.current.playbackRate = newRate;
+    setPlaybackRate(newRate);
+    localStorage.setItem('studymate_playback_rate', String(newRate));
+    showOsdFeedback(`${newRate}x Speed`, <Gauge size={20} />);
+  };
+
+  // PiP Events Sync
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onEnterPip = () => setIsPipActive(true);
+    const onLeavePip = () => setIsPipActive(false);
+
+    video.addEventListener('enterpictureinpicture', onEnterPip);
+    video.addEventListener('leavepictureinpicture', onLeavePip);
+
+    return () => {
+      video.removeEventListener('enterpictureinpicture', onEnterPip);
+      video.removeEventListener('leavepictureinpicture', onLeavePip);
+    };
+  }, [directVideoUrl]);
+
+  // Tab change & window visibility synchronization
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        if (videoRef.current) {
+          savePlaybackPosition(videoRef.current.currentTime);
+          if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = videoRef.current.paused ? 'paused' : 'playing';
+          }
+        }
+      } else if (document.visibilityState === 'visible') {
+        if (videoRef.current) {
+          setCurrentVideoTime(videoRef.current.currentTime);
+          setIsPipActive(!!document.pictureInPictureElement);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [currentLesson?.id]);
+
+  // MediaSession API Integration for background controls & tab switching persistence
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !currentLesson) return;
+
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentLesson.title,
+        artist: course?.instructor_name || 'StudyMate Classroom',
+        album: course?.title || 'Course',
+        artwork: [
+          { src: course?.thumbnail_url || '/icon-512.png', sizes: '512x512', type: 'image/png' },
+        ],
+      });
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (videoRef.current) {
+          videoRef.current.play().catch(() => {});
+        } else if (iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo' }), '*');
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (videoRef.current) {
+          videoRef.current.pause();
+        } else if (iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo' }), '*');
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+        handleSeekRelative(-(details.seekOffset || 10));
+      });
+
+      navigator.mediaSession.setActionHandler('seekforward', (details) => {
+        handleSeekRelative(details.seekOffset || 10);
+      });
+
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined) handleSeekVideo(details.seekTime);
+      });
+
+      navigator.mediaSession.setActionHandler('previoustrack', handlePrevLesson);
+      navigator.mediaSession.setActionHandler('nexttrack', handleNextLesson);
+    } catch {}
+
+    return () => {
+      try {
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('seekbackward', null);
+        navigator.mediaSession.setActionHandler('seekforward', null);
+        navigator.mediaSession.setActionHandler('seekto', null);
+        navigator.mediaSession.setActionHandler('previoustrack', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+      } catch {}
+    };
+  }, [currentLesson?.id, course?.id]);
+
+  // YouTube-style keyboard shortcut handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Never trigger shortcuts if typing inside input, textarea, select, or editable element
+      const activeEl = document.activeElement;
+      if (activeEl) {
+        const tag = activeEl.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select' || (activeEl as HTMLElement).isContentEditable) {
+          return;
+        }
+      }
+
+      // If any modal is open (upload, edit resource, etc.), skip player shortcuts except Escape
+      if (uploadModalOpen || editingResource || readingResource) {
+        return;
+      }
+
+      const video = videoRef.current;
+      const key = e.key.toLowerCase();
+
+      // Help Modal: '?' or Shift + '/'
+      if (e.key === '?' || (e.shiftKey && key === '/')) {
+        e.preventDefault();
+        setShowShortcutsModal((prev) => !prev);
+        return;
+      }
+
+      // Escape: close shortcuts modal or exit fullscreen
+      if (e.key === 'Escape') {
+        if (showShortcutsModal) {
+          setShowShortcutsModal(false);
+          return;
+        }
+      }
+
+      // 1. Play / Pause: 'k' or 'Space'
+      if (key === 'k' || e.code === 'Space') {
+        e.preventDefault();
+        if (video) {
+          if (video.paused) {
+            video.play().catch(() => {});
+            setIsPlaying(true);
+            showOsdFeedback('Play', <Play size={20} className="fill-current" />);
+          } else {
+            video.pause();
+            setIsPlaying(false);
+            showOsdFeedback('Pause', <Pause size={20} className="fill-current" />);
+          }
+        } else if (iframeRef.current?.contentWindow) {
+          const command = isPlaying ? 'pauseVideo' : 'playVideo';
+          iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: command }), '*');
+          setIsPlaying(!isPlaying);
+          showOsdFeedback(isPlaying ? 'Pause' : 'Play');
+        }
+        return;
+      }
+
+      // 2. Rewind 10s: 'j'
+      if (key === 'j') {
+        e.preventDefault();
+        handleSeekRelative(-10);
+        return;
+      }
+
+      // 3. Fast-forward 10s: 'l'
+      if (key === 'l') {
+        e.preventDefault();
+        handleSeekRelative(10);
+        return;
+      }
+
+      // 4. Rewind 5s: ArrowLeft
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleSeekRelative(-5);
+        return;
+      }
+
+      // 5. Fast-forward 5s: ArrowRight
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleSeekRelative(5);
+        return;
+      }
+
+      // 6. Volume Up (+10%): ArrowUp
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (video) {
+          const newVol = Math.min(1, Math.round((video.volume + 0.1) * 10) / 10);
+          video.volume = newVol;
+          video.muted = false;
+          setVolume(newVol);
+          setIsMuted(false);
+          localStorage.setItem('studymate_playback_volume', String(newVol));
+          localStorage.setItem('studymate_playback_muted', 'false');
+          showOsdFeedback(`${Math.round(newVol * 100)}%`, <Volume2 size={20} />);
+        }
+        return;
+      }
+
+      // 7. Volume Down (-10%): ArrowDown
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (video) {
+          const newVol = Math.max(0, Math.round((video.volume - 0.1) * 10) / 10);
+          video.volume = newVol;
+          setVolume(newVol);
+          localStorage.setItem('studymate_playback_volume', String(newVol));
+          showOsdFeedback(newVol === 0 ? 'Muted' : `${Math.round(newVol * 100)}%`, newVol === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />);
+        }
+        return;
+      }
+
+      // 8. Mute / Unmute: 'm'
+      if (key === 'm') {
+        e.preventDefault();
+        if (video) {
+          const newMuted = !video.muted;
+          video.muted = newMuted;
+          setIsMuted(newMuted);
+          localStorage.setItem('studymate_playback_muted', String(newMuted));
+          showOsdFeedback(newMuted ? 'Muted' : 'Unmuted', newMuted ? <VolumeX size={20} /> : <Volume2 size={20} />);
+        } else if (iframeRef.current?.contentWindow) {
+          const command = isMuted ? 'unMute' : 'mute';
+          iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: command }), '*');
+          setIsMuted(!isMuted);
+          showOsdFeedback(isMuted ? 'Unmuted' : 'Muted', isMuted ? <Volume2 size={20} /> : <VolumeX size={20} />);
+        }
+        return;
+      }
+
+      // 9. Fullscreen: 'f'
+      if (key === 'f') {
+        e.preventDefault();
+        handleToggleFullscreen();
+        return;
+      }
+
+      // 10. Picture-in-Picture: 'p' or 'i'
+      if (key === 'p' || key === 'i') {
+        e.preventDefault();
+        handleTogglePiP();
+        return;
+      }
+
+      // 11. Captions / Transcript Drawer: 'c'
+      if (key === 'c') {
+        e.preventDefault();
+        setShowSideTranscript((prev) => {
+          const next = !prev;
+          showOsdFeedback(next ? 'Side Transcript Open' : 'Side Transcript Hidden', <FileText size={18} />);
+          return next;
+        });
+        return;
+      }
+
+      // 12. Speed Down: '<' or (Shift + ',')
+      if (e.key === '<' || (e.shiftKey && e.key === ',')) {
+        e.preventDefault();
+        handleChangeSpeed(-1);
+        return;
+      }
+
+      // 13. Speed Up: '>' or (Shift + '.')
+      if (e.key === '>' || (e.shiftKey && e.key === '.')) {
+        e.preventDefault();
+        handleChangeSpeed(1);
+        return;
+      }
+
+      // 14. Seek to % of video: '0' to '9'
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        const percent = parseInt(e.key, 10) * 10;
+        if (video && video.duration) {
+          const target = (video.duration * percent) / 100;
+          video.currentTime = target;
+          setCurrentVideoTime(target);
+          showOsdFeedback(`${percent}% (${formatSecondsToTimestamp(target)})`, <Clock size={20} />);
+        }
+        return;
+      }
+
+      // 15. Next / Prev Lesson: Shift + 'n' / Shift + 'p'
+      if (e.shiftKey && key === 'n') {
+        e.preventDefault();
+        handleNextLesson();
+        return;
+      }
+      if (e.shiftKey && key === 'p') {
+        e.preventDefault();
+        handlePrevLesson();
+        return;
+      }
+
+      // 16. Home / End
+      if (e.key === 'Home') {
+        e.preventDefault();
+        if (video) {
+          video.currentTime = 0;
+          setCurrentVideoTime(0);
+          showOsdFeedback('00:00', <RotateCcw size={20} />);
+        }
+        return;
+      }
+      if (e.key === 'End') {
+        e.preventDefault();
+        if (video && video.duration) {
+          video.currentTime = video.duration;
+          showOsdFeedback('End', <RotateCw size={20} />);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [uploadModalOpen, editingResource, readingResource, showShortcutsModal, isPlaying, isMuted, showSideTranscript, directVideoUrl]);
+
   const handleSeekVideo = (seconds: number) => {
     if (videoRef.current) {
       videoRef.current.currentTime = seconds;
       videoRef.current.play().catch(() => {});
+      savePlaybackPosition(seconds);
     } else if (iframeRef.current?.contentWindow) {
       iframeRef.current.contentWindow.postMessage(
         JSON.stringify({ event: 'command', func: 'seekTo', args: [seconds, true] }),
@@ -328,12 +846,17 @@ export function CoursePlayer() {
 
   // Lesson & Tab selection handlers that sync with URL
   const handleSelectLesson = (lesson: CourseLesson, sIdx: number) => {
+    if (currentLesson && videoRef.current) {
+      savePlaybackPosition(videoRef.current.currentTime);
+    }
     setCurrentLesson(lesson);
     setCurrentSectionIndex(sIdx);
+    setCurrentVideoTime(0);
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         next.set('lesson', lesson.id);
+        next.set('tab', activeTab);
         return next;
       },
       { replace: true }
@@ -349,6 +872,9 @@ export function CoursePlayer() {
       (prev) => {
         const next = new URLSearchParams(prev);
         next.set('tab', tab);
+        if (currentLesson) {
+          next.set('lesson', currentLesson.id);
+        }
         return next;
       },
       { replace: true }
@@ -781,21 +1307,7 @@ export function CoursePlayer() {
     filteredCourseLevel.length +
     filteredModularSections.reduce((acc, s) => acc + s.totalResources, 0);
 
-  // Video playback source: check for local or direct MP4/WebM video stream
-  const directVideoUrl =
-    currentLesson?.video_url ||
-    (currentLesson?.youtube_video_url &&
-    (currentLesson.youtube_video_url.endsWith('.mp4') ||
-      currentLesson.youtube_video_url.includes('/api/storage/files/'))
-      ? currentLesson.youtube_video_url
-      : null);
 
-  // YouTube embed URL fallback
-  const embedUrl = !directVideoUrl && currentLesson?.youtube_video_id
-    ? getYouTubeEmbedUrl({ videoId: currentLesson.youtube_video_id, playlistId: course.youtube_playlist_id })
-    : !directVideoUrl && course.youtube_playlist_id
-    ? getYouTubeEmbedUrl({ playlistId: course.youtube_playlist_id })
-    : null;
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--background)] animate-fade-in w-full">
@@ -892,7 +1404,10 @@ export function CoursePlayer() {
           {/* VIDEO & TRANSCRIPT STAGE CONTAINER */}
           <div className={showSideTranscript && currentLesson ? "grid grid-cols-1 lg:grid-cols-3 gap-6 items-start" : ""}>
             <div className={showSideTranscript && currentLesson ? "lg:col-span-2 space-y-4" : "w-full space-y-4"}>
-              <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] bg-black shadow-2xl aspect-video w-full max-h-[72vh] flex items-center justify-center">
+              <div
+                ref={playerContainerRef}
+                className="relative rounded-2xl overflow-hidden border border-[var(--border)] bg-black shadow-2xl aspect-video w-full max-h-[72vh] flex items-center justify-center group"
+              >
                 {directVideoUrl ? (
                   <video
                     ref={videoRef}
@@ -903,7 +1418,32 @@ export function CoursePlayer() {
                     onContextMenu={(e) => e.preventDefault()}
                     autoPlay
                     playsInline
-                    onTimeUpdate={(e) => setCurrentVideoTime(e.currentTarget.currentTime)}
+                    onLoadedMetadata={handleVideoLoadedMetadata}
+                    onTimeUpdate={(e) => {
+                      const t = e.currentTarget.currentTime;
+                      setCurrentVideoTime(t);
+                      savePlaybackPosition(t);
+                    }}
+                    onPlay={() => {
+                      setIsPlaying(true);
+                      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+                    }}
+                    onPause={() => {
+                      setIsPlaying(false);
+                      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+                      if (videoRef.current) savePlaybackPosition(videoRef.current.currentTime);
+                    }}
+                    onVolumeChange={() => {
+                      if (videoRef.current) {
+                        setVolume(videoRef.current.volume);
+                        setIsMuted(videoRef.current.muted);
+                      }
+                    }}
+                    onRateChange={() => {
+                      if (videoRef.current) {
+                        setPlaybackRate(videoRef.current.playbackRate);
+                      }
+                    }}
                     className="w-full h-full object-contain"
                   >
                     Your browser does not support HTML5 video streaming.
@@ -926,6 +1466,62 @@ export function CoursePlayer() {
                     </p>
                   </div>
                 )}
+
+                {/* Centered OSD Feedback Badge (Like YouTube) */}
+                {osdInfo && (
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-30">
+                    <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-black/85 backdrop-blur-md text-white border border-white/20 shadow-2xl text-sm font-semibold tracking-wide animate-scale-in">
+                      {osdInfo.icon}
+                      <span>{osdInfo.text}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Top-Right Quick Overlay (PiP, Speed, Shortcuts, Fullscreen) */}
+                <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 backdrop-blur-md p-1 rounded-xl border border-white/10 shadow-lg">
+                  {directVideoUrl && (
+                    <button
+                      type="button"
+                      onClick={handleTogglePiP}
+                      className={`p-1.5 sm:p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                        isPipActive ? 'bg-[var(--primary)] text-white shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/15'
+                      }`}
+                      title={isPipActive ? 'Exit Picture-in-Picture (P / I)' : 'Picture-in-Picture (P / I)'}
+                    >
+                      <PictureInPicture2 size={16} />
+                      <span className="text-[11px] hidden sm:inline">{isPipActive ? 'In PiP' : 'PiP'}</span>
+                    </button>
+                  )}
+
+                  {directVideoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => handleChangeSpeed(playbackRate >= 2 ? -7 : 1)}
+                      className="p-1.5 sm:p-2 rounded-lg text-xs font-mono font-bold text-white/80 hover:text-white hover:bg-white/15 transition-colors"
+                      title="Playback Speed (< / >)"
+                    >
+                      {playbackRate}x
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleToggleFullscreen}
+                    className="p-1.5 sm:p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors hidden sm:block"
+                    title="Fullscreen (F)"
+                  >
+                    <Maximize size={16} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowShortcutsModal(true)}
+                    className="p-1.5 sm:p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors"
+                    title="Keyboard Shortcuts (?)"
+                  >
+                    <Keyboard size={16} />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -3041,6 +3637,72 @@ export function CoursePlayer() {
                   className="w-full h-[75vh] border-0 rounded-2xl bg-white shadow-inner"
                 />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* YOUTUBE-STYLE KEYBOARD SHORTCUTS MODAL */}
+      {showShortcutsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 animate-scale-in">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)]">
+                  <Keyboard size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-[var(--text-main)]">Keyboard Shortcuts</h3>
+                  <p className="text-[11px] sm:text-xs text-[var(--text-muted)]">YouTube-style controls for video playback</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShortcutsModal(false)}
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs max-h-[60vh] overflow-y-auto pr-1">
+              <div className="p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)] space-y-2">
+                <span className="font-bold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">Playback</span>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Play / Pause</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">Space / K</kbd></div>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Rewind 10s</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">J</kbd></div>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Forward 10s</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">L</kbd></div>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Rewind 5s</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">←</kbd></div>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Forward 5s</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">→</kbd></div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)] space-y-2">
+                <span className="font-bold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">Audio & Volume</span>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Volume Up +10%</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">↑</kbd></div>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Volume Down -10%</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">↓</kbd></div>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Mute / Unmute</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">M</kbd></div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)] space-y-2">
+                <span className="font-bold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">Display & Modes</span>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Picture-in-Picture</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">P / I</kbd></div>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Fullscreen</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">F</kbd></div>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Side Transcript</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">C</kbd></div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)] space-y-2">
+                <span className="font-bold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">Speed & Navigation</span>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Speed Up / Down</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">&gt; / &lt;</kbd></div>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Jump 0% - 90%</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">0 - 9</kbd></div>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Next Lesson</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">Shift + N</kbd></div>
+                <div className="flex justify-between items-center"><span className="text-[var(--text-main)]">Prev Lesson</span><kbd className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] font-mono font-bold text-[11px]">Shift + P</kbd></div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
+              <span className="text-[11px] text-[var(--text-muted)]">Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-hover)] border border-[var(--border)] font-mono font-bold">?</kbd> anytime to open this guide</span>
+              <Button size="sm" variant="primary" onClick={() => setShowShortcutsModal(false)}>
+                Got it
+              </Button>
             </div>
           </div>
         </div>
