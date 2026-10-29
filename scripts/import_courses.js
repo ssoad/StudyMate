@@ -96,6 +96,19 @@ const MODULE_CONFIGS = [
       'OSMM-09': 'Lecture 09: File Systems, Disk Scheduling (SSTF, SCAN) & Linux Commands',
     },
   },
+  {
+    folder: 'OOP',
+    sectionTitle: 'Module 7: Object-Oriented Programming (OOP)',
+    orderIndex: 6,
+    lessonTitles: {
+      'OOP-01': 'Lecture 01: OOP Fundamentals: Classes, Objects, Methods & Encapsulation',
+      'OOP-02': 'Lecture 02: Constructors, Overloading & Memory Allocation',
+      'OOP-03': 'Lecture 03: Polymorphism: Method Overloading & Runtime Method Overriding',
+      'OOP-04': 'Lecture 04: Abstraction, Abstract Classes & Multiple Interface Inheritance',
+      'OOP-05': 'Lecture 05: Object Relationships: Association, Aggregation & Composition',
+      'OOP-06': 'Lecture 06: Multithreading & Concurrency in Java',
+    },
+  },
 ];
 
 function formatSize(bytes) {
@@ -161,14 +174,14 @@ function buildCourseData() {
     title: 'Complexity IT - AD (ICT) Complete Master Course',
     slug: 'complexity-it-ad-ict',
     description:
-      'The comprehensive all-in-one preparation program for Assistant Director (AD) & ICT professional exams. Includes complete video lectures, notes, assignments, and solved question sets across C Programming, Data Structures, DBMS, Digital Logic Design, Computer Networks, and Operating Systems.',
+      'The comprehensive all-in-one preparation program for Assistant Director (AD) & ICT professional exams. Includes complete video lectures, notes, assignments, and solved question sets across C Programming, Data Structures, DBMS, Digital Logic Design, Computer Networks, Operating Systems, and Object-Oriented Programming (OOP).',
     instructor_name: 'Complexity IT Team',
     instructor_title: 'Lead ICT Mentors & Engineers',
     instructor_avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
     thumbnail_url: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop&q=80',
     category: 'Computer Science & ICT',
     level: 'all_levels',
-    duration: '60 hours',
+    duration: '66 hours',
     rating: 4.95,
     enrolled_count: 340,
     is_published: true,
