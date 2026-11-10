@@ -1,0 +1,687 @@
+package org.armorclub.studymate.ui.screens
+
+import android.app.Activity
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.NoteAlt
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import org.armorclub.studymate.data.BundledCourses
+import org.armorclub.studymate.data.model.Course
+import org.armorclub.studymate.data.model.CourseLesson
+import org.armorclub.studymate.data.model.CourseResource
+import org.armorclub.studymate.data.model.CourseSection
+import org.armorclub.studymate.data.model.Note
+import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.NotesRepository
+import org.armorclub.studymate.player.PlayerManager
+import org.armorclub.studymate.ui.components.MarkdownView
+import org.armorclub.studymate.ui.components.VideoPlayerView
+import org.armorclub.studymate.util.NotesShareHelper
+import java.io.File
+
+@Composable
+fun LessonPlayerScreen(
+    courseId: String,
+    lessonId: String,
+    courseRepository: CourseRepository,
+    notesRepository: NotesRepository,
+    playerManager: PlayerManager,
+    onBackClick: () -> Unit,
+    onSelectLesson: (String) -> Unit,
+    onOpenFullScreenNotes: (courseId: String, lessonId: String, lessonTitle: String, courseTitle: String) -> Unit,
+    onViewResource: (title: String, fileUrl: String) -> Unit,
+    onPiPClick: () -> Unit
+) {
+    val context = LocalContext.current
+    var course by remember { mutableStateOf<Course?>(null) }
+    var currentLesson by remember { mutableStateOf<CourseLesson?>(null) }
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Resources, 1: Notes, 2: Syllabus, 3: Overview
+    var note by remember { mutableStateOf<Note?>(null) }
+    var isFullScreen by remember { mutableStateOf(false) }
+
+    LaunchedEffect(courseId, lessonId) {
+        val c = courseRepository.getCourse(courseId)
+        course = c
+        val l = courseRepository.getLesson(courseId, lessonId)
+        currentLesson = l
+
+        if (l != null && c != null) {
+            val videoUrl = BundledCourses.resolveVideoUrl(l.videoUrl, courseRepository.getBaseUrl())
+            if (videoUrl != null) {
+                playerManager.playLesson(courseId, l, videoUrl)
+            }
+            note = notesRepository.getNote(l.id, c.id, l.title, c.title)
+        }
+    }
+
+    if (currentLesson == null || course == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    val lesson = currentLesson!!
+    val activeCourse = course!!
+
+    // Flatten all lessons for next/previous navigation
+    val allLessons = activeCourse.sections.flatMap { it.lessons }
+    val currentIndex = allLessons.indexOfFirst { it.id == lesson.id }
+    val prevLesson = if (currentIndex > 0) allLessons[currentIndex - 1] else null
+    val nextLesson = if (currentIndex in 0 until allLessons.size - 1) allLessons[currentIndex + 1] else null
+
+    // Locate current section
+    val currentSection = activeCourse.sections.firstOrNull { sec -> sec.lessons.any { it.id == lesson.id } }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(if (!isFullScreen) Modifier.statusBarsPadding().navigationBarsPadding() else Modifier)
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // High-Performance Video Player
+        VideoPlayerView(
+            playerManager = playerManager,
+            title = lesson.title,
+            courseId = courseId,
+            lessonId = lessonId,
+            onBackClick = onBackClick,
+            onNextLessonClick = nextLesson?.let { nl -> { onSelectLesson(nl.id) } },
+            onPrevLessonClick = prevLesson?.let { pl -> { onSelectLesson(pl.id) } },
+            onPiPClick = onPiPClick,
+            isFullScreen = isFullScreen,
+            onToggleFullScreen = {
+                val activity = context as? Activity
+                if (!isFullScreen) {
+                    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    isFullScreen = true
+                } else {
+                    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    isFullScreen = false
+                }
+            }
+        )
+
+        if (!isFullScreen) {
+            // Tab Header matching StudyMate: Resources, Notes, Syllabus, Overview
+            TabRow(selectedTabIndex = selectedTab) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Resources", fontSize = 13.sp)
+                        }
+                    }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.NoteAlt, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Notes", fontSize = 13.sp)
+                        }
+                    }
+                )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Syllabus", fontSize = 13.sp)
+                        }
+                    }
+                )
+                Tab(
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Overview", fontSize = 13.sp)
+                        }
+                    }
+                )
+            }
+
+            // Tab Content
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when (selectedTab) {
+                    0 -> LessonResourcesTab(
+                        course = activeCourse,
+                        section = currentSection,
+                        lesson = lesson,
+                        courseRepository = courseRepository,
+                        onViewResource = onViewResource
+                    )
+                    1 -> NotesTab(
+                        note = note,
+                        onOpenFullScreen = {
+                            onOpenFullScreenNotes(activeCourse.id, lesson.id, lesson.title, activeCourse.title)
+                        },
+                        onOpenOtherApps = {
+                            note?.let { n -> NotesShareHelper.openInExternalNotesApp(context, n) }
+                        },
+                        onTimestampClick = { seekPosMs -> playerManager.seekTo(seekPosMs) }
+                    )
+                    2 -> SyllabusTab(
+                        course = activeCourse,
+                        activeLessonId = lesson.id,
+                        onSelectLesson = { newLessonId -> onSelectLesson(newLessonId) }
+                    )
+                    3 -> OverviewTab(lesson = lesson, course = activeCourse)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LessonResourcesTab(
+    course: Course,
+    section: CourseSection?,
+    lesson: CourseLesson,
+    courseRepository: CourseRepository,
+    onViewResource: (title: String, fileUrl: String) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // 1. Direct lesson materials
+    val lessonResources = (lesson.resources + course.resources.filter { it.lessonId == lesson.id }).distinctBy { it.id }
+
+    // 2. Current Section materials (not specific to another lesson)
+    val sectionResources = section?.let { sec ->
+        (sec.resources + course.resources.filter { it.sectionId == sec.id && it.lessonId == null }).distinctBy { it.id }
+    } ?: emptyList()
+
+    // 3. Course-level handbooks
+    val courseLevelResources = course.resources.filter { it.sectionId == null && it.lessonId == null }
+
+    val allTabResources = (lessonResources + sectionResources + courseLevelResources).distinctBy { it.id }
+
+    if (allTabResources.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(48.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "No attached materials for this lecture.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Browse the main Learning Library in the Resources tab for all course notes & books.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    fontSize = 11.sp
+                )
+            }
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (lessonResources.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Lecture Materials (${lessonResources.size})",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
+            items(lessonResources, key = { "l_" + it.id }) { res ->
+                LessonResourceItem(
+                    resource = res,
+                    onView = { onViewResource(res.title, res.fileUrl) },
+                    onDownload = {
+                        scope.launch {
+                            Toast.makeText(context, "Downloading ${res.title}...", Toast.LENGTH_SHORT).show()
+                            val dest = File(context.getExternalFilesDir(null) ?: context.filesDir, res.displayFileName)
+                            courseRepository.downloadResourceFile(res.fileUrl, dest)
+                            Toast.makeText(context, "Saved to ${dest.name}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onOpenExternal = {
+                        val fullUrl = courseRepository.resolveResourceUrl(res.fileUrl)
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fullUrl)))
+                    }
+                )
+            }
+        }
+
+        if (sectionResources.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${section?.title ?: "Module"} Section Materials (${sectionResources.size})",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF10B981)
+                    )
+                )
+            }
+            items(sectionResources, key = { "s_" + it.id }) { res ->
+                LessonResourceItem(
+                    resource = res,
+                    onView = { onViewResource(res.title, res.fileUrl) },
+                    onDownload = {
+                        scope.launch {
+                            Toast.makeText(context, "Downloading ${res.title}...", Toast.LENGTH_SHORT).show()
+                            val dest = File(context.getExternalFilesDir(null) ?: context.filesDir, res.displayFileName)
+                            courseRepository.downloadResourceFile(res.fileUrl, dest)
+                            Toast.makeText(context, "Saved to ${dest.name}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onOpenExternal = {
+                        val fullUrl = courseRepository.resolveResourceUrl(res.fileUrl)
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fullUrl)))
+                    }
+                )
+            }
+        }
+
+        if (courseLevelResources.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Course Handbooks & Guides (${courseLevelResources.size})",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+            items(courseLevelResources, key = { "c_" + it.id }) { res ->
+                LessonResourceItem(
+                    resource = res,
+                    onView = { onViewResource(res.title, res.fileUrl) },
+                    onDownload = {
+                        scope.launch {
+                            val dest = File(context.getExternalFilesDir(null) ?: context.filesDir, res.displayFileName)
+                            courseRepository.downloadResourceFile(res.fileUrl, dest)
+                            Toast.makeText(context, "Saved to ${dest.name}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onOpenExternal = {
+                        val fullUrl = courseRepository.resolveResourceUrl(res.fileUrl)
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fullUrl)))
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LessonResourceItem(
+    resource: CourseResource,
+    onView: () -> Unit,
+    onDownload: () -> Unit,
+    onOpenExternal: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onView() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (resource.isPdf) Color(0xFFEF4444).copy(alpha = 0.15f)
+                            else Color(0xFF3B82F6).copy(alpha = 0.15f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (resource.isPdf) Icons.Default.PictureAsPdf else Icons.Default.Image,
+                        contentDescription = null,
+                        tint = if (resource.isPdf) Color(0xFFEF4444) else Color(0xFF3B82F6),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column {
+                    Text(
+                        text = resource.title,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (resource.fileSize.isNotBlank()) {
+                            Text(
+                                text = resource.fileSize,
+                                style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "•",
+                                style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
+                        Text(
+                            text = if (resource.isPdf) "PDF Document" else "Handout",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                    }
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Button(
+                    onClick = onView,
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(13.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Read", fontSize = 11.sp)
+                }
+                IconButton(onClick = onOpenExternal) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = "Open in App",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewTab(lesson: CourseLesson, course: Course) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text(
+            text = lesson.title,
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "${course.title} • Duration: ${lesson.formattedDuration}",
+            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = "Lecture Description",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = lesson.description.ifBlank { "Full comprehensive lecture including theory, whiteboard derivations, and hands-on code walkthrough." },
+                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Instructor",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "${course.instructorName} — ${course.instructorTitle}",
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
+private fun NotesTab(
+    note: Note?,
+    onOpenFullScreen: () -> Unit,
+    onOpenOtherApps: () -> Unit,
+    onTimestampClick: (Long) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        // Full screen & external app action cards
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = onOpenFullScreen,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.Default.Fullscreen, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Full Screen Notes", maxLines = 1)
+            }
+
+            OutlinedButton(
+                onClick = onOpenOtherApps,
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Open in App", maxLines = 1)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // In-line notes preview card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(14.dp)
+            ) {
+                if (note != null) {
+                    MarkdownView(
+                        markdown = note.content,
+                        onTimestampClick = onTimestampClick
+                    )
+                } else {
+                    Text("No notes yet. Tap 'Full Screen Notes' to begin writing!")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SyllabusTab(
+    course: Course,
+    activeLessonId: String,
+    onSelectLesson: (String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(course.sections) { section ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = section.title,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    section.lessons.forEach { itemLesson ->
+                        val isCurrent = itemLesson.id == activeLessonId
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+                                .clickable { onSelectLesson(itemLesson.id) }
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayCircle,
+                                contentDescription = null,
+                                tint = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = itemLesson.title,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = itemLesson.formattedDuration,
+                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
