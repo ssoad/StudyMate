@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.School
@@ -85,7 +86,8 @@ fun ProfileScreen(
     authRepository: AuthRepository,
     courseRepository: CourseRepository,
     onNavigateToSettings: () -> Unit,
-    onSelectCourse: (String) -> Unit
+    onSelectCourse: (String) -> Unit,
+    onOpenDrawer: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -111,6 +113,15 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Navigation Menu",
+                            tint = Color.White
+                        )
+                    }
+                },
                 title = {
                     Text(
                         text = if (isLoggedIn) "Student Profile" else "Account & Authentication",

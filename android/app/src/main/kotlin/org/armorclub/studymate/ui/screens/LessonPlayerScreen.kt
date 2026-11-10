@@ -23,6 +23,22 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -625,40 +641,287 @@ private fun SyllabusTab(
     activeLessonId: String,
     onSelectLesson: (String) -> Unit
 ) {
+    // Accordion expansion state: maps section.id -> Boolean
+    val expandedSections = remember { mutableStateMapOf<String, Boolean>() }
+
+    // By default, expand the section that contains the currently active lesson
+    LaunchedEffect(course.id, activeLessonId) {
+        course.sections.forEach { section ->
+            if (section.lessons.any { it.id == activeLessonId }) {
+                expandedSections[section.id] = true
+            } else if (!expandedSections.containsKey(section.id)) {
+                expandedSections[section.id] = false
+            }
+        }
+    }
+
+    fun expandAll() {
+        course.sections.forEach { section ->
+            expandedSections[section.id] = true
+        }
+    }
+
+    fun collapseAll() {
+        course.sections.forEach { section ->
+            expandedSections[section.id] = false
+        }
+    }
+
+    val totalLectures = course.totalLessonsCount
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(course.sections) { section ->
+        // Controls Row: Course curriculum summary & Expand/Collapse All
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Course Curriculum",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    )
+                    Text(
+                        text = "${course.sections.size} Modules • $totalLectures Lectures",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 11.sp
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = { expandAll() },
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Text("Expand All", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = { collapseAll() },
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Text("Collapse", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // Accordion Section Modules
+        items(course.sections.size) { sIdx ->
+            val section = course.sections[sIdx]
+            val isExpanded = expandedSections[section.id] ?: false
+            val arrowRotation by animateFloatAsState(
+                targetValue = if (isExpanded) 180f else 0f,
+                label = "syllabus_accordion_arrow"
+            )
+            val hasActiveLesson = section.lessons.any { it.id == activeLessonId }
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                colors = CardDefaults.cardColors(
+                    containerColor = if (hasActiveLesson) Color(0xFF131B2E) else Color(0xFF0F172A)
+                ),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (hasActiveLesson) Color(0xFF0284C7).copy(alpha = 0.6f) else Color(0xFF1E293B)
+                )
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = section.title,
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    )
+                Column {
+                    // Clickable Accordion Header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                expandedSections[section.id] = !isExpanded
+                            }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (hasActiveLesson) Color(0xFF0284C7)
+                                        else Color(0xFF1E293B)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "${sIdx + 1}",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
 
-                    section.lessons.forEachIndexed { idx, itemLesson ->
-                        val isCurrent = itemLesson.id == activeLessonId
-                        LectureVideoCard(
-                            lesson = itemLesson,
-                            lectureIndex = idx + 1,
-                            sectionTitle = section.title.substringBefore(':'),
-                            thumbnailUrl = course.thumbnailUrl,
-                            isPlaying = isCurrent,
-                            isCompleted = false,
-                            onClick = { onSelectLesson(itemLesson.id) },
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            Column {
+                                Text(
+                                    text = section.title,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (hasActiveLesson) Color(0xFF38BDF8) else Color.White
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${section.lessons.size} lectures",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                        }
+
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (isExpanded) "Collapse" else "Expand",
+                            tint = if (isExpanded) Color(0xFF38BDF8) else Color(0xFF64748B),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .rotate(arrowRotation)
                         )
+                    }
+
+                    // Expandable Lecture List
+                    AnimatedVisibility(
+                        visible = isExpanded,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF0B0F19))
+                        ) {
+                            HorizontalDivider(color = Color(0xFF1E293B))
+
+                            section.lessons.forEachIndexed { lIdx, itemLesson ->
+                                val isCurrent = itemLesson.id == activeLessonId
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onSelectLesson(itemLesson.id) }
+                                        .background(
+                                            if (isCurrent) Color(0xFF0284C7).copy(alpha = 0.15f)
+                                            else Color.Transparent
+                                        )
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        if (isCurrent) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(24.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFF0284C7)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.PlayArrow,
+                                                    contentDescription = "Playing",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        } else {
+                                            Text(
+                                                text = "${sIdx + 1}.${lIdx + 1}",
+                                                fontSize = 11.sp,
+                                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                                color = Color(0xFF64748B),
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.width(24.dp)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        Text(
+                                            text = itemLesson.title,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isCurrent) Color(0xFF38BDF8) else Color(0xFFE2E8F0)
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        if (itemLesson.resources.isNotEmpty()) {
+                                            Surface(
+                                                color = Color(0xFFEC4899).copy(alpha = 0.15f),
+                                                shape = RoundedCornerShape(4.dp)
+                                            ) {
+                                                Text(
+                                                    text = "${itemLesson.resources.size} notes",
+                                                    color = Color(0xFFF472B6),
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+
+                                        if (isCurrent) {
+                                            Surface(
+                                                color = Color(0xFF0284C7),
+                                                shape = RoundedCornerShape(4.dp)
+                                            ) {
+                                                Text(
+                                                    text = "PLAYING",
+                                                    color = Color.White,
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (lIdx < section.lessons.size - 1) {
+                                    HorizontalDivider(
+                                        color = Color(0xFF1E293B).copy(alpha = 0.4f),
+                                        modifier = Modifier.padding(start = 42.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

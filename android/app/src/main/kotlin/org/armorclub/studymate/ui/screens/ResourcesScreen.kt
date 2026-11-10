@@ -3,6 +3,12 @@ package org.armorclub.studymate.ui.screens
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,19 +29,27 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -46,6 +60,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -80,7 +96,8 @@ data class ModuleResourceGroup(
 fun ResourcesScreen(
     courseRepository: CourseRepository,
     onViewResource: (title: String, fileUrl: String) -> Unit,
-    onCourseClick: (String) -> Unit = {}
+    onCourseClick: (String) -> Unit = {},
+    onOpenDrawer: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -92,6 +109,9 @@ fun ResourcesScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedTypeFilter by remember { mutableStateOf("All") } // All, PDFs, Diagrams
     var selectedModuleFilter by remember { mutableStateOf("All Modules") }
+
+    // Accordion expansion state: maps moduleTitle -> Boolean
+    val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
 
     fun loadData(refresh: Boolean = false) {
         scope.launch {
@@ -149,36 +169,103 @@ fun ResourcesScreen(
         matchesType && matchesModule && matchesSearch
     }
 
-    // Group filtered resources by Module
-    val moduleGroups = filteredResources
-        .groupBy { resolveModuleForResource(it) }
-        .map { (pair, list) ->
+    // Group filtered resources into structured modules
+    val moduleOrder = listOf(
+        "Module 1: C Programming",
+        "Module 2: Data Structures & Algorithms",
+        "Module 3: Database Management Systems (DBMS)",
+        "Module 4: Digital Logic Design (DLD)",
+        "Module 5: Computer Networking",
+        "Module 6: Operating System & Memory Management",
+        "Module 7: Object-Oriented Programming (OOP)",
+        "General Course Handbooks & Question Sets"
+    )
+
+    val groupedMap = filteredResources.groupBy { resolveModuleForResource(it).first }
+
+    val moduleGroups = moduleOrder.mapNotNull { modTitle ->
+        val items = groupedMap[modTitle]
+        if (!items.isNullOrEmpty()) {
+            val code = resolveModuleForResource(items.first()).second
             ModuleResourceGroup(
-                moduleTitle = pair.first,
-                moduleCode = pair.second,
-                resources = list
+                moduleTitle = modTitle,
+                moduleCode = code,
+                resources = items
             )
+        } else null
+    }
+
+    // Automatically expand first 2 groups by default when data loads
+    LaunchedEffect(moduleGroups.size) {
+        moduleGroups.forEachIndexed { idx, group ->
+            if (!expandedGroups.containsKey(group.moduleTitle)) {
+                expandedGroups[group.moduleTitle] = idx < 2
+            }
         }
-        .sortedBy { it.moduleCode }
+    }
+
+    fun expandAll() {
+        moduleGroups.forEach { group ->
+            expandedGroups[group.moduleTitle] = true
+        }
+    }
+
+    fun collapseAll() {
+        moduleGroups.forEach { group ->
+            expandedGroups[group.moduleTitle] = false
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Navigation Menu",
+                            tint = Color.White
+                        )
+                    }
+                },
                 title = {
-                    Column {
-                        Text(
-                            text = "Resource Library",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Black,
-                                color = Color.White
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(Color(0xFF0284C7), Color(0xFF0369A1))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Book,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
                             )
-                        )
-                        Text(
-                            text = "Organized by Course & Curriculum Modules",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFF94A3B8)
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Column {
+                            Text(
+                                text = "Learning Library",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White
+                                )
                             )
-                        )
+                            Text(
+                                text = "Handbooks, Question Banks & Notes",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF94A3B8)
+                                )
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -212,113 +299,87 @@ fun ResourcesScreen(
                     .fillMaxSize()
                     .padding(paddingValues),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // 1. Featured Course Banner (Udemy Style Course Container)
+                // 1. Hero Course Context Card
                 if (primaryCourse != null) {
                     item {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onCourseClick(primaryCourse.id) },
-                            shape = RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
                         ) {
-                            Column {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(130.dp)
-                                        .background(
-                                            Brush.verticalGradient(
-                                                listOf(Color(0xFF1E1B4B), Color(0xFF0F172A))
-                                            )
-                                        )
+                                        .size(64.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color(0xFF1E1B4B))
                                 ) {
                                     if (primaryCourse.thumbnailUrl.isNotBlank()) {
                                         AsyncImage(
                                             model = primaryCourse.thumbnailUrl,
-                                            contentDescription = primaryCourse.title,
+                                            contentDescription = null,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize()
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(
-                                                    Brush.verticalGradient(
-                                                        listOf(Color.Transparent, Color(0xFF131B2E))
-                                                    )
-                                                )
-                                        )
-                                    }
-
-                                    Surface(
-                                        color = Color(0xFF0284C7),
-                                        shape = RoundedCornerShape(6.dp),
-                                        modifier = Modifier
-                                            .padding(12.dp)
-                                            .align(Alignment.TopStart)
-                                    ) {
-                                        Text(
-                                            text = "COURSE RESOURCES HUB",
-                                            color = Color.White,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                         )
                                     }
                                 }
 
-                                Column(modifier = Modifier.padding(14.dp)) {
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Surface(
+                                        color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
+                                        Text(
+                                            text = "ENROLLED COURSE",
+                                            color = Color(0xFF38BDF8),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
                                     Text(
                                         text = primaryCourse.title,
-                                        style = MaterialTheme.typography.titleMedium.copy(
+                                        style = MaterialTheme.typography.titleSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White
-                                        )
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
 
                                     Spacer(modifier = Modifier.height(4.dp))
 
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                Icons.Default.School,
-                                                contentDescription = null,
-                                                tint = Color(0xFF94A3B8),
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = "7 Modules",
-                                                color = Color(0xFF94A3B8),
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                        }
-
+                                        Text(
+                                            text = "${primaryCourse.sections.size} Modules",
+                                            color = Color(0xFF94A3B8),
+                                            fontSize = 11.sp
+                                        )
                                         Text(text = "•", color = Color(0xFF475569))
-
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                Icons.Default.Book,
-                                                contentDescription = null,
-                                                tint = Color(0xFF38BDF8),
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = "${allResources.size} Study Materials Attached",
-                                                color = Color(0xFF38BDF8),
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
+                                        Text(
+                                            text = "${allResources.size} Study Materials Attached",
+                                            color = Color(0xFF38BDF8),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
                             }
@@ -353,7 +414,7 @@ fun ResourcesScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        listOf("All" to "All (${allResources.size})", "PDFs" to "PDFs (22)", "Diagrams" to "Diagrams (4)").forEach { (key, label) ->
+                        listOf("All" to "All (${allResources.size})", "PDFs" to "PDFs (${allResources.count { it.isPdf }})", "Diagrams" to "Diagrams (${allResources.count { it.isImage }})").forEach { (key, label) ->
                             FilterChip(
                                 selected = selectedTypeFilter == key,
                                 onClick = { selectedTypeFilter = key },
@@ -379,7 +440,8 @@ fun ResourcesScreen(
                         "Module 3",
                         "Module 4",
                         "Module 5",
-                        "Module 6"
+                        "Module 6",
+                        "Module 7"
                     )
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -402,7 +464,47 @@ fun ResourcesScreen(
                     }
                 }
 
-                // 5. Grouped Resources by Course Modules
+                // 5. Accordion Controls Bar: Total Summary + Expand All / Collapse All
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${moduleGroups.size} Module Groups • ${filteredResources.size} Resources",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedButton(
+                                onClick = { expandAll() },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text("Expand All", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = { collapseAll() },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text("Collapse", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                // 6. Grouped Resources with Collapsible Accordion Cards
                 if (moduleGroups.isEmpty()) {
                     item {
                         Box(
@@ -420,106 +522,142 @@ fun ResourcesScreen(
                     }
                 } else {
                     moduleGroups.forEach { group ->
-                        // Module Section Header
-                        item {
-                            Surface(
-                                color = Color(0xFF1E293B).copy(alpha = 0.6f),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp)
+                        // Accordion Module Card
+                        item(key = "grp_" + group.moduleTitle) {
+                            val isExpanded = expandedGroups[group.moduleTitle] ?: false
+                            val arrowRotation by animateFloatAsState(
+                                targetValue = if (isExpanded) 180f else 0f,
+                                label = "resource_accordion_arrow"
+                            )
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isExpanded) Color(0xFF0284C7).copy(alpha = 0.5f) else Color(0xFF1E293B)
+                                )
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
+                                Column {
+                                    // Clickable Accordion Header
                                     Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                expandedGroups[group.moduleTitle] = !isExpanded
+                                            }
+                                            .padding(14.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f)
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(28.dp)
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(Color(0xFF0284C7)),
-                                            contentAlignment = Alignment.Center
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
                                         ) {
-                                            Icon(
-                                                Icons.Default.FolderOpen,
-                                                contentDescription = null,
-                                                tint = Color.White,
-                                                modifier = Modifier.size(16.dp)
-                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(Color(0xFF0284C7)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.FolderOpen,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.width(12.dp))
+
+                                            Column {
+                                                Text(
+                                                    text = group.moduleTitle,
+                                                    style = MaterialTheme.typography.titleSmall.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White
+                                                    ),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = "${group.resources.size} study documents",
+                                                    fontSize = 11.sp,
+                                                    color = Color(0xFF94A3B8)
+                                                )
+                                            }
                                         }
 
-                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Surface(
+                                                color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Text(
+                                                    text = "${group.resources.size} files",
+                                                    color = Color(0xFF38BDF8),
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                                )
+                                            }
 
-                                        Text(
-                                            text = group.moduleTitle,
-                                            style = MaterialTheme.typography.titleSmall.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White
-                                            ),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                            Icon(
+                                                imageVector = Icons.Default.KeyboardArrowDown,
+                                                contentDescription = if (isExpanded) "Collapse" else "Expand",
+                                                tint = if (isExpanded) Color(0xFF38BDF8) else Color(0xFF64748B),
+                                                modifier = Modifier
+                                                    .size(22.dp)
+                                                    .rotate(arrowRotation)
+                                            )
+                                        }
                                     }
 
-                                    Surface(
-                                        color = Color(0xFF0284C7).copy(alpha = 0.2f),
-                                        shape = RoundedCornerShape(12.dp)
+                                    // Expandable Resources Content
+                                    AnimatedVisibility(
+                                        visible = isExpanded,
+                                        enter = expandVertically() + fadeIn(),
+                                        exit = shrinkVertically() + fadeOut()
                                     ) {
-                                        Text(
-                                            text = "${group.resources.size} files",
-                                            color = Color(0xFF38BDF8),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                        )
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(Color(0xFF0B0F19).copy(alpha = 0.5f))
+                                                .padding(12.dp),
+                                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            HorizontalDivider(color = Color(0xFF1E293B))
+
+                                            group.resources.forEach { res ->
+                                                UdemyResourceCard(
+                                                    resource = res,
+                                                    moduleName = group.moduleCode,
+                                                    onRead = {
+                                                        onViewResource(res.title, res.fileUrl)
+                                                    },
+                                                    onDownload = {
+                                                        scope.launch {
+                                                            Toast.makeText(context, "Downloading ${res.title}...", Toast.LENGTH_SHORT).show()
+                                                            val dest = File(context.getExternalFilesDir(null) ?: context.filesDir, res.displayFileName)
+                                                            courseRepository.downloadResourceFile(res.fileUrl, dest)
+                                                            Toast.makeText(context, "Saved to ${dest.name}", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    },
+                                                    onOpenExternal = {
+                                                        val fullUrl = courseRepository.resolveResourceUrl(res.fileUrl)
+                                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fullUrl)))
+                                                    }
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
-                        }
-
-                        // Resources inside this Module
-                        items(group.resources, key = { it.id }) { res ->
-                            UdemyResourceCard(
-                                resource = res,
-                                moduleName = group.moduleCode,
-                                onRead = {
-                                    onViewResource(res.title, res.fileUrl)
-                                },
-                                onDownload = {
-                                    scope.launch {
-                                        Toast.makeText(context, "Downloading ${res.title}...", Toast.LENGTH_SHORT).show()
-                                        val dest = File(context.getExternalFilesDir(null) ?: context.filesDir, res.displayFileName)
-                                        courseRepository.downloadResourceFile(res.fileUrl, dest)
-                                        Toast.makeText(context, "Saved to ${dest.name}", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                onOpenExternal = {
-                                    scope.launch {
-                                        val dest = File(context.getExternalFilesDir(null) ?: context.filesDir, res.displayFileName)
-                                        if (!dest.exists()) {
-                                            courseRepository.downloadResourceFile(res.fileUrl, dest)
-                                        }
-                                        val uri = androidx.core.content.FileProvider.getUriForFile(
-                                            context,
-                                            "${context.packageName}.fileprovider",
-                                            dest
-                                        )
-                                        val mime = if (res.isPdf) "application/pdf" else "image/*"
-                                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                                            setDataAndType(uri, mime)
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        context.startActivity(Intent.createChooser(intent, "Open with"))
-                                    }
-                                }
-                            )
                         }
                     }
                 }

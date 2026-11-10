@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -80,7 +81,8 @@ fun CourseListScreen(
     playerManager: PlayerManager,
     onCourseClick: (String) -> Unit,
     onResumeLessonClick: (courseId: String, lessonId: String) -> Unit,
-    onProfileClick: () -> Unit = {}
+    onProfileClick: () -> Unit = {},
+    onOpenDrawer: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     var courses by remember { mutableStateOf<List<Course>>(emptyList()) }
@@ -107,6 +109,15 @@ fun CourseListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Navigation Menu",
+                            tint = Color.White
+                        )
+                    }
+                },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
