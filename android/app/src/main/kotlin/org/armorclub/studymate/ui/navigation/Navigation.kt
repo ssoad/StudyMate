@@ -9,11 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,12 +25,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.NotesRepository
 import org.armorclub.studymate.player.PlayerManager
@@ -36,6 +41,7 @@ import org.armorclub.studymate.ui.screens.CourseListScreen
 import org.armorclub.studymate.ui.screens.DocumentReaderScreen
 import org.armorclub.studymate.ui.screens.FullScreenNotesScreen
 import org.armorclub.studymate.ui.screens.LessonPlayerScreen
+import org.armorclub.studymate.ui.screens.ProfileScreen
 import org.armorclub.studymate.ui.screens.ResourcesScreen
 import org.armorclub.studymate.ui.screens.SettingsScreen
 import java.net.URLDecoder
@@ -68,11 +74,14 @@ sealed class Screen(val route: String) {
             return "document_reader/$encTitle/$encUrl"
         }
     }
+
+    data object Settings : Screen("settings")
 }
 
 @Composable
 fun AppNavigation(
     courseRepository: CourseRepository,
+    authRepository: AuthRepository,
     notesRepository: NotesRepository,
     playerManager: PlayerManager,
     initialCourseId: String? = null,
@@ -81,10 +90,12 @@ fun AppNavigation(
     val navController = rememberNavController()
     val context = LocalContext.current
 
-    val startDestination = if (initialCourseId != null && initialLessonId != null) {
-        Screen.LessonPlayer.createRoute(initialCourseId, initialLessonId)
-    } else {
-        Screen.MainContainer.route
+    val startDestination = Screen.MainContainer.route
+
+    androidx.compose.runtime.LaunchedEffect(initialCourseId, initialLessonId) {
+        if (initialCourseId != null && initialLessonId != null) {
+            navController.navigate(Screen.LessonPlayer.createRoute(initialCourseId, initialLessonId))
+        }
     }
 
     fun enterPiP() {
@@ -108,24 +119,47 @@ fun AppNavigation(
 
             Scaffold(
                 bottomBar = {
-                    NavigationBar {
+                    NavigationBar(
+                        containerColor = Color(0xFF0F172A)
+                    ) {
                         NavigationBarItem(
                             selected = selectedBottomNav == 0,
                             onClick = { selectedBottomNav = 0 },
-                            icon = { Icon(Icons.Default.PlayCircle, contentDescription = "Courses") },
-                            label = { Text("Courses") }
+                            icon = { Icon(Icons.Default.School, contentDescription = "Courses") },
+                            label = { Text("Courses") },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color.White,
+                                selectedTextColor = Color(0xFF38BDF8),
+                                indicatorColor = Color(0xFF0284C7),
+                                unselectedIconColor = Color(0xFF64748B),
+                                unselectedTextColor = Color(0xFF64748B)
+                            )
                         )
                         NavigationBarItem(
                             selected = selectedBottomNav == 1,
                             onClick = { selectedBottomNav = 1 },
                             icon = { Icon(Icons.Default.Book, contentDescription = "Resources") },
-                            label = { Text("Resources") }
+                            label = { Text("Resources") },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color.White,
+                                selectedTextColor = Color(0xFF38BDF8),
+                                indicatorColor = Color(0xFF0284C7),
+                                unselectedIconColor = Color(0xFF64748B),
+                                unselectedTextColor = Color(0xFF64748B)
+                            )
                         )
                         NavigationBarItem(
                             selected = selectedBottomNav == 2,
                             onClick = { selectedBottomNav = 2 },
-                            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                            label = { Text("Settings") }
+                            icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                            label = { Text("Profile") },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color.White,
+                                selectedTextColor = Color(0xFF38BDF8),
+                                indicatorColor = Color(0xFF0284C7),
+                                unselectedIconColor = Color(0xFF64748B),
+                                unselectedTextColor = Color(0xFF64748B)
+                            )
                         )
                     }
                 }
@@ -138,27 +172,49 @@ fun AppNavigation(
                     when (selectedBottomNav) {
                         0 -> CourseListScreen(
                             courseRepository = courseRepository,
+                            authRepository = authRepository,
                             playerManager = playerManager,
                             onCourseClick = { courseId ->
                                 navController.navigate(Screen.CourseDetail.createRoute(courseId))
                             },
                             onResumeLessonClick = { courseId, lessonId ->
                                 navController.navigate(Screen.LessonPlayer.createRoute(courseId, lessonId))
+                            },
+                            onProfileClick = {
+                                selectedBottomNav = 2
                             }
                         )
                         1 -> ResourcesScreen(
                             courseRepository = courseRepository,
                             onViewResource = { title, fileUrl ->
                                 navController.navigate(Screen.DocumentReader.createRoute(title, fileUrl))
+                            },
+                            onCourseClick = { courseId ->
+                                navController.navigate(Screen.CourseDetail.createRoute(courseId))
                             }
                         )
-                        2 -> SettingsScreen(
+                        2 -> ProfileScreen(
+                            authRepository = authRepository,
                             courseRepository = courseRepository,
-                            playerManager = playerManager
+                            onNavigateToSettings = {
+                                navController.navigate(Screen.Settings.route)
+                            },
+                            onSelectCourse = { courseId ->
+                                navController.navigate(Screen.CourseDetail.createRoute(courseId))
+                            }
                         )
                     }
                 }
             }
+        }
+
+        // Settings Screen
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                courseRepository = courseRepository,
+                playerManager = playerManager,
+                onBackClick = { navController.popBackStack() }
+            )
         }
 
         // Course Detail / Syllabus Screen
@@ -213,35 +269,6 @@ fun AppNavigation(
             )
         }
 
-        // In-App Document / PDF Reader Screen
-        composable(
-            route = Screen.DocumentReader.route,
-            arguments = listOf(
-                navArgument("title") { type = NavType.StringType },
-                navArgument("fileUrl") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val rawTitle = backStackEntry.arguments?.getString("title") ?: ""
-            val rawUrl = backStackEntry.arguments?.getString("fileUrl") ?: ""
-            val title = try {
-                String(android.util.Base64.decode(rawTitle, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP), StandardCharsets.UTF_8)
-            } catch (e: Exception) {
-                rawTitle
-            }
-            val fileUrl = try {
-                String(android.util.Base64.decode(rawUrl, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP), StandardCharsets.UTF_8)
-            } catch (e: Exception) {
-                rawUrl
-            }
-
-            DocumentReaderScreen(
-                title = title,
-                fileUrl = fileUrl,
-                courseRepository = courseRepository,
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
         // Full Screen Notes Workspace
         composable(
             route = Screen.FullScreenNotes.route,
@@ -257,8 +284,17 @@ fun AppNavigation(
             val rawLessonTitle = backStackEntry.arguments?.getString("lessonTitle") ?: ""
             val rawCourseTitle = backStackEntry.arguments?.getString("courseTitle") ?: ""
 
-            val lessonTitle = URLDecoder.decode(rawLessonTitle, StandardCharsets.UTF_8.toString())
-            val courseTitle = URLDecoder.decode(rawCourseTitle, StandardCharsets.UTF_8.toString())
+            val lessonTitle = try {
+                URLDecoder.decode(rawLessonTitle, StandardCharsets.UTF_8.toString())
+            } catch (e: Exception) {
+                rawLessonTitle
+            }
+
+            val courseTitle = try {
+                URLDecoder.decode(rawCourseTitle, StandardCharsets.UTF_8.toString())
+            } catch (e: Exception) {
+                rawCourseTitle
+            }
 
             FullScreenNotesScreen(
                 courseId = courseId,
@@ -267,6 +303,39 @@ fun AppNavigation(
                 courseTitle = courseTitle,
                 notesRepository = notesRepository,
                 playerManager = playerManager,
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        // Native Hardware-Accelerated PDF & Document Reader
+        composable(
+            route = Screen.DocumentReader.route,
+            arguments = listOf(
+                navArgument("title") { type = NavType.StringType },
+                navArgument("fileUrl") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val encTitle = backStackEntry.arguments?.getString("title") ?: ""
+            val encUrl = backStackEntry.arguments?.getString("fileUrl") ?: ""
+
+            val title = try {
+                val decodedBytes = android.util.Base64.decode(encTitle, android.util.Base64.URL_SAFE)
+                String(decodedBytes, StandardCharsets.UTF_8)
+            } catch (e: Exception) {
+                encTitle
+            }
+
+            val fileUrl = try {
+                val decodedBytes = android.util.Base64.decode(encUrl, android.util.Base64.URL_SAFE)
+                String(decodedBytes, StandardCharsets.UTF_8)
+            } catch (e: Exception) {
+                encUrl
+            }
+
+            DocumentReaderScreen(
+                title = title,
+                fileUrl = fileUrl,
+                courseRepository = courseRepository,
                 onBackClick = { navController.popBackStack() }
             )
         }

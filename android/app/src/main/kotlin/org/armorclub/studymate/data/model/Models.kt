@@ -9,19 +9,25 @@ data class Course(
     val title: String,
     val slug: String = "",
     val description: String = "",
-    @SerialName("instructor_name") val instructorName: String = "",
-    @SerialName("instructor_title") val instructorTitle: String = "",
+    @SerialName("instructor_name") val instructorName: String = "Complexity IT Team",
+    @SerialName("instructor_title") val instructorTitle: String = "ICT & BCS Technical Specialists",
     @SerialName("instructor_avatar") val instructorAvatar: String = "",
     @SerialName("thumbnail_url") val thumbnailUrl: String = "",
-    val category: String = "Computer Science",
-    val level: String = "all_levels",
-    val duration: String = "",
-    val rating: Double = 4.9,
-    @SerialName("enrolled_count") val enrolledCount: Int = 0,
+    val category: String = "Computer Science & ICT",
+    val level: String = "All Levels",
+    val duration: String = "66 Hours",
+    val rating: Double = 4.95,
+    @SerialName("enrolled_count") val enrolledCount: Int = 341,
     @SerialName("is_published") val isPublished: Boolean = true,
     val sections: List<CourseSection> = emptyList(),
     val resources: List<CourseResource> = emptyList()
-)
+) {
+    val totalLessonsCount: Int
+        get() = sections.sumOf { it.lessons.size }
+
+    val totalResourcesCount: Int
+        get() = resources.size + sections.sumOf { it.resources.size + it.lessons.sumOf { l -> l.resources.size } }
+}
 
 @Serializable
 data class CourseSection(
@@ -84,6 +90,14 @@ data class CourseResource(
     val isLink: Boolean
         get() = resourceType == "link" || fileUrl.startsWith("http://") || fileUrl.startsWith("https://") && !fileUrl.contains("/api/storage/files")
 
+    val fileFormatBadge: String
+        get() = when {
+            isPdf -> "PDF"
+            isImage -> "IMG"
+            isLink -> "LINK"
+            else -> "DOC"
+        }
+
     val displayFileName: String
         get() {
             val fromUrl = fileUrl.substringAfterLast('/').substringBefore('?')
@@ -108,6 +122,14 @@ data class StudyResource(
     val isImage: Boolean
         get() = url.endsWith(".png", ignoreCase = true) || url.endsWith(".jpg", ignoreCase = true) || url.endsWith(".jpeg", ignoreCase = true)
 
+    val fileFormatBadge: String
+        get() = when {
+            isPdf -> "PDF"
+            isImage -> "IMG"
+            type == "link" -> "LINK"
+            else -> "DOC"
+        }
+
     val displayFileName: String
         get() {
             val fromUrl = url.substringAfterLast('/').substringBefore('?')
@@ -124,4 +146,36 @@ data class Note(
     val courseTitle: String,
     val content: String,
     val updatedAt: Long = System.currentTimeMillis()
+)
+
+@Serializable
+data class UserProfile(
+    val id: String,
+    val email: String,
+    @SerialName("full_name") val fullName: String = "StudyMate Student",
+    @SerialName("avatar_url") val avatarUrl: String? = null,
+    val role: String = "student",
+    val points: Int = 120,
+    val bio: String? = "Preparing for Assistant Director (ICT) Exam"
+)
+
+@Serializable
+data class AuthTokenResponse(
+    @SerialName("access_token") val accessToken: String? = null,
+    @SerialName("token_type") val tokenType: String? = null,
+    @SerialName("expires_in") val expiresIn: Long? = null,
+    @SerialName("refresh_token") val refreshToken: String? = null,
+    val user: AuthUserData? = null,
+    val error: String? = null,
+    @SerialName("error_description") val errorDescription: String? = null,
+    val message: String? = null,
+    val msg: String? = null
+)
+
+@Serializable
+data class AuthUserData(
+    val id: String,
+    val email: String,
+    @SerialName("user_metadata") val userMetadata: Map<String, String?>? = null,
+    @SerialName("app_metadata") val appMetadata: Map<String, String?>? = null
 )

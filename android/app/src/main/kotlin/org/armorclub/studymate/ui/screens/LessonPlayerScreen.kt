@@ -77,7 +77,9 @@ import org.armorclub.studymate.data.model.Note
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.NotesRepository
 import org.armorclub.studymate.player.PlayerManager
+import org.armorclub.studymate.ui.components.LectureVideoCard
 import org.armorclub.studymate.ui.components.MarkdownView
+import org.armorclub.studymate.ui.components.UdemyResourceCard
 import org.armorclub.studymate.ui.components.VideoPlayerView
 import org.armorclub.studymate.util.NotesShareHelper
 import java.io.File
@@ -315,9 +317,10 @@ private fun LessonResourcesTab(
                 )
             }
             items(lessonResources, key = { "l_" + it.id }) { res ->
-                LessonResourceItem(
+                UdemyResourceCard(
                     resource = res,
-                    onView = { onViewResource(res.title, res.fileUrl) },
+                    moduleName = "LECTURE RESOURCE",
+                    onRead = { onViewResource(res.title, res.fileUrl) },
                     onDownload = {
                         scope.launch {
                             Toast.makeText(context, "Downloading ${res.title}...", Toast.LENGTH_SHORT).show()
@@ -346,9 +349,10 @@ private fun LessonResourcesTab(
                 )
             }
             items(sectionResources, key = { "s_" + it.id }) { res ->
-                LessonResourceItem(
+                UdemyResourceCard(
                     resource = res,
-                    onView = { onViewResource(res.title, res.fileUrl) },
+                    moduleName = "MODULE RESOURCE",
+                    onRead = { onViewResource(res.title, res.fileUrl) },
                     onDownload = {
                         scope.launch {
                             Toast.makeText(context, "Downloading ${res.title}...", Toast.LENGTH_SHORT).show()
@@ -374,9 +378,10 @@ private fun LessonResourcesTab(
                 )
             }
             items(courseLevelResources, key = { "c_" + it.id }) { res ->
-                LessonResourceItem(
+                UdemyResourceCard(
                     resource = res,
-                    onView = { onViewResource(res.title, res.fileUrl) },
+                    moduleName = "HANDBOOK",
+                    onRead = { onViewResource(res.title, res.fileUrl) },
                     onDownload = {
                         scope.launch {
                             val dest = File(context.getExternalFilesDir(null) ?: context.filesDir, res.displayFileName)
@@ -642,43 +647,18 @@ private fun SyllabusTab(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    section.lessons.forEach { itemLesson ->
+                    section.lessons.forEachIndexed { idx, itemLesson ->
                         val isCurrent = itemLesson.id == activeLessonId
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
-                                .clickable { onSelectLesson(itemLesson.id) }
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayCircle,
-                                contentDescription = null,
-                                tint = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
-                            )
-
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = itemLesson.title,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                    ),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = itemLesson.formattedDuration,
-                                    style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                )
-                            }
-                        }
+                        LectureVideoCard(
+                            lesson = itemLesson,
+                            lectureIndex = idx + 1,
+                            sectionTitle = section.title.substringBefore(':'),
+                            thumbnailUrl = course.thumbnailUrl,
+                            isPlaying = isCurrent,
+                            isCompleted = false,
+                            onClick = { onSelectLesson(itemLesson.id) },
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
                     }
                 }
             }

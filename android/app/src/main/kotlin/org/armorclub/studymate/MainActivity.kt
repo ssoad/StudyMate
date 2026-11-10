@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.NotesRepository
 import org.armorclub.studymate.player.PlayerManager
@@ -26,6 +27,7 @@ import org.armorclub.studymate.ui.theme.StudyMateTheme
 class MainActivity : ComponentActivity() {
 
     private lateinit var courseRepository: CourseRepository
+    private lateinit var authRepository: AuthRepository
     private lateinit var notesRepository: NotesRepository
     private lateinit var playerManager: PlayerManager
 
@@ -36,6 +38,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         courseRepository = CourseRepository(this)
+        authRepository = AuthRepository(this, courseRepository)
         notesRepository = NotesRepository(this)
         playerManager = PlayerManager.getInstance(this)
 
@@ -51,6 +54,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     AppNavigation(
                         courseRepository = courseRepository,
+                        authRepository = authRepository,
                         notesRepository = notesRepository,
                         playerManager = playerManager,
                         initialCourseId = initialCourseId,
