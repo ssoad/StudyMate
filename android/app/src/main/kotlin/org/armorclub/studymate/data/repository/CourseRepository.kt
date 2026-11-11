@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.armorclub.studymate.BuildConfig
 import org.armorclub.studymate.data.BundledCourses
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.model.CourseLesson
@@ -28,7 +29,14 @@ class CourseRepository(private val context: Context) {
 
     fun getBaseUrl(): String {
         val prefs = context.getSharedPreferences("studymate_prefs", Context.MODE_PRIVATE)
-        return prefs.getString("server_base_url", BundledCourses.DEFAULT_BASE_URL) ?: BundledCourses.DEFAULT_BASE_URL
+        val saved = prefs.getString("server_base_url", null)
+        if (!BuildConfig.DEBUG) {
+            // In release production builds, never allow fallback to local/debug development IPs
+            if (saved.isNullOrBlank() || saved.contains("10.0.0.206") || saved.contains("localhost") || saved.contains("127.0.0.1")) {
+                return BundledCourses.PRODUCTION_BASE_URL
+            }
+        }
+        return saved ?: BundledCourses.DEFAULT_BASE_URL
     }
 
     fun setBaseUrl(url: String) {

@@ -18,6 +18,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.armorclub.studymate.data.BundledCourses
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.model.UserCourseProgress
 import java.text.SimpleDateFormat
@@ -47,6 +48,18 @@ class ProgressRepository(
 
     init {
         loadAllCachedProgress()
+    }
+
+    fun getGuestOrUserId(): String {
+        val user = authRepository.currentUser.value
+        if (user != null && user.id.isNotBlank()) return user.id
+        val guestKey = "anonymous_guest_id"
+        var guestId = prefs.getString(guestKey, null)
+        if (guestId.isNullOrBlank()) {
+            guestId = "guest_" + java.util.UUID.randomUUID().toString().replace("-", "").take(12)
+            prefs.edit().putString(guestKey, guestId).apply()
+        }
+        return guestId
     }
 
     private fun getProgressStorageKey(userId: String, courseId: String): String {
@@ -163,8 +176,7 @@ class ProgressRepository(
             .apply()
 
         // Also update last_lesson_id in course progress
-        val user = authRepository.currentUser.value
-        val userId = user?.id ?: "demo-student-id-001"
+        val userId = getGuestOrUserId()
         val current = getCourseProgress(userId, courseId)
         if (current.lastLessonId != lessonId) {
             val updated = current.copy(lastLessonId = lessonId)
@@ -185,8 +197,7 @@ class ProgressRepository(
 
     fun checkAutoCompletion(courseId: String, lessonId: String, positionMs: Long, durationMs: Long): Boolean {
         if (durationMs > 15_000L && positionMs >= (durationMs * 0.90f)) {
-            val user = authRepository.currentUser.value
-            val userId = user?.id ?: "demo-student-id-001"
+            val userId = getGuestOrUserId()
             if (!isLessonCompleted(userId, courseId, lessonId)) {
                 markLessonCompleted(userId, courseId, lessonId)
                 return true
@@ -241,7 +252,7 @@ class ProgressRepository(
                 val request = Request.Builder()
                     .url(url)
                     .post(bodyObj.toString().toRequestBody("application/json".toMediaType()))
-                    .addHeader("apikey", "public-anon-key")
+                    .addHeader("apikey", BundledCourses.SUPABASE_ANON_KEY)
                     .addHeader("Authorization", "Bearer $token")
                     .addHeader("Prefer", "resolution=merge-duplicates")
                     .build()
@@ -265,7 +276,7 @@ class ProgressRepository(
             val url = "$baseUrl/rest/v1/course_user_progress?user_id=eq.$userId&course_id=eq.$courseId&select=*"
             val request = Request.Builder()
                 .url(url)
-                .addHeader("apikey", "public-anon-key")
+                .addHeader("apikey", BundledCourses.SUPABASE_ANON_KEY)
                 .addHeader("Authorization", "Bearer $token")
                 .build()
 

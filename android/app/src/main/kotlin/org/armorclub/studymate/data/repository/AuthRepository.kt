@@ -17,6 +17,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.armorclub.studymate.BuildConfig
+import org.armorclub.studymate.data.BundledCourses
 import org.armorclub.studymate.data.model.AuthTokenResponse
 import org.armorclub.studymate.data.model.UserProfile
 import java.util.concurrent.TimeUnit
@@ -51,6 +53,14 @@ class AuthRepository(
         val role = prefs.getString("user_role", "student") ?: "student"
         val points = prefs.getInt("user_points", 120)
 
+        // Security check: Clean any legacy demo credentials in release production builds
+        if (!BuildConfig.DEBUG && (id == "demo-student-id-001" || id == "offline-demo-id" || token == "demo_token_offline" || token == "offline_demo_token" || email == "demo@studymate.org")) {
+            prefs.edit().clear().apply()
+            _currentUser.value = null
+            _isLoggedIn.value = false
+            return
+        }
+
         if (!token.isNullOrBlank() && !email.isNullOrBlank() && !id.isNullOrBlank()) {
             val user = UserProfile(
                 id = id,
@@ -61,8 +71,8 @@ class AuthRepository(
             )
             _currentUser.value = user
             _isLoggedIn.value = true
-        } else {
-            // Default demo logged in user for immediate seamless experience
+        } else if (BuildConfig.DEBUG) {
+            // Default demo logged in user ONLY for local debug experience
             val defaultDemo = UserProfile(
                 id = "demo-student-id-001",
                 email = "demo@studymate.org",
@@ -74,6 +84,10 @@ class AuthRepository(
             _currentUser.value = defaultDemo
             _isLoggedIn.value = true
             persistUser("demo_token_offline", defaultDemo)
+        } else {
+            // Production Release: clean unauthenticated state
+            _currentUser.value = null
+            _isLoggedIn.value = false
         }
     }
 
@@ -91,12 +105,20 @@ class AuthRepository(
     }
 
     suspend fun signIn(email: String, password: String): Result<UserProfile> = withContext(Dispatchers.IO) {
+        val cleanEmail = email.trim().lowercase()
+        if (cleanEmail.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
+            return@withContext Result.failure(IllegalArgumentException("Please enter a valid email address."))
+        }
+        if (password.isBlank() || password.length < 6) {
+            return@withContext Result.failure(IllegalArgumentException("Password must be at least 6 characters."))
+        }
+
         try {
             val baseUrl = courseRepository.getBaseUrl().trimEnd('/')
             val url = "$baseUrl/auth/v1/token?grant_type=password"
 
             val bodyJson = buildJsonObject {
-                put("email", email.trim().lowercase())
+                put("email", cleanEmail)
                 put("password", password)
             }.toString()
 
@@ -104,6 +126,7 @@ class AuthRepository(
                 .url(url)
                 .post(bodyJson.toRequestBody("application/json".toMediaType()))
                 .addHeader("Content-Type", "application/json")
+                .addHeader("apikey", BundledCourses.SUPABASE_ANON_KEY)
                 .build()
 
             val response = httpClient.newCall(request).execute()
@@ -122,12 +145,12 @@ class AuthRepository(
             val authResp = json.decodeFromString<AuthTokenResponse>(respBody)
             val token = authResp.accessToken ?: "dummy_token"
             val userId = authResp.user?.id ?: "user_${System.currentTimeMillis()}"
-            val name = authResp.user?.userMetadata?.get("full_name") ?: email.substringBefore('@')
+            val name = authResp.user?.userMetadata?.get("full_name") ?: cleanEmail.substringBefore('@')
             val role = authResp.user?.appMetadata?.get("role") ?: "student"
 
             val profile = UserProfile(
                 id = userId,
-                email = email,
+                email = cleanEmail,
                 fullName = name,
                 role = role,
                 points = 120
@@ -142,15 +165,27 @@ class AuthRepository(
     }
 
     suspend fun signUp(email: String, password: String, fullName: String): Result<UserProfile> = withContext(Dispatchers.IO) {
+        val cleanEmail = email.trim().lowercase()
+        val cleanName = fullName.trim()
+        if (cleanName.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Please enter your full name."))
+        }
+        if (cleanEmail.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
+            return@withContext Result.failure(IllegalArgumentException("Please enter a valid email address."))
+        }
+        if (password.isBlank() || password.length < 6) {
+            return@withContext Result.failure(IllegalArgumentException("Password must be at least 6 characters."))
+        }
+
         try {
             val baseUrl = courseRepository.getBaseUrl().trimEnd('/')
             val url = "$baseUrl/auth/v1/signup"
 
             val bodyJson = buildJsonObject {
-                put("email", email.trim().lowercase())
+                put("email", cleanEmail)
                 put("password", password)
                 putJsonObject("data") {
-                    put("full_name", fullName.trim())
+                    put("full_name", cleanName)
                 }
             }.toString()
 
@@ -158,6 +193,7 @@ class AuthRepository(
                 .url(url)
                 .post(bodyJson.toRequestBody("application/json".toMediaType()))
                 .addHeader("Content-Type", "application/json")
+                .addHeader("apikey", BundledCourses.SUPABASE_ANON_KEY)
                 .build()
 
             val response = httpClient.newCall(request).execute()
@@ -179,8 +215,8 @@ class AuthRepository(
 
             val profile = UserProfile(
                 id = userId,
-                email = email,
-                fullName = fullName.ifBlank { email.substringBefore('@') },
+                email = cleanEmail,
+                fullName = cleanName.ifBlank { cleanEmail.substringBefore('@') },
                 role = "student",
                 points = 100
             )
@@ -194,6 +230,9 @@ class AuthRepository(
     }
 
     suspend fun signInAsDemo(): Result<UserProfile> {
+        if (!BuildConfig.DEBUG) {
+            return Result.failure(IllegalStateException("Demo sign-in is disabled in production release builds."))
+        }
         val result = signIn("demo@studymate.org", "demopassword123")
         return if (result.isSuccess) {
             result
@@ -239,7 +278,7 @@ class AuthRepository(
                     val request = Request.Builder()
                         .url(url)
                         .patch(body.toRequestBody("application/json".toMediaType()))
-                        .addHeader("apikey", "public-anon-key")
+                        .addHeader("apikey", BundledCourses.SUPABASE_ANON_KEY)
                         .addHeader("Authorization", "Bearer $token")
                         .build()
                     httpClient.newCall(request).execute()

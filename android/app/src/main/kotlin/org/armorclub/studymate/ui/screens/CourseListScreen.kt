@@ -169,7 +169,7 @@ fun CourseListScreen(
                             .padding(end = 12.dp)
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF0284C7))
+                            .background(AppTheme.colors.primary)
                             .clickable { onProfileClick() },
                         contentAlignment = Alignment.Center
                     ) {

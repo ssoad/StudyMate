@@ -3,13 +3,19 @@ package org.armorclub.studymate.data
 import android.content.Context
 import android.util.Log
 import kotlinx.serialization.json.Json
+import org.armorclub.studymate.BuildConfig
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.model.CourseResource
 
 object BundledCourses {
 
-    const val DEFAULT_BASE_URL = "http://10.0.0.206:5173"
+    const val PRODUCTION_BASE_URL = "https://studymate.armorclub.org"
+    const val LOCAL_DEV_BASE_URL = "http://10.0.0.206:5173"
     const val FALLBACK_WEB_URL = "https://studymate.armorclub.org"
+    const val SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoid2ViX2Fub24iLCJpc3MiOiJzdHVkeW1hdGUtbG9jYWwiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjUwMDAwMDAwMH0.hpayDbLaCLWFAbZgM_5WOFmopfB3qqFlP-v2yhFwoTM"
+
+    val DEFAULT_BASE_URL: String
+        get() = if (BuildConfig.DEBUG) LOCAL_DEV_BASE_URL else PRODUCTION_BASE_URL
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 

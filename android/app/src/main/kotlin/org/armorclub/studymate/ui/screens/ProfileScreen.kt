@@ -82,6 +82,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import org.armorclub.studymate.BuildConfig
 import org.armorclub.studymate.R
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.repository.AuthRepository
@@ -661,39 +662,41 @@ fun ProfileScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            if (BuildConfig.DEBUG) {
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                            // 1-Tap Quick Demo Login Button
-                            OutlinedButton(
-                                onClick = {
-                                    scope.launch {
-                                        isAuthLoading = true
-                                        authError = null
-                                        val result = authRepository.signInAsDemo()
-                                        isAuthLoading = false
-                                        result.onSuccess {
-                                            Toast.makeText(context, "Signed in as Demo Student!", Toast.LENGTH_SHORT).show()
-                                        }.onFailure { err ->
-                                            authError = err.localizedMessage
+                                // 1-Tap Quick Demo Login Button (Only available in Debug builds)
+                                OutlinedButton(
+                                    onClick = {
+                                        scope.launch {
+                                            isAuthLoading = true
+                                            authError = null
+                                            val result = authRepository.signInAsDemo()
+                                            isAuthLoading = false
+                                            result.onSuccess {
+                                                Toast.makeText(context, "Signed in as Demo Student!", Toast.LENGTH_SHORT).show()
+                                            }.onFailure { err ->
+                                                authError = err.localizedMessage
+                                            }
                                         }
-                                    }
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = !isAuthLoading
-                            ) {
-                                Icon(
-                                    Icons.Default.FlashOn,
-                                    contentDescription = null,
-                                    tint = Color(0xFFF59E0B),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "One-Tap Demo Student Sign In",
-                                    fontWeight = FontWeight.Bold,
-                                    color = AppTheme.colors.textPrimary
-                                )
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !isAuthLoading
+                                ) {
+                                    Icon(
+                                        Icons.Default.FlashOn,
+                                        contentDescription = null,
+                                        tint = Color(0xFFF59E0B),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "One-Tap Demo Student Sign In (Debug Only)",
+                                        fontWeight = FontWeight.Bold,
+                                        color = AppTheme.colors.textPrimary
+                                    )
+                                }
                             }
                         }
                     }

@@ -95,7 +95,7 @@ fun MyLearningScreen(
     var isLoading by remember { mutableStateOf(true) }
 
     val currentUser by authRepository.currentUser.collectAsState()
-    val userId = currentUser?.id ?: "demo-student-id-001"
+    val userId = progressRepository.getGuestOrUserId()
     val progressMap by progressRepository.progressMap.collectAsState()
 
     val activeLesson by playerManager.activeLesson.collectAsState()

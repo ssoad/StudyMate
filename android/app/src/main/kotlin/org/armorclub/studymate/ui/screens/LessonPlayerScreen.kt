@@ -142,7 +142,7 @@ fun LessonPlayerScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val currentUser by authRepository.currentUser.collectAsState()
-    val userId = currentUser?.id ?: "demo-student-id-001"
+    val userId = progressRepository.getGuestOrUserId()
 
     val progressMap by progressRepository.progressMap.collectAsState()
     val courseProgress = progressMap[courseId] ?: progressRepository.getCourseProgress(userId, courseId)

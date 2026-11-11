@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Leaderboard
+import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayCircle
@@ -308,6 +309,12 @@ fun AppNavigation(
                                             else listOf(Color(0xFF1D4ED8), Color(0xFF2563EB))
                                         )
                                     )
+                                    .clickable {
+                                        if (!isLoggedIn) {
+                                            selectedBottomNav = 3
+                                            scope.launch { drawerState.close() }
+                                        }
+                                    }
                                     .padding(16.dp)
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -339,13 +346,13 @@ fun AppNavigation(
 
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = currentUser?.fullName ?: "StudyMate Student",
+                                            text = currentUser?.fullName ?: "Guest Student",
                                             color = Color.White,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 15.sp
                                         )
                                         Text(
-                                            text = currentUser?.email ?: "Sign in to sync your progress",
+                                            text = currentUser?.email ?: "Tap to sign in or create account",
                                             color = Color.White.copy(alpha = 0.8f),
                                             fontSize = 11.sp
                                         )
@@ -556,6 +563,21 @@ fun AppNavigation(
                                             drawerState.close()
                                             authRepository.signOut()
                                         }
+                                    },
+                                    colors = NavigationDrawerItemDefaults.colors(
+                                        selectedContainerColor = Color.Transparent,
+                                        unselectedContainerColor = Color.Transparent
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 12.dp)
+                                )
+                            } else {
+                                NavigationDrawerItem(
+                                    icon = { Icon(Icons.Default.Login, contentDescription = null, tint = AppTheme.colors.primary) },
+                                    label = { Text("Sign In / Register", color = AppTheme.colors.primary, fontWeight = FontWeight.Bold) },
+                                    selected = false,
+                                    onClick = {
+                                        selectedBottomNav = 3
+                                        scope.launch { drawerState.close() }
                                     },
                                     colors = NavigationDrawerItemDefaults.colors(
                                         selectedContainerColor = Color.Transparent,
