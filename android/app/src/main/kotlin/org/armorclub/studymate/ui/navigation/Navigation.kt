@@ -15,6 +15,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -78,6 +79,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -88,6 +90,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.launch
+import org.armorclub.studymate.R
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.NotesRepository
@@ -222,6 +225,38 @@ fun AppNavigation(
                                 .fillMaxWidth()
                                 .padding(vertical = 12.dp)
                         ) {
+                            // Branded Header with Official Logo
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_studymate_logo),
+                                    contentDescription = "StudyMate Logo",
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "StudyMate",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 18.sp
+                                    )
+                                    Text(
+                                        text = "Native Learning Portal",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
                             // DRAWER HEADER: Student Profile Info
                             Box(
                                 modifier = Modifier

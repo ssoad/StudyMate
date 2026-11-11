@@ -1,6 +1,7 @@
 package org.armorclub.studymate.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -70,6 +71,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import org.armorclub.studymate.R
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
@@ -500,24 +503,13 @@ fun ProfileScreen(
             ) {
                 item {
                     Spacer(modifier = Modifier.height(10.dp))
-                    Box(
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_studymate_logo),
+                        contentDescription = "StudyMate Logo",
                         modifier = Modifier
                             .size(72.dp)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(Color(0xFF6366F1), Color(0xFF0284C7))
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.School,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
+                    )
 
                     Spacer(modifier = Modifier.height(12.dp))
 

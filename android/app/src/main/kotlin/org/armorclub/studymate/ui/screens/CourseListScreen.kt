@@ -1,5 +1,6 @@
 package org.armorclub.studymate.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,12 +64,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import org.armorclub.studymate.R
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
@@ -122,24 +125,13 @@ fun CourseListScreen(
                 },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_studymate_logo),
+                            contentDescription = "StudyMate Logo",
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(34.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(Color(0xFF6366F1), Color(0xFF0284C7))
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.School,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        )
 
                         Spacer(modifier = Modifier.width(10.dp))
 
