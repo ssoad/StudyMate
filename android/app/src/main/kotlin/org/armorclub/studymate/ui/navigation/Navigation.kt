@@ -72,6 +72,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +88,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.launch
@@ -96,6 +98,7 @@ import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.NotesRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.player.PlayerManager
+import org.armorclub.studymate.ui.components.InAppPictureInPicture
 import org.armorclub.studymate.ui.screens.CourseDetailScreen
 import org.armorclub.studymate.ui.screens.CourseListScreen
 import org.armorclub.studymate.ui.screens.DocumentReaderScreen
@@ -172,9 +175,37 @@ fun AppNavigation(
         }
     }
 
-    NavHost(
-        navController = navController,
-        startDestination = startDestination,
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val isPlayerScreen = currentRoute?.startsWith("lesson_player") == true
+
+    val activeLesson by playerManager.activeLesson.collectAsState()
+    val activeCourseId by playerManager.activeCourseId.collectAsState()
+    val isPlaying by playerManager.isPlaying.collectAsState()
+    val currentPositionMs by playerManager.currentPositionMs.collectAsState()
+
+    var isPipDismissed by rememberSaveable { mutableStateOf(false) }
+
+    // Reset dismissed state whenever user selects or changes lesson
+    androidx.compose.runtime.LaunchedEffect(activeLesson?.id) {
+        if (activeLesson != null) {
+            isPipDismissed = false
+        }
+    }
+
+    // Auto-dismiss when playback ends
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        playerManager.onPlaybackEnded.collect {
+            isPipDismissed = true
+        }
+    }
+
+    val showInAppPiP = activeLesson != null && !isPlayerScreen && !isPipDismissed && (isPlaying || currentPositionMs > 0L)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        NavHost(
+            navController = navController,
+            startDestination = startDestination,
         enterTransition = {
             slideInHorizontally(
                 initialOffsetX = { (it * 0.18f).toInt() },
@@ -922,6 +953,24 @@ fun AppNavigation(
                 fileUrl = fileUrl,
                 courseRepository = courseRepository,
                 onBackClick = { navController.popBackStack() }
+            )
+        }
+    }
+
+        // In-App Picture-in-Picture Overlay (visible on every screen unless user is on LessonPlayerScreen)
+        if (showInAppPiP) {
+            InAppPictureInPicture(
+                playerManager = playerManager,
+                onExpand = {
+                    val cId = activeCourseId ?: ""
+                    val lId = activeLesson?.id ?: ""
+                    if (cId.isNotBlank() && lId.isNotBlank()) {
+                        navController.navigate(Screen.LessonPlayer.createRoute(cId, lId))
+                    }
+                },
+                onClose = {
+                    isPipDismissed = true
+                }
             )
         }
     }

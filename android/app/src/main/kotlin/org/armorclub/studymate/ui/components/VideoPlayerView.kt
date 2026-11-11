@@ -230,12 +230,14 @@ fun VideoPlayerView(
                 PlayerView(ctx).apply {
                     useController = false
                     player = playerManager.exoPlayer
+                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                 }
             },
             update = { view ->
-                if (view.player != playerManager.exoPlayer) {
-                    view.player = playerManager.exoPlayer
-                }
+                view.player = playerManager.exoPlayer
+            },
+            onRelease = { view ->
+                view.player = null
             },
             modifier = Modifier.fillMaxSize()
         )
