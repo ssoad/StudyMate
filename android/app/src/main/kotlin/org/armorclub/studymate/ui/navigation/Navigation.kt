@@ -4,6 +4,17 @@ import android.app.Activity
 import android.app.PictureInPictureParams
 import android.os.Build
 import android.util.Rational
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -159,7 +171,31 @@ fun AppNavigation(
 
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = startDestination,
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { (it * 0.18f).toInt() },
+                animationSpec = tween(220, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing))
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { -(it * 0.10f).toInt() },
+                animationSpec = tween(200, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing))
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { -(it * 0.10f).toInt() },
+                animationSpec = tween(200, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing))
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { (it * 0.18f).toInt() },
+                animationSpec = tween(220, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing))
+        }
     ) {
         // Main Container Screen with Navigation Drawer & 4 Bottom Navigation Tabs
         composable(Screen.MainContainer.route) {
@@ -406,6 +442,7 @@ fun AppNavigation(
                 }
             ) {
                 Scaffold(
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
                     bottomBar = {
                         // 4-Tab Bottom Navigation Bar (Udemy & Coursera Pattern)
                         NavigationBar(
@@ -469,66 +506,96 @@ fun AppNavigation(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(innerPadding)
+                            .padding(bottom = innerPadding.calculateBottomPadding())
                     ) {
-                        when (selectedBottomNav) {
-                            0 -> CourseListScreen(
-                                courseRepository = courseRepository,
-                                authRepository = authRepository,
-                                playerManager = playerManager,
-                                onCourseClick = { courseId ->
-                                    navController.navigate(Screen.CourseDetail.createRoute(courseId))
-                                },
-                                onResumeLessonClick = { courseId, lessonId ->
-                                    navController.navigate(Screen.LessonPlayer.createRoute(courseId, lessonId))
-                                },
-                                onProfileClick = {
-                                    selectedBottomNav = 3
-                                },
-                                onOpenDrawer = {
-                                    scope.launch { drawerState.open() }
+                        AnimatedContent(
+                            targetState = selectedBottomNav,
+                            transitionSpec = {
+                                if (targetState > initialState) {
+                                    (slideInHorizontally(
+                                        initialOffsetX = { (it * 0.08f).toInt() },
+                                        animationSpec = tween(200, easing = FastOutSlowInEasing)
+                                    ) + fadeIn(animationSpec = tween(180, easing = LinearOutSlowInEasing)))
+                                        .togetherWith(
+                                            slideOutHorizontally(
+                                                targetOffsetX = { -(it * 0.08f).toInt() },
+                                                animationSpec = tween(160, easing = FastOutSlowInEasing)
+                                            ) + fadeOut(animationSpec = tween(140, easing = FastOutLinearInEasing))
+                                        )
+                                } else {
+                                    (slideInHorizontally(
+                                        initialOffsetX = { -(it * 0.08f).toInt() },
+                                        animationSpec = tween(200, easing = FastOutSlowInEasing)
+                                    ) + fadeIn(animationSpec = tween(180, easing = LinearOutSlowInEasing)))
+                                        .togetherWith(
+                                            slideOutHorizontally(
+                                                targetOffsetX = { (it * 0.08f).toInt() },
+                                                animationSpec = tween(160, easing = FastOutSlowInEasing)
+                                            ) + fadeOut(animationSpec = tween(140, easing = FastOutLinearInEasing))
+                                        )
                                 }
-                            )
-                            1 -> ResourcesScreen(
-                                courseRepository = courseRepository,
-                                onViewResource = { title, fileUrl ->
-                                    navController.navigate(Screen.DocumentReader.createRoute(title, fileUrl))
-                                },
-                                onCourseClick = { courseId ->
-                                    navController.navigate(Screen.CourseDetail.createRoute(courseId))
-                                },
-                                onOpenDrawer = {
-                                    scope.launch { drawerState.open() }
-                                }
-                            )
-                            2 -> MyLearningScreen(
-                                courseRepository = courseRepository,
-                                authRepository = authRepository,
-                                progressRepository = progressRepository,
-                                playerManager = playerManager,
-                                onCourseClick = { courseId ->
-                                    navController.navigate(Screen.CourseDetail.createRoute(courseId))
-                                },
-                                onResumeLessonClick = { courseId, lessonId ->
-                                    navController.navigate(Screen.LessonPlayer.createRoute(courseId, lessonId))
-                                },
-                                onOpenDrawer = {
-                                    scope.launch { drawerState.open() }
-                                }
-                            )
-                            3 -> ProfileScreen(
-                                authRepository = authRepository,
-                                courseRepository = courseRepository,
-                                onNavigateToSettings = {
-                                    navController.navigate(Screen.Settings.route)
-                                },
-                                onSelectCourse = { courseId ->
-                                    navController.navigate(Screen.CourseDetail.createRoute(courseId))
-                                },
-                                onOpenDrawer = {
-                                    scope.launch { drawerState.open() }
-                                }
-                            )
+                            },
+                            label = "BottomNavTabTransition"
+                        ) { tabIndex ->
+                            when (tabIndex) {
+                                0 -> CourseListScreen(
+                                    courseRepository = courseRepository,
+                                    authRepository = authRepository,
+                                    playerManager = playerManager,
+                                    onCourseClick = { courseId ->
+                                        navController.navigate(Screen.CourseDetail.createRoute(courseId))
+                                    },
+                                    onResumeLessonClick = { courseId, lessonId ->
+                                        navController.navigate(Screen.LessonPlayer.createRoute(courseId, lessonId))
+                                    },
+                                    onProfileClick = {
+                                        selectedBottomNav = 3
+                                    },
+                                    onOpenDrawer = {
+                                        scope.launch { drawerState.open() }
+                                    }
+                                )
+                                1 -> ResourcesScreen(
+                                    courseRepository = courseRepository,
+                                    onViewResource = { title, fileUrl ->
+                                        navController.navigate(Screen.DocumentReader.createRoute(title, fileUrl))
+                                    },
+                                    onCourseClick = { courseId ->
+                                        navController.navigate(Screen.CourseDetail.createRoute(courseId))
+                                    },
+                                    onOpenDrawer = {
+                                        scope.launch { drawerState.open() }
+                                    }
+                                )
+                                2 -> MyLearningScreen(
+                                    courseRepository = courseRepository,
+                                    authRepository = authRepository,
+                                    progressRepository = progressRepository,
+                                    playerManager = playerManager,
+                                    onCourseClick = { courseId ->
+                                        navController.navigate(Screen.CourseDetail.createRoute(courseId))
+                                    },
+                                    onResumeLessonClick = { courseId, lessonId ->
+                                        navController.navigate(Screen.LessonPlayer.createRoute(courseId, lessonId))
+                                    },
+                                    onOpenDrawer = {
+                                        scope.launch { drawerState.open() }
+                                    }
+                                )
+                                3 -> ProfileScreen(
+                                    authRepository = authRepository,
+                                    courseRepository = courseRepository,
+                                    onNavigateToSettings = {
+                                        navController.navigate(Screen.Settings.route)
+                                    },
+                                    onSelectCourse = { courseId ->
+                                        navController.navigate(Screen.CourseDetail.createRoute(courseId))
+                                    },
+                                    onOpenDrawer = {
+                                        scope.launch { drawerState.open() }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
