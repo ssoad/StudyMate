@@ -1,5 +1,6 @@
 package org.armorclub.studymate.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import org.armorclub.studymate.data.model.CourseLesson
+import org.armorclub.studymate.ui.theme.AppTheme
 
 @Composable
 fun LectureVideoCard(
@@ -59,10 +61,14 @@ fun LectureVideoCard(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isPlaying) {
-                Color(0xFF1E293B)
+                AppTheme.colors.cardBackground
             } else {
-                Color(0xFF131B2E)
+                AppTheme.colors.cardBackground
             }
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (isPlaying) AppTheme.colors.primary else AppTheme.colors.cardBorder
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -182,13 +188,13 @@ fun LectureVideoCard(
                             Icon(
                                 Icons.Default.Attachment,
                                 contentDescription = null,
-                                tint = Color(0xFF94A3B8),
+                                tint = AppTheme.colors.textSecondary,
                                 modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(2.dp))
                             Text(
                                 text = "${lesson.resources.size}",
-                                color = Color(0xFF94A3B8),
+                                color = AppTheme.colors.textSecondary,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -202,7 +208,7 @@ fun LectureVideoCard(
                     text = lesson.title,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = if (isPlaying) Color(0xFF38BDF8) else Color.White
+                        color = if (isPlaying) AppTheme.colors.primary else AppTheme.colors.textPrimary
                     ),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -218,13 +224,13 @@ fun LectureVideoCard(
                         Icon(
                             Icons.Default.Videocam,
                             contentDescription = null,
-                            tint = Color(0xFF64748B),
+                            tint = AppTheme.colors.textMuted,
                             modifier = Modifier.size(12.dp)
                         )
                         Spacer(modifier = Modifier.width(3.dp))
                         Text(
                             text = "Full HD",
-                            color = Color(0xFF64748B),
+                            color = AppTheme.colors.textMuted,
                             fontSize = 11.sp
                         )
                     }
@@ -232,12 +238,12 @@ fun LectureVideoCard(
                     if (sectionTitle.isNotBlank()) {
                         Text(
                             text = "•",
-                            color = Color(0xFF475569),
+                            color = AppTheme.colors.textMuted,
                             fontSize = 11.sp
                         )
                         Text(
                             text = sectionTitle,
-                            color = Color(0xFF94A3B8),
+                            color = AppTheme.colors.textSecondary,
                             fontSize = 11.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis

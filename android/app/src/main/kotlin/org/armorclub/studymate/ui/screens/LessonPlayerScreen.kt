@@ -119,6 +119,7 @@ import org.armorclub.studymate.ui.components.LectureVideoCard
 import org.armorclub.studymate.ui.components.MarkdownView
 import org.armorclub.studymate.ui.components.UdemyResourceCard
 import org.armorclub.studymate.ui.components.VideoPlayerView
+import org.armorclub.studymate.ui.theme.AppTheme
 import org.armorclub.studymate.util.NotesShareHelper
 import java.io.File
 
@@ -237,7 +238,7 @@ fun LessonPlayerScreen(
                     text = lesson.title,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = AppTheme.colors.textPrimary
                     ),
                     maxLines = if (isDescriptionExpanded) 4 else 2,
                     overflow = TextOverflow.Ellipsis,
@@ -246,7 +247,7 @@ fun LessonPlayerScreen(
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     contentDescription = "Expand description",
-                    tint = Color(0xFF94A3B8),
+                    tint = AppTheme.colors.textSecondary,
                     modifier = Modifier
                         .size(20.dp)
                         .rotate(if (isDescriptionExpanded) 180f else 0f)
@@ -258,7 +259,7 @@ fun LessonPlayerScreen(
             // Stats row
             Text(
                 text = "${activeCourse.enrolledCount} enrolled • ${activeCourse.duration} • ${currentSection?.title?.substringBefore(':') ?: "Module"}",
-                color = Color(0xFF94A3B8),
+                color = AppTheme.colors.textSecondary,
                 fontSize = 11.sp
             )
 
@@ -266,7 +267,7 @@ fun LessonPlayerScreen(
                 Column(modifier = Modifier.padding(top = 8.dp)) {
                     Text(
                         text = lesson.description.ifBlank { activeCourse.description },
-                        color = Color(0xFFCBD5E1),
+                        color = AppTheme.colors.textSecondary,
                         fontSize = 12.sp,
                         lineHeight = 18.sp
                     )
@@ -283,11 +284,11 @@ fun LessonPlayerScreen(
                 // Complete Check Action Pill (Matching Web App & Coursera/Udemy standard)
                 item {
                     Surface(
-                        color = if (isCurrentLessonDone) Color(0xFF059669).copy(alpha = 0.25f) else Color(0xFF1E293B),
+                        color = if (isCurrentLessonDone) Color(0xFF059669).copy(alpha = 0.25f) else AppTheme.colors.surfaceVariant,
                         shape = RoundedCornerShape(18.dp),
                         border = BorderStroke(
                             1.dp,
-                            if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFF334155)
+                            if (isCurrentLessonDone) Color(0xFF10B981) else AppTheme.colors.cardBorder
                         ),
                         modifier = Modifier.clickable {
                             val nowDone = progressRepository.toggleLessonProgress(userId, courseId, lesson.id)
@@ -301,13 +302,13 @@ fun LessonPlayerScreen(
                             Icon(
                                 imageVector = if (isCurrentLessonDone) Icons.Default.CheckCircle else Icons.Default.CheckCircleOutline,
                                 contentDescription = "Complete Status",
-                                tint = if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFF94A3B8),
+                                tint = if (isCurrentLessonDone) Color(0xFF10B981) else AppTheme.colors.textSecondary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = if (isCurrentLessonDone) "Completed ✓" else "Mark Complete",
-                                color = if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFFCBD5E1),
+                                color = if (isCurrentLessonDone) Color(0xFF10B981) else AppTheme.colors.textPrimary,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -317,8 +318,9 @@ fun LessonPlayerScreen(
 
                 item {
                     Surface(
-                        color = if (isLiked) Color(0xFF0284C7).copy(alpha = 0.25f) else Color(0xFF1E293B),
+                        color = if (isLiked) AppTheme.colors.primary.copy(alpha = 0.25f) else AppTheme.colors.surfaceVariant,
                         shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                         modifier = Modifier.clickable { isLiked = !isLiked }
                     ) {
                         Row(
@@ -328,13 +330,13 @@ fun LessonPlayerScreen(
                             Icon(
                                 Icons.Default.ThumbUp,
                                 contentDescription = "Helpful",
-                                tint = if (isLiked) Color(0xFF38BDF8) else Color(0xFFCBD5E1),
+                                tint = if (isLiked) AppTheme.colors.primary else AppTheme.colors.textSecondary,
                                 modifier = Modifier.size(15.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = if (isLiked) "342" else "341",
-                                color = if (isLiked) Color(0xFF38BDF8) else Color(0xFFCBD5E1),
+                                color = if (isLiked) AppTheme.colors.primary else AppTheme.colors.textPrimary,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -344,8 +346,9 @@ fun LessonPlayerScreen(
 
                 item {
                     Surface(
-                        color = Color(0xFF1E293B),
+                        color = AppTheme.colors.surfaceVariant,
                         shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                         modifier = Modifier.clickable {
                             val shareText = "Watching ${lesson.title} on StudyMate: ${activeCourse.title}"
                             val sendIntent = Intent().apply {
@@ -360,17 +363,18 @@ fun LessonPlayerScreen(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Share, contentDescription = "Share", tint = Color(0xFFCBD5E1), modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.Share, contentDescription = "Share", tint = AppTheme.colors.textSecondary, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Share", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("Share", color = AppTheme.colors.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
 
                 item {
                     Surface(
-                        color = Color(0xFF1E293B),
+                        color = AppTheme.colors.surfaceVariant,
                         shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                         modifier = Modifier.clickable { selectedTab = 1 }
                     ) {
                         Row(
@@ -379,15 +383,16 @@ fun LessonPlayerScreen(
                         ) {
                             Icon(Icons.Default.PictureAsPdf, contentDescription = "Notes", tint = Color(0xFFF472B6), modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("${lesson.resources.size} Notes", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("${lesson.resources.size} Notes", color = AppTheme.colors.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
 
                 item {
                     Surface(
-                        color = Color(0xFF1E293B),
+                        color = AppTheme.colors.surfaceVariant,
                         shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                         modifier = Modifier.clickable {
                             onOpenFullScreenNotes(activeCourse.id, lesson.id, lesson.title, activeCourse.title)
                         }
@@ -396,16 +401,16 @@ fun LessonPlayerScreen(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.NoteAlt, contentDescription = "Write Notes", tint = Color(0xFF38BDF8), modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.NoteAlt, contentDescription = "Write Notes", tint = AppTheme.colors.primary, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Full Notes", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("Full Notes", color = AppTheme.colors.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(color = Color(0xFF1E293B))
+            HorizontalDivider(color = AppTheme.colors.cardBorder)
             Spacer(modifier = Modifier.height(10.dp))
 
             // YouTube Channel / Instructor Row
@@ -442,29 +447,29 @@ fun LessonPlayerScreen(
                     Column {
                         Text(
                             text = activeCourse.instructorName,
-                            color = Color.White,
+                            color = AppTheme.colors.textPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
                         )
                         Text(
                             text = "Lead ICT Mentors • ${activeCourse.enrolledCount} enrolled",
-                            color = Color(0xFF94A3B8),
+                            color = AppTheme.colors.textSecondary,
                             fontSize = 10.sp
                         )
                     }
                 }
 
                 Surface(
-                    color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                    color = AppTheme.colors.primary.copy(alpha = 0.15f),
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(13.dp))
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AppTheme.colors.primary, modifier = Modifier.size(13.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Enrolled", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("Enrolled", color = AppTheme.colors.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -477,20 +482,20 @@ fun LessonPlayerScreen(
             // Responsive Scrollable Tab Header with real-time badges & animated indicator
             ScrollableTabRow(
                 selectedTabIndex = pagerState.currentPage,
-                containerColor = Color(0xFF0B0F19),
-                contentColor = Color(0xFF38BDF8),
+                containerColor = AppTheme.colors.background,
+                contentColor = AppTheme.colors.primary,
                 edgePadding = 12.dp,
                 indicator = { tabPositions ->
                     if (pagerState.currentPage < tabPositions.size) {
                         TabRowDefaults.SecondaryIndicator(
                             modifier = Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
-                            color = Color(0xFF38BDF8),
+                            color = AppTheme.colors.primary,
                             height = 3.dp
                         )
                     }
                 },
                 divider = {
-                    HorizontalDivider(color = Color(0xFF1E293B))
+                    HorizontalDivider(color = AppTheme.colors.cardBorder)
                 }
             ) {
                 // Tab 0: Syllabus
@@ -503,23 +508,23 @@ fun LessonPlayerScreen(
                                 Icons.AutoMirrored.Filled.List,
                                 contentDescription = null,
                                 modifier = Modifier.size(15.dp),
-                                tint = if (pagerState.currentPage == 0) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                                tint = if (pagerState.currentPage == 0) AppTheme.colors.primary else AppTheme.colors.textSecondary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 "Syllabus",
                                 fontSize = 12.sp,
                                 fontWeight = if (pagerState.currentPage == 0) FontWeight.Bold else FontWeight.SemiBold,
-                                color = if (pagerState.currentPage == 0) Color.White else Color(0xFF94A3B8)
+                                color = if (pagerState.currentPage == 0) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
-                                color = if (pagerState.currentPage == 0) Color(0xFF0284C7).copy(alpha = 0.35f) else Color(0xFF1E293B),
+                                color = if (pagerState.currentPage == 0) AppTheme.colors.primary.copy(alpha = 0.2f) else AppTheme.colors.surfaceVariant,
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text(
                                     text = "${allLessons.size}",
-                                    color = if (pagerState.currentPage == 0) Color(0xFF38BDF8) else Color(0xFF94A3B8),
+                                    color = if (pagerState.currentPage == 0) AppTheme.colors.primary else AppTheme.colors.textSecondary,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -539,23 +544,23 @@ fun LessonPlayerScreen(
                                 Icons.Default.Folder,
                                 contentDescription = null,
                                 modifier = Modifier.size(15.dp),
-                                tint = if (pagerState.currentPage == 1) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                                tint = if (pagerState.currentPage == 1) AppTheme.colors.primary else AppTheme.colors.textSecondary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 "Resources",
                                 fontSize = 12.sp,
                                 fontWeight = if (pagerState.currentPage == 1) FontWeight.Bold else FontWeight.SemiBold,
-                                color = if (pagerState.currentPage == 1) Color.White else Color(0xFF94A3B8)
+                                color = if (pagerState.currentPage == 1) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
-                                color = if (pagerState.currentPage == 1) Color(0xFF0284C7).copy(alpha = 0.35f) else Color(0xFF1E293B),
+                                color = if (pagerState.currentPage == 1) AppTheme.colors.primary.copy(alpha = 0.2f) else AppTheme.colors.surfaceVariant,
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text(
                                     text = "${lesson.resources.size}",
-                                    color = if (pagerState.currentPage == 1) Color(0xFF38BDF8) else Color(0xFF94A3B8),
+                                    color = if (pagerState.currentPage == 1) AppTheme.colors.primary else AppTheme.colors.textSecondary,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -575,14 +580,14 @@ fun LessonPlayerScreen(
                                 Icons.Default.NoteAlt,
                                 contentDescription = null,
                                 modifier = Modifier.size(15.dp),
-                                tint = if (pagerState.currentPage == 2) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                                tint = if (pagerState.currentPage == 2) AppTheme.colors.primary else AppTheme.colors.textSecondary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 "Notes",
                                 fontSize = 12.sp,
                                 fontWeight = if (pagerState.currentPage == 2) FontWeight.Bold else FontWeight.SemiBold,
-                                color = if (pagerState.currentPage == 2) Color.White else Color(0xFF94A3B8)
+                                color = if (pagerState.currentPage == 2) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary
                             )
                         }
                     }
@@ -598,14 +603,14 @@ fun LessonPlayerScreen(
                                 Icons.Default.Description,
                                 contentDescription = null,
                                 modifier = Modifier.size(15.dp),
-                                tint = if (pagerState.currentPage == 3) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                                tint = if (pagerState.currentPage == 3) AppTheme.colors.primary else AppTheme.colors.textSecondary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 "Overview",
                                 fontSize = 12.sp,
                                 fontWeight = if (pagerState.currentPage == 3) FontWeight.Bold else FontWeight.SemiBold,
-                                color = if (pagerState.currentPage == 3) Color.White else Color(0xFF94A3B8)
+                                color = if (pagerState.currentPage == 3) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary
                             )
                         }
                     }
@@ -700,7 +705,7 @@ fun LessonPlayerScreen(
                     VideoDetailsSection()
                 }
 
-                VerticalDivider(color = Color(0xFF1E293B), thickness = 1.dp)
+                VerticalDivider(color = AppTheme.colors.cardBorder, thickness = 1.dp)
 
                 // Right Pane: Full-Height Swipeable Tab Layout (44% width)
                 TabsSection(
@@ -752,7 +757,7 @@ fun LessonPlayerScreen(
 
                 if (!isFullScreen) {
                     VideoDetailsSection()
-                    HorizontalDivider(color = Color(0xFF1E293B))
+                    HorizontalDivider(color = AppTheme.colors.cardBorder)
                     TabsSection(
                         modifier = Modifier
                             .weight(1f)
@@ -1220,8 +1225,8 @@ private fun SyllabusTab(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
-                border = BorderStroke(1.dp, Color(0xFF1E293B))
+                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Row(
@@ -1234,12 +1239,12 @@ private fun SyllabusTab(
                                 text = "Course Curriculum",
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = AppTheme.colors.textPrimary
                                 )
                             )
                             Text(
                                 text = "${course.sections.size} Modules • $totalLectures Lectures",
-                                color = Color(0xFF94A3B8),
+                                color = AppTheme.colors.textSecondary,
                                 fontSize = 11.sp
                             )
                         }
@@ -1249,8 +1254,8 @@ private fun SyllabusTab(
                                 onClick = { expandAll() },
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
-                                border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.primary),
+                                border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                                 modifier = Modifier.height(28.dp)
                             ) {
                                 Text("Expand All", fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -1260,8 +1265,8 @@ private fun SyllabusTab(
                                 onClick = { collapseAll() },
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
-                                border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textSecondary),
+                                border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                                 modifier = Modifier.height(28.dp)
                             ) {
                                 Text("Collapse", fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -1285,7 +1290,7 @@ private fun SyllabusTab(
                         )
                         Text(
                             text = "$progressPercent%",
-                            color = Color(0xFF38BDF8),
+                            color = AppTheme.colors.primary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -1300,7 +1305,7 @@ private fun SyllabusTab(
                             .height(6.dp)
                             .clip(RoundedCornerShape(3.dp)),
                         color = Color(0xFF10B981),
-                        trackColor = Color(0xFF0F172A)
+                        trackColor = AppTheme.colors.surfaceVariant
                     )
                 }
             }
@@ -1322,11 +1327,11 @@ private fun SyllabusTab(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (hasActiveLesson) Color(0xFF131B2E) else Color(0xFF0F172A)
+                    containerColor = if (hasActiveLesson) AppTheme.colors.cardBackground else AppTheme.colors.surfaceVariant
                 ),
                 border = BorderStroke(
                     1.dp,
-                    if (hasActiveLesson) Color(0xFF0284C7).copy(alpha = 0.6f) else Color(0xFF1E293B)
+                    if (hasActiveLesson) AppTheme.colors.primary.copy(alpha = 0.6f) else AppTheme.colors.cardBorder
                 )
             ) {
                 Column {
@@ -1351,8 +1356,8 @@ private fun SyllabusTab(
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(
                                         if (isSectionFullyDone) Color(0xFF059669)
-                                        else if (hasActiveLesson) Color(0xFF0284C7)
-                                        else Color(0xFF1E293B)
+                                        else if (hasActiveLesson) AppTheme.colors.primary
+                                        else AppTheme.colors.cardBorder
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -1380,7 +1385,7 @@ private fun SyllabusTab(
                                     text = section.title,
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = if (hasActiveLesson) Color(0xFF38BDF8) else Color.White
+                                        color = if (hasActiveLesson) AppTheme.colors.primary else AppTheme.colors.textPrimary
                                     ),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -1388,7 +1393,7 @@ private fun SyllabusTab(
                                 Text(
                                     text = "${section.lessons.size} lectures • $sectionCompletedCount/${section.lessons.size} completed",
                                     fontSize = 10.sp,
-                                    color = if (isSectionFullyDone) Color(0xFF10B981) else Color(0xFF94A3B8)
+                                    color = if (isSectionFullyDone) Color(0xFF10B981) else AppTheme.colors.textSecondary
                                 )
                             }
                         }
@@ -1396,7 +1401,7 @@ private fun SyllabusTab(
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowDown,
                             contentDescription = if (isExpanded) "Collapse" else "Expand",
-                            tint = if (isExpanded) Color(0xFF38BDF8) else Color(0xFF64748B),
+                            tint = if (isExpanded) AppTheme.colors.primary else AppTheme.colors.textMuted,
                             modifier = Modifier
                                 .size(20.dp)
                                 .rotate(arrowRotation)
@@ -1412,9 +1417,9 @@ private fun SyllabusTab(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color(0xFF0B0F19))
+                                .background(AppTheme.colors.background)
                         ) {
-                            HorizontalDivider(color = Color(0xFF1E293B))
+                            HorizontalDivider(color = AppTheme.colors.cardBorder)
 
                             section.lessons.forEachIndexed { lIdx, itemLesson ->
                                 val isCurrent = itemLesson.id == activeLessonId
@@ -1425,7 +1430,7 @@ private fun SyllabusTab(
                                         .fillMaxWidth()
                                         .clickable { onSelectLesson(itemLesson.id) }
                                         .background(
-                                            if (isCurrent) Color(0xFF0284C7).copy(alpha = 0.15f)
+                                            if (isCurrent) AppTheme.colors.primary.copy(alpha = 0.15f)
                                             else Color.Transparent
                                         )
                                         .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -1456,7 +1461,7 @@ private fun SyllabusTab(
                                                     modifier = Modifier
                                                         .size(22.dp)
                                                         .clip(CircleShape)
-                                                        .background(Color(0xFF0284C7)),
+                                                        .background(AppTheme.colors.primary),
                                                     contentAlignment = Alignment.Center
                                                 ) {
                                                     Icon(
@@ -1470,7 +1475,7 @@ private fun SyllabusTab(
                                                 Icon(
                                                     imageVector = Icons.Default.RadioButtonUnchecked,
                                                     contentDescription = "Incomplete",
-                                                    tint = Color(0xFF64748B),
+                                                    tint = AppTheme.colors.textMuted,
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
@@ -1483,7 +1488,7 @@ private fun SyllabusTab(
                                                 text = itemLesson.title,
                                                 style = MaterialTheme.typography.bodySmall.copy(
                                                     fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                                    color = if (isCurrent) Color(0xFF38BDF8) else if (isDone) Color(0xFFE2E8F0) else Color(0xFFCBD5E1)
+                                                    color = if (isCurrent) AppTheme.colors.primary else AppTheme.colors.textPrimary
                                                 ),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
@@ -1491,7 +1496,7 @@ private fun SyllabusTab(
                                             Text(
                                                 text = "${sIdx + 1}.${lIdx + 1} • ${itemLesson.formattedDuration}",
                                                 fontSize = 10.sp,
-                                                color = Color(0xFF64748B)
+                                                color = AppTheme.colors.textSecondary
                                             )
                                         }
                                     }

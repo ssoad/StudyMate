@@ -1,5 +1,6 @@
 package org.armorclub.studymate.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -98,6 +99,7 @@ import androidx.compose.runtime.collectAsState
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.model.CourseLesson
 import org.armorclub.studymate.data.model.CourseResource
+import org.armorclub.studymate.ui.theme.AppTheme
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
@@ -180,7 +182,7 @@ fun CourseDetailScreen(
                         overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = AppTheme.colors.textPrimary
                         )
                     )
                 },
@@ -189,7 +191,7 @@ fun CourseDetailScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = Color.White
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
                 },
@@ -199,17 +201,17 @@ fun CourseDetailScreen(
                             Icon(
                                 imageVector = Icons.Default.Share,
                                 contentDescription = "Share",
-                                tint = Color.White
+                                tint = AppTheme.colors.textPrimary
                             )
                         }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0B0F19)
+                    containerColor = AppTheme.colors.topAppBarBackground
                 )
             )
         },
-        containerColor = Color(0xFF0B0F19)
+        containerColor = AppTheme.colors.background
     ) { paddingValues ->
         if (isLoading || course == null) {
             Box(
@@ -240,8 +242,9 @@ fun CourseDetailScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column {
                             // 16:9 Thumbnail with interactive Play Video Preview Overlay
@@ -268,7 +271,7 @@ fun CourseDetailScreen(
                                             .fillMaxSize()
                                             .background(
                                                 Brush.verticalGradient(
-                                                    listOf(Color.Black.copy(alpha = 0.3f), Color(0xFF131B2E))
+                                                    listOf(Color.Black.copy(alpha = 0.3f), AppTheme.colors.cardBackground)
                                                 )
                                             )
                                     )
@@ -310,7 +313,7 @@ fun CourseDetailScreen(
 
                                 // Category Pill
                                 Surface(
-                                    color = Color(0xFF0284C7),
+                                    color = AppTheme.colors.primaryContainer,
                                     shape = RoundedCornerShape(6.dp),
                                     modifier = Modifier
                                         .padding(12.dp)
@@ -332,7 +335,7 @@ fun CourseDetailScreen(
                                     text = c.title,
                                     style = MaterialTheme.typography.titleLarge.copy(
                                         fontWeight = FontWeight.Black,
-                                        color = Color.White
+                                        color = AppTheme.colors.textPrimary
                                     )
                                 )
 
@@ -340,7 +343,7 @@ fun CourseDetailScreen(
 
                                 Text(
                                     text = c.description,
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF94A3B8)),
+                                    style = MaterialTheme.typography.bodySmall.copy(color = AppTheme.colors.textSecondary),
                                     lineHeight = 18.sp
                                 )
 
@@ -362,7 +365,7 @@ fun CourseDetailScreen(
                                         Spacer(modifier = Modifier.width(3.dp))
                                         Text(
                                             "${c.rating}",
-                                            color = Color.White,
+                                            color = AppTheme.colors.textPrimary,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -372,13 +375,13 @@ fun CourseDetailScreen(
                                         Icon(
                                             Icons.Default.Group,
                                             contentDescription = null,
-                                            tint = Color(0xFF38BDF8),
+                                            tint = AppTheme.colors.primary,
                                             modifier = Modifier.size(15.dp)
                                         )
                                         Spacer(modifier = Modifier.width(3.dp))
                                         Text(
                                             "${c.enrolledCount} enrolled",
-                                            color = Color(0xFF94A3B8),
+                                            color = AppTheme.colors.textSecondary,
                                             fontSize = 12.sp
                                         )
                                     }
@@ -387,20 +390,20 @@ fun CourseDetailScreen(
                                         Icon(
                                             Icons.Default.AccessTime,
                                             contentDescription = null,
-                                            tint = Color(0xFFA855F7),
+                                            tint = AppTheme.colors.secondary,
                                             modifier = Modifier.size(15.dp)
                                         )
                                         Spacer(modifier = Modifier.width(3.dp))
                                         Text(
                                             c.duration,
-                                            color = Color(0xFF94A3B8),
+                                            color = AppTheme.colors.textSecondary,
                                             fontSize = 12.sp
                                         )
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(14.dp))
-                                HorizontalDivider(color = Color(0xFF1E293B))
+                                HorizontalDivider(color = AppTheme.colors.divider)
                                 Spacer(modifier = Modifier.height(14.dp))
 
                                 // Instructor Information
@@ -430,19 +433,19 @@ fun CourseDetailScreen(
                                         Text(
                                             text = "INSTRUCTOR",
                                             fontSize = 10.sp,
-                                            color = Color(0xFF64748B),
+                                            color = AppTheme.colors.textMuted,
                                             fontWeight = FontWeight.Bold,
                                             letterSpacing = 1.sp
                                         )
                                         Text(
                                             text = c.instructorName,
-                                            color = Color.White,
+                                            color = AppTheme.colors.textPrimary,
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
                                             text = c.instructorTitle.ifBlank { "Expert Computer Science & ICT Instructor" },
-                                            color = Color(0xFF94A3B8),
+                                            color = AppTheme.colors.textSecondary,
                                             fontSize = 11.sp
                                         )
                                     }
@@ -521,15 +524,15 @@ fun CourseDetailScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B))
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
                                 text = "THIS COURSE INCLUDES:",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
-                                color = Color(0xFF38BDF8),
+                                color = AppTheme.colors.primary,
                                 letterSpacing = 1.sp
                             )
                             Spacer(modifier = Modifier.height(12.dp))
@@ -574,12 +577,12 @@ fun CourseDetailScreen(
                                 text = "Course Curriculum",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Black,
-                                    color = Color.White
+                                    color = AppTheme.colors.textPrimary
                                 )
                             )
                             Text(
                                 text = "${c.sections.size} Modules • $totalLectures Lectures • ${c.duration} Total Length",
-                                color = Color(0xFF94A3B8),
+                                color = AppTheme.colors.textSecondary,
                                 fontSize = 11.sp
                             )
                         }
@@ -590,8 +593,8 @@ fun CourseDetailScreen(
                                 onClick = { expandAll() },
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.primary),
+                                border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                                 modifier = Modifier.height(32.dp)
                             ) {
                                 Text("Expand All", fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -601,8 +604,8 @@ fun CourseDetailScreen(
                                 onClick = { collapseAll() },
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textSecondary),
+                                border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                                 modifier = Modifier.height(32.dp)
                             ) {
                                 Text("Collapse", fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -624,10 +627,10 @@ fun CourseDetailScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
-                        border = androidx.compose.foundation.BorderStroke(
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                        border = BorderStroke(
                             1.dp,
-                            if (isExpanded) Color(0xFF0284C7).copy(alpha = 0.5f) else Color(0xFF1E293B)
+                            if (isExpanded) AppTheme.colors.primary.copy(alpha = 0.5f) else AppTheme.colors.cardBorder
                         )
                     ) {
                         Column {
@@ -669,7 +672,7 @@ fun CourseDetailScreen(
                                             text = section.title,
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color.White
+                                                color = AppTheme.colors.textPrimary
                                             )
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
@@ -677,7 +680,7 @@ fun CourseDetailScreen(
                                         Text(
                                             text = "${section.lessons.size} Lectures • $sectionDoneCount completed" + if (sectionPdfCount > 0) " • $sectionPdfCount Notes & PDFs" else "",
                                             fontSize = 11.sp,
-                                            color = if (sectionDoneCount == section.lessons.size && section.lessons.isNotEmpty()) Color(0xFF10B981) else Color(0xFF94A3B8)
+                                            color = if (sectionDoneCount == section.lessons.size && section.lessons.isNotEmpty()) AppTheme.colors.success else AppTheme.colors.textSecondary
                                         )
                                     }
                                 }
@@ -686,7 +689,7 @@ fun CourseDetailScreen(
                                 Icon(
                                     imageVector = Icons.Default.KeyboardArrowDown,
                                     contentDescription = if (isExpanded) "Collapse" else "Expand",
-                                    tint = if (isExpanded) Color(0xFF38BDF8) else Color(0xFF64748B),
+                                    tint = if (isExpanded) AppTheme.colors.primary else AppTheme.colors.textMuted,
                                     modifier = Modifier
                                         .size(24.dp)
                                         .rotate(arrowRotation)
@@ -702,9 +705,9 @@ fun CourseDetailScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(Color(0xFF0F172A).copy(alpha = 0.6f))
+                                        .background(AppTheme.colors.surfaceVariant.copy(alpha = 0.5f))
                                 ) {
-                                    HorizontalDivider(color = Color(0xFF1E293B))
+                                    HorizontalDivider(color = AppTheme.colors.divider)
 
                                     // 1. Attached Module Resources (if any)
                                     if (section.resources.isNotEmpty()) {
@@ -717,7 +720,7 @@ fun CourseDetailScreen(
                                                 text = "SECTION MATERIALS",
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Black,
-                                                color = Color(0xFF10B981),
+                                                color = AppTheme.colors.success,
                                                 letterSpacing = 1.sp
                                             )
                                             Spacer(modifier = Modifier.height(6.dp))
@@ -737,7 +740,7 @@ fun CourseDetailScreen(
                                                 Spacer(modifier = Modifier.height(6.dp))
                                             }
                                         }
-                                        HorizontalDivider(color = Color(0xFF1E293B))
+                                        HorizontalDivider(color = AppTheme.colors.divider)
                                     }
 
                                     // 2. Section Lessons List (Udemy Lecture Row)
@@ -805,7 +808,7 @@ fun CourseDetailScreen(
                                                     text = lesson.title,
                                                     style = MaterialTheme.typography.bodyMedium.copy(
                                                         fontWeight = FontWeight.Medium,
-                                                        color = Color(0xFFE2E8F0)
+                                                        color = AppTheme.colors.textPrimary
                                                     ),
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis,
@@ -868,7 +871,7 @@ fun CourseDetailScreen(
                                                     Icon(
                                                         Icons.Default.PlayCircle,
                                                         contentDescription = "Play",
-                                                        tint = Color(0xFF38BDF8),
+                                                        tint = AppTheme.colors.primary,
                                                         modifier = Modifier.size(18.dp)
                                                     )
                                                 }
@@ -877,7 +880,7 @@ fun CourseDetailScreen(
 
                                         if (lIdx < section.lessons.size - 1) {
                                             HorizontalDivider(
-                                                color = Color(0xFF1E293B).copy(alpha = 0.5f),
+                                                color = AppTheme.colors.divider,
                                                 modifier = Modifier.padding(start = 54.dp)
                                             )
                                         }
@@ -894,15 +897,15 @@ fun CourseDetailScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B))
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     Icons.Default.HelpOutline,
                                     contentDescription = null,
-                                    tint = Color(0xFF38BDF8),
+                                    tint = AppTheme.colors.primary,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -910,7 +913,7 @@ fun CourseDetailScreen(
                                     text = "Frequently Asked Questions",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.White
+                                        color = AppTheme.colors.textPrimary
                                     )
                                 )
                             }
@@ -934,8 +937,9 @@ fun CourseDetailScreen(
                                 )
 
                                 Surface(
-                                    color = Color(0xFF1E293B).copy(alpha = 0.5f),
+                                    color = AppTheme.colors.surfaceVariant.copy(alpha = 0.5f),
                                     shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable { expandedFaqs[fIdx] = !isOpen }
@@ -948,7 +952,7 @@ fun CourseDetailScreen(
                                         ) {
                                             Text(
                                                 text = q,
-                                                color = Color.White,
+                                                color = AppTheme.colors.textPrimary,
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 modifier = Modifier.weight(1f)
@@ -956,7 +960,7 @@ fun CourseDetailScreen(
                                             Icon(
                                                 imageVector = Icons.Default.KeyboardArrowDown,
                                                 contentDescription = null,
-                                                tint = Color(0xFF94A3B8),
+                                                tint = AppTheme.colors.textSecondary,
                                                 modifier = Modifier
                                                     .size(18.dp)
                                                     .rotate(faqArrow)
@@ -972,7 +976,7 @@ fun CourseDetailScreen(
                                                 Spacer(modifier = Modifier.height(8.dp))
                                                 Text(
                                                     text = a,
-                                                    color = Color(0xFFCBD5E1),
+                                                    color = AppTheme.colors.textSecondary,
                                                     fontSize = 12.sp,
                                                     lineHeight = 18.sp
                                                 )

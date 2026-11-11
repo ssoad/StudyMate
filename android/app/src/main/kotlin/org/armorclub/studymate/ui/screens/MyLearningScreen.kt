@@ -1,5 +1,6 @@
 package org.armorclub.studymate.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -69,6 +70,7 @@ import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.player.PlayerManager
+import org.armorclub.studymate.ui.theme.AppTheme
 
 private fun formatTime(millis: Long): String {
     val totalSeconds = (millis / 1000).coerceAtLeast(0)
@@ -170,7 +172,7 @@ fun MyLearningScreen(
                         Icon(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "Menu",
-                            tint = Color.White
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
                 },
@@ -179,16 +181,16 @@ fun MyLearningScreen(
                         Icon(
                             Icons.Default.Refresh,
                             contentDescription = "Refresh",
-                            tint = Color.White
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0B0F19)
+                    containerColor = AppTheme.colors.topAppBarBackground
                 )
             )
         },
-        containerColor = Color(0xFF0B0F19)
+        containerColor = AppTheme.colors.background
     ) { paddingValues ->
         if (isLoading) {
             Box(
@@ -197,7 +199,7 @@ fun MyLearningScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF0284C7))
+                CircularProgressIndicator(color = AppTheme.colors.primary)
             }
         } else {
             LazyColumn(
@@ -215,8 +217,8 @@ fun MyLearningScreen(
                                 .fillMaxWidth()
                                 .clickable { onResumeLessonClick(targetCourseId, targetLesson.id) },
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0369A1)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.primaryContainer),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
@@ -333,8 +335,9 @@ fun MyLearningScreen(
                                 .fillMaxWidth()
                                 .clickable { onCourseClick(c.id) },
                             shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Column {
                                 Box(
@@ -355,14 +358,14 @@ fun MyLearningScreen(
                                                 .fillMaxSize()
                                                 .background(
                                                     Brush.verticalGradient(
-                                                        listOf(Color.Transparent, Color(0xFF131B2E))
+                                                        listOf(Color.Transparent, AppTheme.colors.cardBackground)
                                                     )
                                                 )
                                         )
                                     }
 
                                     Surface(
-                                        color = Color(0xFF10B981),
+                                        color = AppTheme.colors.success,
                                         shape = RoundedCornerShape(6.dp),
                                         modifier = Modifier
                                             .padding(12.dp)
@@ -383,7 +386,7 @@ fun MyLearningScreen(
                                         text = c.title,
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                                            color = AppTheme.colors.textPrimary
                                         )
                                     )
 
@@ -391,7 +394,7 @@ fun MyLearningScreen(
 
                                     Text(
                                         text = "${c.sections.size} Modules • ${c.totalLessonsCount} Lectures • ${c.duration}",
-                                        color = Color(0xFF94A3B8),
+                                        color = AppTheme.colors.textSecondary,
                                         fontSize = 12.sp
                                     )
 
@@ -404,13 +407,13 @@ fun MyLearningScreen(
                                     ) {
                                         Text(
                                             text = "Curriculum Completion",
-                                            color = Color(0xFFCBD5E1),
+                                            color = AppTheme.colors.textSecondary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Medium
                                         )
                                         Text(
                                             text = "$progressPercent% Complete ($completedCount / ${c.totalLessonsCount})",
-                                            color = Color(0xFF10B981),
+                                            color = AppTheme.colors.success,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -424,8 +427,8 @@ fun MyLearningScreen(
                                             .fillMaxWidth()
                                             .height(6.dp)
                                             .clip(RoundedCornerShape(3.dp)),
-                                        color = Color(0xFF10B981),
-                                        trackColor = Color(0xFF1E293B)
+                                        color = AppTheme.colors.success,
+                                        trackColor = AppTheme.colors.cardBorder
                                     )
 
                                     Spacer(modifier = Modifier.height(14.dp))
@@ -433,7 +436,7 @@ fun MyLearningScreen(
                                     Button(
                                         onClick = { onCourseClick(c.id) },
                                         shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                        colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -451,7 +454,7 @@ fun MyLearningScreen(
                             text = "Course Modules (${c.sections.size})",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = AppTheme.colors.textPrimary
                             )
                         )
                     }
@@ -462,9 +465,9 @@ fun MyLearningScreen(
                         val isFullyDone = sectionDone == section.lessons.size && section.lessons.isNotEmpty()
 
                         Surface(
-                            color = Color(0xFF131B2E),
+                            color = AppTheme.colors.cardBackground,
                             shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
@@ -520,7 +523,7 @@ fun MyLearningScreen(
                                             text = section.title,
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color.White
+                                                color = AppTheme.colors.textPrimary
                                             ),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
@@ -528,7 +531,7 @@ fun MyLearningScreen(
                                         Text(
                                             text = "${section.lessons.size} lectures • $sectionDone completed",
                                             fontSize = 11.sp,
-                                            color = if (isFullyDone) Color(0xFF10B981) else Color(0xFF94A3B8)
+                                            color = if (isFullyDone) AppTheme.colors.success else AppTheme.colors.textSecondary
                                         )
                                     }
                                 }

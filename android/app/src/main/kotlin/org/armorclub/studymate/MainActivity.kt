@@ -11,9 +11,11 @@ import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -26,6 +28,8 @@ import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.NotesRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
+import org.armorclub.studymate.data.repository.ThemeMode
+import org.armorclub.studymate.data.repository.ThemeRepository
 import org.armorclub.studymate.player.PlayerManager
 import org.armorclub.studymate.service.FloatingVideoService
 import org.armorclub.studymate.ui.navigation.AppNavigation
@@ -38,6 +42,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var notesRepository: NotesRepository
     private lateinit var progressRepository: ProgressRepository
     private lateinit var playerManager: PlayerManager
+    private lateinit var themeRepository: ThemeRepository
 
     private var initialCourseId by mutableStateOf<String?>(null)
     private var initialLessonId by mutableStateOf<String?>(null)
@@ -50,6 +55,7 @@ class MainActivity : ComponentActivity() {
         notesRepository = NotesRepository(this)
         progressRepository = ProgressRepository(this, courseRepository, authRepository)
         playerManager = PlayerManager.getInstance(this)
+        themeRepository = ThemeRepository(this)
 
         handleIntent(intent)
         checkNotificationPermission()
@@ -58,7 +64,15 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            StudyMateTheme {
+            val themeMode by themeRepository.themeMode.collectAsState()
+            val isSystemDark = isSystemInDarkTheme()
+            val isDark = when (themeMode) {
+                ThemeMode.AMOLED_DARK -> true
+                ThemeMode.LIGHT -> false
+                ThemeMode.SYSTEM -> isSystemDark
+            }
+
+            StudyMateTheme(isDark = isDark) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -69,6 +83,7 @@ class MainActivity : ComponentActivity() {
                         notesRepository = notesRepository,
                         progressRepository = progressRepository,
                         playerManager = playerManager,
+                        themeRepository = themeRepository,
                         initialCourseId = initialCourseId,
                         initialLessonId = initialLessonId
                     )

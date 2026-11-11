@@ -1,5 +1,6 @@
 package org.armorclub.studymate.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -76,6 +77,7 @@ import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.player.PlayerManager
+import org.armorclub.studymate.ui.theme.AppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,7 +121,7 @@ fun CourseListScreen(
                         Icon(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "Navigation Menu",
-                            tint = Color.White
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
                 },
@@ -140,13 +142,13 @@ fun CourseListScreen(
                                 text = "StudyMate",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Black,
-                                    color = Color.White
+                                    color = AppTheme.colors.textPrimary
                                 )
                             )
                             Text(
                                 text = "Technical Exam Prep Platform",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF94A3B8)
+                                    color = AppTheme.colors.textSecondary
                                 )
                             )
                         }
@@ -157,7 +159,7 @@ fun CourseListScreen(
                         Icon(
                             Icons.Default.Refresh,
                             contentDescription = "Refresh Courses",
-                            tint = Color.White
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
 
@@ -189,11 +191,11 @@ fun CourseListScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0B0F19)
+                    containerColor = AppTheme.colors.topAppBarBackground
                 )
             )
         },
-        containerColor = Color(0xFF0B0F19)
+        containerColor = AppTheme.colors.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -204,20 +206,20 @@ fun CourseListScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search courses, topics (OOP, React, C)...", color = Color(0xFF64748B)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF64748B)) },
+                placeholder = { Text("Search courses, topics (OOP, React, C)...", color = AppTheme.colors.textMuted) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AppTheme.colors.textMuted) },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF0284C7),
-                    unfocusedBorderColor = Color(0xFF1E293B),
-                    focusedContainerColor = Color(0xFF131B2E),
-                    unfocusedContainerColor = Color(0xFF131B2E),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    focusedBorderColor = AppTheme.colors.primary,
+                    unfocusedBorderColor = AppTheme.colors.cardBorder,
+                    focusedContainerColor = AppTheme.colors.surfaceVariant,
+                    unfocusedContainerColor = AppTheme.colors.surfaceVariant,
+                    focusedTextColor = AppTheme.colors.textPrimary,
+                    unfocusedTextColor = AppTheme.colors.textPrimary
                 )
             )
 
@@ -234,10 +236,10 @@ fun CourseListScreen(
                         onClick = { selectedCategory = cat },
                         label = { Text(cat, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF0284C7),
-                            selectedLabelColor = Color.White,
-                            containerColor = Color(0xFF131B2E),
-                            labelColor = Color(0xFF94A3B8)
+                            selectedContainerColor = AppTheme.colors.primary,
+                            selectedLabelColor = if (AppTheme.colors.isDark) Color.Black else Color.White,
+                            containerColor = AppTheme.colors.chipBackground,
+                            labelColor = AppTheme.colors.textSecondary
                         ),
                         shape = RoundedCornerShape(10.dp)
                     )
@@ -325,8 +327,9 @@ fun CourseListScreen(
                                 .fillMaxWidth()
                                 .clickable { onCourseClick(course.id) },
                             shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Column {
                                 // 16:9 Thumbnail Image
@@ -348,7 +351,7 @@ fun CourseListScreen(
                                                 .fillMaxSize()
                                                 .background(
                                                     Brush.verticalGradient(
-                                                        listOf(Color.Transparent, Color(0xFF131B2E))
+                                                        listOf(Color.Transparent, AppTheme.colors.cardBackground)
                                                     )
                                                 )
                                         )
@@ -356,7 +359,7 @@ fun CourseListScreen(
 
                                     // Category Pill on Top Left
                                     Surface(
-                                        color = Color(0xFF0284C7),
+                                        color = AppTheme.colors.primaryContainer,
                                         shape = RoundedCornerShape(6.dp),
                                         modifier = Modifier
                                             .padding(12.dp)
@@ -405,7 +408,7 @@ fun CourseListScreen(
                                         text = course.title,
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                                            color = AppTheme.colors.textPrimary
                                         ),
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis
@@ -415,7 +418,7 @@ fun CourseListScreen(
 
                                     Text(
                                         text = course.instructorName,
-                                        color = Color(0xFF94A3B8),
+                                        color = AppTheme.colors.textSecondary,
                                         fontSize = 12.sp
                                     )
 
@@ -423,7 +426,7 @@ fun CourseListScreen(
 
                                     Text(
                                         text = course.description,
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF94A3B8)),
+                                        style = MaterialTheme.typography.bodySmall.copy(color = AppTheme.colors.textSecondary),
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -443,31 +446,31 @@ fun CourseListScreen(
                                                 Icon(
                                                     Icons.Default.AccessTime,
                                                     contentDescription = null,
-                                                    tint = Color(0xFF38BDF8),
+                                                    tint = AppTheme.colors.primary,
                                                     modifier = Modifier.size(14.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Text(
                                                     text = course.duration,
-                                                    color = Color(0xFFCBD5E1),
+                                                    color = AppTheme.colors.textSecondary,
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.Medium
                                                 )
                                             }
 
-                                            Text(text = "•", color = Color(0xFF475569))
+                                            Text(text = "•", color = AppTheme.colors.textMuted)
 
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(
                                                     Icons.Default.Book,
                                                     contentDescription = null,
-                                                    tint = Color(0xFF38BDF8),
+                                                    tint = AppTheme.colors.primary,
                                                     modifier = Modifier.size(14.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Text(
                                                     text = "${course.sections.size} Modules",
-                                                    color = Color(0xFFCBD5E1),
+                                                    color = AppTheme.colors.textSecondary,
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.Medium
                                                 )
@@ -478,13 +481,13 @@ fun CourseListScreen(
                                             Icon(
                                                 Icons.Default.Group,
                                                 contentDescription = null,
-                                                tint = Color(0xFF94A3B8),
+                                                tint = AppTheme.colors.textMuted,
                                                 modifier = Modifier.size(14.dp)
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Text(
                                                 text = "${course.enrolledCount}",
-                                                color = Color(0xFF94A3B8),
+                                                color = AppTheme.colors.textSecondary,
                                                 fontSize = 12.sp
                                             )
                                         }
@@ -495,7 +498,7 @@ fun CourseListScreen(
                                     Button(
                                         onClick = { onCourseClick(course.id) },
                                         shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                        colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Icon(

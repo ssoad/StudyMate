@@ -1,5 +1,6 @@
 package org.armorclub.studymate.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.armorclub.studymate.data.model.CourseResource
+import org.armorclub.studymate.ui.theme.AppTheme
 
 @Composable
 fun UdemyResourceCard(
@@ -59,8 +61,9 @@ fun UdemyResourceCard(
             .clickable { onRead() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF131B2E)
+            containerColor = AppTheme.colors.cardBackground
         ),
+        border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -165,7 +168,7 @@ fun UdemyResourceCard(
                             ) {
                                 Text(
                                     text = resource.fileSize,
-                                    color = Color(0xFF94A3B8),
+                                    color = AppTheme.colors.textSecondary,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -180,7 +183,7 @@ fun UdemyResourceCard(
                         text = resource.title,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = AppTheme.colors.textPrimary
                         ),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -191,7 +194,7 @@ fun UdemyResourceCard(
                         Text(
                             text = resource.description,
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF94A3B8)
+                                color = AppTheme.colors.textSecondary
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -212,7 +215,7 @@ fun UdemyResourceCard(
                     onClick = { onRead() },
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF0284C7)
+                        containerColor = AppTheme.colors.primary
                     ),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -236,12 +239,13 @@ fun UdemyResourceCard(
                 OutlinedIconButton(
                     onClick = { onDownload() },
                     shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                     modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         Icons.Default.Download,
                         contentDescription = "Download",
-                        tint = Color(0xFF94A3B8),
+                        tint = AppTheme.colors.textSecondary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -255,7 +259,7 @@ fun UdemyResourceCard(
                     Icon(
                         Icons.Default.OpenInNew,
                         contentDescription = "External Viewer",
-                        tint = Color(0xFF94A3B8),
+                        tint = AppTheme.colors.textSecondary,
                         modifier = Modifier.size(18.dp)
                     )
                 }

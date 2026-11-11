@@ -97,7 +97,14 @@ import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.NotesRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
+import org.armorclub.studymate.data.repository.ThemeMode
+import org.armorclub.studymate.data.repository.ThemeRepository
 import org.armorclub.studymate.player.PlayerManager
+import org.armorclub.studymate.ui.theme.AppTheme
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import org.armorclub.studymate.ui.components.InAppPictureInPicture
 import org.armorclub.studymate.ui.screens.CourseDetailScreen
 import org.armorclub.studymate.ui.screens.CourseListScreen
@@ -149,6 +156,7 @@ fun AppNavigation(
     notesRepository: NotesRepository,
     progressRepository: ProgressRepository,
     playerManager: PlayerManager,
+    themeRepository: ThemeRepository,
     initialCourseId: String? = null,
     initialLessonId: String? = null
 ) {
@@ -248,8 +256,8 @@ fun AppNavigation(
                 drawerState = drawerState,
                 drawerContent = {
                     ModalDrawerSheet(
-                        drawerContainerColor = Color(0xFF0F172A),
-                        drawerContentColor = Color.White
+                        drawerContainerColor = AppTheme.colors.drawerBackground,
+                        drawerContentColor = AppTheme.colors.textPrimary
                     ) {
                         Column(
                             modifier = Modifier
@@ -274,13 +282,13 @@ fun AppNavigation(
                                 Column {
                                     Text(
                                         text = "StudyMate",
-                                        color = Color.White,
+                                        color = AppTheme.colors.textPrimary,
                                         fontWeight = FontWeight.Black,
                                         fontSize = 18.sp
                                     )
                                     Text(
                                         text = "Native Learning Portal",
-                                        color = Color(0xFF94A3B8),
+                                        color = AppTheme.colors.textSecondary,
                                         fontSize = 11.sp
                                     )
                                 }
@@ -296,7 +304,8 @@ fun AppNavigation(
                                     .clip(RoundedCornerShape(16.dp))
                                     .background(
                                         Brush.linearGradient(
-                                            listOf(Color(0xFF1E1B4B), Color(0xFF0284C7))
+                                            if (AppTheme.colors.isDark) listOf(Color(0xFF0F172A), Color(0xFF0369A1))
+                                            else listOf(Color(0xFF0284C7), Color(0xFF38BDF8))
                                         )
                                     )
                                     .padding(16.dp)
@@ -337,7 +346,7 @@ fun AppNavigation(
                                         )
                                         Text(
                                             text = currentUser?.email ?: "Sign in to sync your progress",
-                                            color = Color(0xFF94A3B8),
+                                            color = Color.White.copy(alpha = 0.8f),
                                             fontSize = 11.sp
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
@@ -358,12 +367,12 @@ fun AppNavigation(
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
-                            HorizontalDivider(color = Color(0xFF1E293B))
+                            HorizontalDivider(color = AppTheme.colors.divider)
                             Spacer(modifier = Modifier.height(8.dp))
 
                             // MENU ITEMS (Web & Udemy Parity)
                             NavigationDrawerItem(
-                                icon = { Icon(Icons.Default.School, contentDescription = null, tint = Color(0xFF38BDF8)) },
+                                icon = { Icon(Icons.Default.School, contentDescription = null, tint = AppTheme.colors.primary) },
                                 label = { Text("Courses & Curriculum", fontWeight = FontWeight.SemiBold) },
                                 selected = selectedBottomNav == 0,
                                 onClick = {
@@ -371,16 +380,16 @@ fun AppNavigation(
                                     scope.launch { drawerState.close() }
                                 },
                                 colors = NavigationDrawerItemDefaults.colors(
-                                    selectedContainerColor = Color(0xFF0284C7).copy(alpha = 0.2f),
+                                    selectedContainerColor = AppTheme.colors.primary.copy(alpha = 0.15f),
                                     unselectedContainerColor = Color.Transparent,
-                                    selectedTextColor = Color.White,
-                                    unselectedTextColor = Color(0xFFCBD5E1)
+                                    selectedTextColor = AppTheme.colors.primary,
+                                    unselectedTextColor = AppTheme.colors.textSecondary
                                 ),
                                 modifier = Modifier.padding(horizontal = 12.dp)
                             )
 
                             NavigationDrawerItem(
-                                icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, tint = Color(0xFF38BDF8)) },
+                                icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, tint = AppTheme.colors.primary) },
                                 label = { Text("My Learning & Progress", fontWeight = FontWeight.SemiBold) },
                                 selected = selectedBottomNav == 2,
                                 onClick = {
@@ -388,16 +397,16 @@ fun AppNavigation(
                                     scope.launch { drawerState.close() }
                                 },
                                 colors = NavigationDrawerItemDefaults.colors(
-                                    selectedContainerColor = Color(0xFF0284C7).copy(alpha = 0.2f),
+                                    selectedContainerColor = AppTheme.colors.primary.copy(alpha = 0.15f),
                                     unselectedContainerColor = Color.Transparent,
-                                    selectedTextColor = Color.White,
-                                    unselectedTextColor = Color(0xFFCBD5E1)
+                                    selectedTextColor = AppTheme.colors.primary,
+                                    unselectedTextColor = AppTheme.colors.textSecondary
                                 ),
                                 modifier = Modifier.padding(horizontal = 12.dp)
                             )
 
                             NavigationDrawerItem(
-                                icon = { Icon(Icons.Default.Book, contentDescription = null, tint = Color(0xFF38BDF8)) },
+                                icon = { Icon(Icons.Default.Book, contentDescription = null, tint = AppTheme.colors.primary) },
                                 label = { Text("Learning Resources & Notes", fontWeight = FontWeight.SemiBold) },
                                 selected = selectedBottomNav == 1,
                                 onClick = {
@@ -405,16 +414,16 @@ fun AppNavigation(
                                     scope.launch { drawerState.close() }
                                 },
                                 colors = NavigationDrawerItemDefaults.colors(
-                                    selectedContainerColor = Color(0xFF0284C7).copy(alpha = 0.2f),
+                                    selectedContainerColor = AppTheme.colors.primary.copy(alpha = 0.15f),
                                     unselectedContainerColor = Color.Transparent,
-                                    selectedTextColor = Color.White,
-                                    unselectedTextColor = Color(0xFFCBD5E1)
+                                    selectedTextColor = AppTheme.colors.primary,
+                                    unselectedTextColor = AppTheme.colors.textSecondary
                                 ),
                                 modifier = Modifier.padding(horizontal = 12.dp)
                             )
 
                             NavigationDrawerItem(
-                                icon = { Icon(Icons.Default.Assignment, contentDescription = null, tint = Color(0xFF10B981)) },
+                                icon = { Icon(Icons.Default.Assignment, contentDescription = null, tint = AppTheme.colors.success) },
                                 label = { Text("Practice Exams & Quizzes", fontWeight = FontWeight.SemiBold) },
                                 selected = false,
                                 onClick = {
@@ -422,16 +431,16 @@ fun AppNavigation(
                                     showExamsDialog = true
                                 },
                                 colors = NavigationDrawerItemDefaults.colors(
-                                    selectedContainerColor = Color(0xFF0284C7).copy(alpha = 0.2f),
+                                    selectedContainerColor = AppTheme.colors.primary.copy(alpha = 0.15f),
                                     unselectedContainerColor = Color.Transparent,
-                                    selectedTextColor = Color.White,
-                                    unselectedTextColor = Color(0xFFCBD5E1)
+                                    selectedTextColor = AppTheme.colors.textPrimary,
+                                    unselectedTextColor = AppTheme.colors.textSecondary
                                 ),
                                 modifier = Modifier.padding(horizontal = 12.dp)
                             )
 
                             NavigationDrawerItem(
-                                icon = { Icon(Icons.Default.Leaderboard, contentDescription = null, tint = Color(0xFFF59E0B)) },
+                                icon = { Icon(Icons.Default.Leaderboard, contentDescription = null, tint = AppTheme.colors.warning) },
                                 label = { Text("Student Leaderboard", fontWeight = FontWeight.SemiBold) },
                                 selected = false,
                                 onClick = {
@@ -439,16 +448,16 @@ fun AppNavigation(
                                     showLeaderboardDialog = true
                                 },
                                 colors = NavigationDrawerItemDefaults.colors(
-                                    selectedContainerColor = Color(0xFF0284C7).copy(alpha = 0.2f),
+                                    selectedContainerColor = AppTheme.colors.primary.copy(alpha = 0.15f),
                                     unselectedContainerColor = Color.Transparent,
-                                    selectedTextColor = Color.White,
-                                    unselectedTextColor = Color(0xFFCBD5E1)
+                                    selectedTextColor = AppTheme.colors.textPrimary,
+                                    unselectedTextColor = AppTheme.colors.textSecondary
                                 ),
                                 modifier = Modifier.padding(horizontal = 12.dp)
                             )
 
                             NavigationDrawerItem(
-                                icon = { Icon(Icons.Default.Forum, contentDescription = null, tint = Color(0xFFA855F7)) },
+                                icon = { Icon(Icons.Default.Forum, contentDescription = null, tint = AppTheme.colors.secondary) },
                                 label = { Text("Discussion & Community", fontWeight = FontWeight.SemiBold) },
                                 selected = false,
                                 onClick = {
@@ -456,20 +465,72 @@ fun AppNavigation(
                                     showDiscussionDialog = true
                                 },
                                 colors = NavigationDrawerItemDefaults.colors(
-                                    selectedContainerColor = Color(0xFF0284C7).copy(alpha = 0.2f),
+                                    selectedContainerColor = AppTheme.colors.primary.copy(alpha = 0.15f),
                                     unselectedContainerColor = Color.Transparent,
-                                    selectedTextColor = Color.White,
-                                    unselectedTextColor = Color(0xFFCBD5E1)
+                                    selectedTextColor = AppTheme.colors.textPrimary,
+                                    unselectedTextColor = AppTheme.colors.textSecondary
                                 ),
                                 modifier = Modifier.padding(horizontal = 12.dp)
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
-                            HorizontalDivider(color = Color(0xFF1E293B))
+                            HorizontalDivider(color = AppTheme.colors.divider)
                             Spacer(modifier = Modifier.height(8.dp))
 
+                            // Quick Theme Mode Toggle Item
+                            val currentThemeMode by themeRepository.themeMode.collectAsState()
                             NavigationDrawerItem(
-                                icon = { Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF94A3B8)) },
+                                icon = {
+                                    Icon(
+                                        imageVector = when (currentThemeMode) {
+                                            ThemeMode.AMOLED_DARK -> Icons.Default.DarkMode
+                                            ThemeMode.LIGHT -> Icons.Default.LightMode
+                                            ThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
+                                        },
+                                        contentDescription = null,
+                                        tint = AppTheme.colors.primary
+                                    )
+                                },
+                                label = {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Theme", fontWeight = FontWeight.SemiBold)
+                                        Surface(
+                                            color = AppTheme.colors.surfaceVariant,
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Text(
+                                                text = when (currentThemeMode) {
+                                                    ThemeMode.AMOLED_DARK -> "AMOLED"
+                                                    ThemeMode.LIGHT -> "Light"
+                                                    ThemeMode.SYSTEM -> "Auto"
+                                                },
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = AppTheme.colors.primary,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                },
+                                selected = false,
+                                onClick = {
+                                    themeRepository.toggleTheme()
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = AppTheme.colors.primary.copy(alpha = 0.15f),
+                                    unselectedContainerColor = Color.Transparent,
+                                    selectedTextColor = AppTheme.colors.textPrimary,
+                                    unselectedTextColor = AppTheme.colors.textSecondary
+                                ),
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
+
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Settings, contentDescription = null, tint = AppTheme.colors.textSecondary) },
                                 label = { Text("App Settings & Cache", fontWeight = FontWeight.SemiBold) },
                                 selected = false,
                                 onClick = {
@@ -477,18 +538,18 @@ fun AppNavigation(
                                     navController.navigate(Screen.Settings.route)
                                 },
                                 colors = NavigationDrawerItemDefaults.colors(
-                                    selectedContainerColor = Color(0xFF0284C7).copy(alpha = 0.2f),
+                                    selectedContainerColor = AppTheme.colors.primary.copy(alpha = 0.15f),
                                     unselectedContainerColor = Color.Transparent,
-                                    selectedTextColor = Color.White,
-                                    unselectedTextColor = Color(0xFFCBD5E1)
+                                    selectedTextColor = AppTheme.colors.textPrimary,
+                                    unselectedTextColor = AppTheme.colors.textSecondary
                                 ),
                                 modifier = Modifier.padding(horizontal = 12.dp)
                             )
 
                             if (isLoggedIn) {
                                 NavigationDrawerItem(
-                                    icon = { Icon(Icons.Default.Logout, contentDescription = null, tint = Color(0xFFEF4444)) },
-                                    label = { Text("Sign Out", color = Color(0xFFEF4444), fontWeight = FontWeight.SemiBold) },
+                                    icon = { Icon(Icons.Default.Logout, contentDescription = null, tint = AppTheme.colors.error) },
+                                    label = { Text("Sign Out", color = AppTheme.colors.error, fontWeight = FontWeight.SemiBold) },
                                     selected = false,
                                     onClick = {
                                         scope.launch {
@@ -509,10 +570,11 @@ fun AppNavigation(
             ) {
                 Scaffold(
                     contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                    containerColor = AppTheme.colors.background,
                     bottomBar = {
                         // 4-Tab Bottom Navigation Bar (Udemy & Coursera Pattern)
                         NavigationBar(
-                            containerColor = Color(0xFF0F172A)
+                            containerColor = AppTheme.colors.bottomNavBackground
                         ) {
                             NavigationBarItem(
                                 selected = selectedBottomNav == 0,
@@ -520,11 +582,11 @@ fun AppNavigation(
                                 icon = { Icon(Icons.Default.School, contentDescription = "Courses") },
                                 label = { Text("Courses", fontSize = 11.sp) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Color.White,
-                                    selectedTextColor = Color(0xFF38BDF8),
-                                    indicatorColor = Color(0xFF0284C7),
-                                    unselectedIconColor = Color(0xFF64748B),
-                                    unselectedTextColor = Color(0xFF64748B)
+                                    selectedIconColor = if (AppTheme.colors.isDark) Color.White else Color(0xFF0284C7),
+                                    selectedTextColor = AppTheme.colors.primary,
+                                    indicatorColor = if (AppTheme.colors.isDark) Color(0xFF0284C7) else Color(0xFFE0F2FE),
+                                    unselectedIconColor = AppTheme.colors.textMuted,
+                                    unselectedTextColor = AppTheme.colors.textMuted
                                 )
                             )
                             NavigationBarItem(
@@ -533,11 +595,11 @@ fun AppNavigation(
                                 icon = { Icon(Icons.Default.Book, contentDescription = "Resources") },
                                 label = { Text("Resources", fontSize = 11.sp) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Color.White,
-                                    selectedTextColor = Color(0xFF38BDF8),
-                                    indicatorColor = Color(0xFF0284C7),
-                                    unselectedIconColor = Color(0xFF64748B),
-                                    unselectedTextColor = Color(0xFF64748B)
+                                    selectedIconColor = if (AppTheme.colors.isDark) Color.White else Color(0xFF0284C7),
+                                    selectedTextColor = AppTheme.colors.primary,
+                                    indicatorColor = if (AppTheme.colors.isDark) Color(0xFF0284C7) else Color(0xFFE0F2FE),
+                                    unselectedIconColor = AppTheme.colors.textMuted,
+                                    unselectedTextColor = AppTheme.colors.textMuted
                                 )
                             )
                             NavigationBarItem(
@@ -546,11 +608,11 @@ fun AppNavigation(
                                 icon = { Icon(Icons.Default.PlayCircle, contentDescription = "My Learning") },
                                 label = { Text("My Learning", fontSize = 11.sp) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Color.White,
-                                    selectedTextColor = Color(0xFF38BDF8),
-                                    indicatorColor = Color(0xFF0284C7),
-                                    unselectedIconColor = Color(0xFF64748B),
-                                    unselectedTextColor = Color(0xFF64748B)
+                                    selectedIconColor = if (AppTheme.colors.isDark) Color.White else Color(0xFF0284C7),
+                                    selectedTextColor = AppTheme.colors.primary,
+                                    indicatorColor = if (AppTheme.colors.isDark) Color(0xFF0284C7) else Color(0xFFE0F2FE),
+                                    unselectedIconColor = AppTheme.colors.textMuted,
+                                    unselectedTextColor = AppTheme.colors.textMuted
                                 )
                             )
                             NavigationBarItem(
@@ -559,11 +621,11 @@ fun AppNavigation(
                                 icon = { Icon(Icons.Default.Person, contentDescription = "Account") },
                                 label = { Text("Account", fontSize = 11.sp) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Color.White,
-                                    selectedTextColor = Color(0xFF38BDF8),
-                                    indicatorColor = Color(0xFF0284C7),
-                                    unselectedIconColor = Color(0xFF64748B),
-                                    unselectedTextColor = Color(0xFF64748B)
+                                    selectedIconColor = if (AppTheme.colors.isDark) Color.White else Color(0xFF0284C7),
+                                    selectedTextColor = AppTheme.colors.primary,
+                                    indicatorColor = if (AppTheme.colors.isDark) Color(0xFF0284C7) else Color(0xFFE0F2FE),
+                                    unselectedIconColor = AppTheme.colors.textMuted,
+                                    unselectedTextColor = AppTheme.colors.textMuted
                                 )
                             )
                         }
@@ -651,6 +713,7 @@ fun AppNavigation(
                                 3 -> ProfileScreen(
                                     authRepository = authRepository,
                                     courseRepository = courseRepository,
+                                    themeRepository = themeRepository,
                                     onNavigateToSettings = {
                                         navController.navigate(Screen.Settings.route)
                                     },
@@ -673,7 +736,8 @@ fun AppNavigation(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E))
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surfaceElevated),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
                     ) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Row(
@@ -682,18 +746,18 @@ fun AppNavigation(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Assignment, contentDescription = null, tint = Color(0xFF10B981))
+                                    Icon(Icons.Default.Assignment, contentDescription = null, tint = AppTheme.colors.success)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Practice Exams & MCQs", color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("Practice Exams & MCQs", color = AppTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
                                 }
                                 IconButton(onClick = { showExamsDialog = false }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                                    Icon(Icons.Default.Close, contentDescription = "Close", tint = AppTheme.colors.textSecondary)
                                 }
                             }
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = "Technical mock tests covering C, DSA, DBMS, DLD, Computer Networks and OOP are linked with each module's question banks in the Resources tab.",
-                                color = Color(0xFF94A3B8),
+                                color = AppTheme.colors.textSecondary,
                                 fontSize = 12.sp,
                                 lineHeight = 18.sp
                             )
@@ -704,7 +768,7 @@ fun AppNavigation(
                                     selectedBottomNav = 1
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text("Browse MCQ Question Banks", fontWeight = FontWeight.Bold)
@@ -720,7 +784,8 @@ fun AppNavigation(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E))
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surfaceElevated),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
                     ) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Row(
@@ -729,12 +794,12 @@ fun AppNavigation(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Leaderboard, contentDescription = null, tint = Color(0xFFF59E0B))
+                                    Icon(Icons.Default.Leaderboard, contentDescription = null, tint = AppTheme.colors.warning)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Top Students Leaderboard", color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("Top Students Leaderboard", color = AppTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
                                 }
                                 IconButton(onClick = { showLeaderboardDialog = false }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                                    Icon(Icons.Default.Close, contentDescription = "Close", tint = AppTheme.colors.textSecondary)
                                 }
                             }
                             Spacer(modifier = Modifier.height(12.dp))
@@ -744,19 +809,20 @@ fun AppNavigation(
                                 "3. Rafiqul Islam" to "86% Completion • 44 Lectures"
                             ).forEach { (name, stats) ->
                                 Surface(
-                                    color = Color(0xFF1E293B).copy(alpha = 0.5f),
+                                    color = AppTheme.colors.surfaceVariant.copy(alpha = 0.5f),
                                     shape = RoundedCornerShape(8.dp),
+                                    border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(14.dp))
+                                        Icon(Icons.Default.Star, contentDescription = null, tint = AppTheme.colors.warning, modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Column {
-                                            Text(name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                            Text(stats, color = Color(0xFF94A3B8), fontSize = 10.sp)
+                                            Text(name, color = AppTheme.colors.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Text(stats, color = AppTheme.colors.textSecondary, fontSize = 10.sp)
                                         }
                                     }
                                 }
@@ -765,7 +831,7 @@ fun AppNavigation(
                             Button(
                                 onClick = { showLeaderboardDialog = false },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text("Close", fontWeight = FontWeight.Bold)
@@ -781,7 +847,8 @@ fun AppNavigation(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E))
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surfaceElevated),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
                     ) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Row(
@@ -790,18 +857,18 @@ fun AppNavigation(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Forum, contentDescription = null, tint = Color(0xFFA855F7))
+                                    Icon(Icons.Default.Forum, contentDescription = null, tint = AppTheme.colors.secondary)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Community Discussion", color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("Community Discussion", color = AppTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
                                 }
                                 IconButton(onClick = { showDiscussionDialog = false }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                                    Icon(Icons.Default.Close, contentDescription = "Close", tint = AppTheme.colors.textSecondary)
                                 }
                             }
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = "Have doubts regarding C pointers, SQL normal forms, or OOP polymorphism? Ask your questions directly in the classroom under each lecture's notes tab or reach out to instructor via support.",
-                                color = Color(0xFF94A3B8),
+                                color = AppTheme.colors.textSecondary,
                                 fontSize = 12.sp,
                                 lineHeight = 18.sp
                             )
@@ -809,7 +876,7 @@ fun AppNavigation(
                             Button(
                                 onClick = { showDiscussionDialog = false },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text("Got it!", fontWeight = FontWeight.Bold)
@@ -825,6 +892,7 @@ fun AppNavigation(
             SettingsScreen(
                 courseRepository = courseRepository,
                 playerManager = playerManager,
+                themeRepository = themeRepository,
                 onBackClick = { navController.popBackStack() }
             )
         }

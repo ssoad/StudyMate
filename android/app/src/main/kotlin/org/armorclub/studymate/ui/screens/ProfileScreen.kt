@@ -1,6 +1,7 @@
 package org.armorclub.studymate.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,9 +26,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Menu
@@ -74,7 +78,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -83,12 +86,16 @@ import org.armorclub.studymate.R
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.ThemeMode
+import org.armorclub.studymate.data.repository.ThemeRepository
+import org.armorclub.studymate.ui.theme.AppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     authRepository: AuthRepository,
     courseRepository: CourseRepository,
+    themeRepository: ThemeRepository,
     onNavigateToSettings: () -> Unit,
     onSelectCourse: (String) -> Unit,
     onOpenDrawer: () -> Unit = {}
@@ -123,7 +130,7 @@ fun ProfileScreen(
                         Icon(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "Navigation Menu",
-                            tint = Color.White
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
                 },
@@ -132,7 +139,7 @@ fun ProfileScreen(
                         text = if (isLoggedIn) "Student Profile" else "Account & Authentication",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = AppTheme.colors.textPrimary
                         )
                     )
                 },
@@ -141,16 +148,16 @@ fun ProfileScreen(
                         Icon(
                             Icons.Default.Settings,
                             contentDescription = "Settings",
-                            tint = Color.White
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0B0F19)
+                    containerColor = AppTheme.colors.topAppBarBackground
                 )
             )
         },
-        containerColor = Color(0xFF0B0F19)
+        containerColor = AppTheme.colors.background
     ) { paddingValues ->
         if (isLoggedIn && currentUser != null) {
             val user = currentUser!!
@@ -168,116 +175,64 @@ fun ProfileScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E))
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(
                                     Brush.linearGradient(
-                                        listOf(Color(0xFF1E1B4B), Color(0xFF0F172A))
+                                        if (AppTheme.colors.isDark) listOf(Color(0xFF0F172A), Color(0xFF0284C7))
+                                        else listOf(Color(0xFF0284C7), Color(0xFF38BDF8))
                                     )
                                 )
-                                .padding(18.dp)
+                                .padding(20.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(64.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            Brush.linearGradient(
-                                                listOf(Color(0xFF6366F1), Color(0xFF38BDF8))
-                                            )
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = user.fullName.take(1).uppercase().ifBlank { "U" },
-                                        color = Color.White,
-                                        fontSize = 26.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(16.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(64.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.25f)),
+                                        contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = user.fullName,
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White
-                                            ),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            text = user.fullName.take(1).uppercase().ifBlank { "U" },
+                                            color = Color.White,
+                                            fontSize = 28.sp,
+                                            fontWeight = FontWeight.Black
                                         )
+                                    }
 
+                                    Spacer(modifier = Modifier.width(16.dp))
+
+                                    Column {
+                                        Text(
+                                            text = user.fullName,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 20.sp
+                                        )
+                                        Text(
+                                            text = user.email,
+                                            color = Color.White.copy(alpha = 0.85f),
+                                            fontSize = 12.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         Surface(
-                                            color = Color(0xFF10B981).copy(alpha = 0.2f),
+                                            color = Color(0xFF10B981),
                                             shape = RoundedCornerShape(4.dp)
                                         ) {
                                             Text(
-                                                text = if (user.role == "admin") "ADMIN" else "VERIFIED",
-                                                color = Color(0xFF10B981),
+                                                text = "ENROLLED STUDENT",
+                                                color = Color.White,
                                                 fontSize = 9.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                             )
                                         }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(2.dp))
-
-                                    Text(
-                                        text = user.email,
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = Color(0xFF94A3B8)
-                                        )
-                                    )
-
-                                    Spacer(modifier = Modifier.height(6.dp))
-
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Surface(
-                                            color = Color(0xFFF59E0B).copy(alpha = 0.15f),
-                                            shape = RoundedCornerShape(6.dp)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Star,
-                                                    contentDescription = null,
-                                                    tint = Color(0xFFF59E0B),
-                                                    modifier = Modifier.size(12.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(3.dp))
-                                                Text(
-                                                    text = "${user.points} Study Points",
-                                                    color = Color(0xFFF59E0B),
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-
-                                        Text(
-                                            text = "• Active Session",
-                                            color = Color(0xFF64748B),
-                                            fontSize = 11.sp
-                                        )
                                     }
                                 }
                             }
@@ -285,67 +240,53 @@ fun ProfileScreen(
                     }
                 }
 
-                // 2. Study Metrics Grid (Udemy / Coursera Style)
+                // 2. Stats Dashboard
                 item {
                     Text(
-                        text = "Your Learning Statistics",
+                        text = "Learning Statistics",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        ),
-                        modifier = Modifier.padding(vertical = 4.dp)
+                            color = AppTheme.colors.textPrimary
+                        )
                     )
+
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         StatCard(
-                            title = "Study Time",
-                            value = "66 Hours",
+                            title = "Hours Watched",
+                            value = "12.5 hrs",
                             icon = Icons.Default.Timer,
                             accentColor = Color(0xFF38BDF8),
                             modifier = Modifier.weight(1f)
                         )
                         StatCard(
-                            title = "Lectures",
-                            value = "49 Total",
-                            icon = Icons.Default.School,
-                            accentColor = Color(0xFF818CF8),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        StatCard(
-                            title = "Resources",
-                            value = "26 Files",
-                            icon = Icons.Default.Book,
-                            accentColor = Color(0xFF34D399),
-                            modifier = Modifier.weight(1f)
-                        )
-                        StatCard(
-                            title = "Modules",
-                            value = "7 Subjects",
+                            title = "Completed",
+                            value = "7 Lectures",
                             icon = Icons.Default.CheckCircle,
-                            accentColor = Color(0xFFFBBF24),
+                            accentColor = Color(0xFF10B981),
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatCard(
+                            title = "Prep Score",
+                            value = "850 Pts",
+                            icon = Icons.Default.Star,
+                            accentColor = Color(0xFFF59E0B),
                             modifier = Modifier.weight(1f)
                         )
                     }
                 }
 
-                // 3. Enrolled Courses (Udemy "My Learning")
+                // 3. Current Enrolled Master Course
                 item {
                     Text(
-                        text = "Enrolled Curriculum",
+                        text = "Current Course in Progress",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = AppTheme.colors.textPrimary
                         ),
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
@@ -356,7 +297,8 @@ fun ProfileScreen(
                                 .fillMaxWidth()
                                 .clickable { onSelectCourse(mainCourse.id) },
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E))
+                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
                         ) {
                             Column {
                                 if (mainCourse.thumbnailUrl.isNotBlank()) {
@@ -378,13 +320,13 @@ fun ProfileScreen(
                                     ) {
                                         Text(
                                             text = "Complexity IT - AD ICT",
-                                            color = Color(0xFF38BDF8),
+                                            color = AppTheme.colors.primary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
                                             text = "14% Complete",
-                                            color = Color(0xFF94A3B8),
+                                            color = AppTheme.colors.textSecondary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.SemiBold
                                         )
@@ -396,7 +338,7 @@ fun ProfileScreen(
                                         text = mainCourse.title,
                                         style = MaterialTheme.typography.titleSmall.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                                            color = AppTheme.colors.textPrimary
                                         )
                                     )
 
@@ -408,8 +350,8 @@ fun ProfileScreen(
                                             .fillMaxWidth()
                                             .height(6.dp)
                                             .clip(RoundedCornerShape(3.dp)),
-                                        color = Color(0xFF0284C7),
-                                        trackColor = Color(0xFF1E293B)
+                                        color = AppTheme.colors.primary,
+                                        trackColor = AppTheme.colors.cardBorder
                                     )
 
                                     Spacer(modifier = Modifier.height(12.dp))
@@ -417,7 +359,7 @@ fun ProfileScreen(
                                     Button(
                                         onClick = { onSelectCourse(mainCourse.id) },
                                         shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                        colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Icon(
@@ -434,19 +376,20 @@ fun ProfileScreen(
                     }
                 }
 
-                // 4. Server & Session Controls
+                // 4. Server, Theme & Session Controls
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E))
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
                                 text = "Account & System",
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = AppTheme.colors.textPrimary
                                 )
                             )
 
@@ -454,10 +397,71 @@ fun ProfileScreen(
 
                             Text(
                                 text = "Active Endpoint: ${courseRepository.getBaseUrl()}",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF94A3B8))
+                                style = MaterialTheme.typography.bodySmall.copy(color = AppTheme.colors.textSecondary)
                             )
 
                             Spacer(modifier = Modifier.height(12.dp))
+
+                            // Theme Quick Toggle Pill
+                            val currentTheme by themeRepository.themeMode.collectAsState()
+                            Surface(
+                                color = AppTheme.colors.surfaceVariant.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
+                                onClick = { themeRepository.toggleTheme() },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = when (currentTheme) {
+                                                ThemeMode.AMOLED_DARK -> Icons.Default.DarkMode
+                                                ThemeMode.LIGHT -> Icons.Default.LightMode
+                                                ThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
+                                            },
+                                            contentDescription = null,
+                                            tint = AppTheme.colors.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = "Theme: ${currentTheme.title}",
+                                                color = AppTheme.colors.textPrimary,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "Tap to switch between AMOLED Dark and Light",
+                                                color = AppTheme.colors.textSecondary,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(AppTheme.colors.primary.copy(alpha = 0.15f))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "Change",
+                                            color = AppTheme.colors.primary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -478,7 +482,7 @@ fun ProfileScreen(
                                         authRepository.signOut()
                                         Toast.makeText(context, "Signed out", Toast.LENGTH_SHORT).show()
                                     },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.error),
                                     shape = RoundedCornerShape(10.dp),
                                     modifier = Modifier.weight(1f)
                                 ) {
@@ -517,13 +521,13 @@ fun ProfileScreen(
                         text = "Welcome to StudyMate",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Black,
-                            color = Color.White
+                            color = AppTheme.colors.textPrimary
                         )
                     )
 
                     Text(
                         text = "Sign in to track lecture progress, save custom timestamps, and access all 26 revision materials.",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF94A3B8)),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = AppTheme.colors.textSecondary),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                     )
@@ -533,13 +537,14 @@ fun ProfileScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E))
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             TabRow(
                                 selectedTabIndex = authMode,
-                                containerColor = Color(0xFF1E293B),
-                                contentColor = Color(0xFF38BDF8),
+                                containerColor = AppTheme.colors.surfaceVariant,
+                                contentColor = AppTheme.colors.primary,
                                 modifier = Modifier.clip(RoundedCornerShape(10.dp))
                             ) {
                                 Tab(
@@ -558,13 +563,13 @@ fun ProfileScreen(
 
                             if (authError != null) {
                                 Surface(
-                                    color = Color(0xFFEF4444).copy(alpha = 0.15f),
+                                    color = AppTheme.colors.error.copy(alpha = 0.15f),
                                     shape = RoundedCornerShape(8.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text(
                                         text = authError!!,
-                                        color = Color(0xFFEF4444),
+                                        color = AppTheme.colors.error,
                                         fontSize = 12.sp,
                                         modifier = Modifier.padding(10.dp)
                                     )
@@ -633,7 +638,7 @@ fun ProfileScreen(
                                     }
                                 },
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp),
@@ -681,7 +686,7 @@ fun ProfileScreen(
                                 Text(
                                     text = "One-Tap Demo Student Sign In",
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = AppTheme.colors.textPrimary
                                 )
                             }
                         }
@@ -703,7 +708,8 @@ private fun StatCard(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E))
+        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Box(
@@ -727,14 +733,14 @@ private fun StatCard(
                 text = value,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Black,
-                    color = Color.White
+                    color = AppTheme.colors.textPrimary
                 )
             )
 
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelSmall.copy(
-                    color = Color(0xFF94A3B8)
+                    color = AppTheme.colors.textSecondary
                 )
             )
         }

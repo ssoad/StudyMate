@@ -1,5 +1,6 @@
 package org.armorclub.studymate.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -82,6 +83,7 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.model.CourseResource
+import org.armorclub.studymate.ui.theme.AppTheme
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.ui.components.UdemyResourceCard
 import java.io.File
@@ -226,7 +228,7 @@ fun ResourcesScreen(
                         Icon(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "Navigation Menu",
-                            tint = Color.White
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
                 },
@@ -258,13 +260,13 @@ fun ResourcesScreen(
                                 text = "Learning Library",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Black,
-                                    color = Color.White
+                                    color = AppTheme.colors.textPrimary
                                 )
                             )
                             Text(
                                 text = "Handbooks, Question Banks & Notes",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF94A3B8)
+                                    color = AppTheme.colors.textSecondary
                                 )
                             )
                         }
@@ -275,16 +277,16 @@ fun ResourcesScreen(
                         Icon(
                             Icons.Default.Refresh,
                             contentDescription = "Refresh",
-                            tint = Color.White
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0B0F19)
+                    containerColor = AppTheme.colors.topAppBarBackground
                 )
             )
         },
-        containerColor = Color(0xFF0B0F19)
+        containerColor = AppTheme.colors.background
     ) { paddingValues ->
         if (isLoading) {
             Box(
@@ -311,8 +313,9 @@ fun ResourcesScreen(
                                 .fillMaxWidth()
                                 .clickable { onCourseClick(primaryCourse.id) },
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Row(
                                 modifier = Modifier
@@ -324,7 +327,7 @@ fun ResourcesScreen(
                                     modifier = Modifier
                                         .size(64.dp)
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(Color(0xFF1E1B4B))
+                                        .background(AppTheme.colors.surfaceVariant)
                                 ) {
                                     if (primaryCourse.thumbnailUrl.isNotBlank()) {
                                         AsyncImage(
@@ -340,12 +343,12 @@ fun ResourcesScreen(
 
                                 Column(modifier = Modifier.weight(1f)) {
                                     Surface(
-                                        color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                                        color = AppTheme.colors.primary.copy(alpha = 0.15f),
                                         shape = RoundedCornerShape(4.dp)
                                     ) {
                                         Text(
                                             text = "ENROLLED COURSE",
-                                            color = Color(0xFF38BDF8),
+                                            color = AppTheme.colors.primary,
                                             fontSize = 9.sp,
                                             fontWeight = FontWeight.Black,
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -358,7 +361,7 @@ fun ResourcesScreen(
                                         text = primaryCourse.title,
                                         style = MaterialTheme.typography.titleSmall.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                                            color = AppTheme.colors.textPrimary
                                         ),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -372,13 +375,13 @@ fun ResourcesScreen(
                                     ) {
                                         Text(
                                             text = "${primaryCourse.sections.size} Modules",
-                                            color = Color(0xFF94A3B8),
+                                            color = AppTheme.colors.textSecondary,
                                             fontSize = 11.sp
                                         )
-                                        Text(text = "•", color = Color(0xFF475569))
+                                        Text(text = "•", color = AppTheme.colors.textMuted)
                                         Text(
                                             text = "${allResources.size} Study Materials Attached",
-                                            color = Color(0xFF38BDF8),
+                                            color = AppTheme.colors.primary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -394,17 +397,17 @@ fun ResourcesScreen(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text("Search by title, question set, or topic...", color = Color(0xFF64748B)) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF64748B)) },
+                        placeholder = { Text("Search by title, question set, or topic...", color = AppTheme.colors.textMuted) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AppTheme.colors.textMuted) },
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF0284C7),
-                            unfocusedBorderColor = Color(0xFF1E293B),
-                            focusedContainerColor = Color(0xFF131B2E),
-                            unfocusedContainerColor = Color(0xFF131B2E),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedBorderColor = AppTheme.colors.primary,
+                            unfocusedBorderColor = AppTheme.colors.cardBorder,
+                            focusedContainerColor = AppTheme.colors.surfaceVariant,
+                            unfocusedContainerColor = AppTheme.colors.surfaceVariant,
+                            focusedTextColor = AppTheme.colors.textPrimary,
+                            unfocusedTextColor = AppTheme.colors.textPrimary
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -422,10 +425,10 @@ fun ResourcesScreen(
                                 onClick = { selectedTypeFilter = key },
                                 label = { Text(label, fontWeight = FontWeight.Bold, fontSize = 12.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFF0284C7),
+                                    selectedContainerColor = AppTheme.colors.primary,
                                     selectedLabelColor = Color.White,
-                                    containerColor = Color(0xFF131B2E),
-                                    labelColor = Color(0xFF94A3B8)
+                                    containerColor = AppTheme.colors.surfaceVariant,
+                                    labelColor = AppTheme.colors.textSecondary
                                 ),
                                 shape = RoundedCornerShape(10.dp)
                             )
@@ -455,10 +458,10 @@ fun ResourcesScreen(
                                 onClick = { selectedModuleFilter = mod },
                                 label = { Text(mod, fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFF38BDF8).copy(alpha = 0.2f),
-                                    selectedLabelColor = Color(0xFF38BDF8),
-                                    containerColor = Color(0xFF1E293B),
-                                    labelColor = Color(0xFF94A3B8)
+                                    selectedContainerColor = AppTheme.colors.primary.copy(alpha = 0.2f),
+                                    selectedLabelColor = AppTheme.colors.primary,
+                                    containerColor = AppTheme.colors.surfaceVariant,
+                                    labelColor = AppTheme.colors.textSecondary
                                 ),
                                 shape = RoundedCornerShape(8.dp)
                             )
@@ -475,7 +478,7 @@ fun ResourcesScreen(
                     ) {
                         Text(
                             text = "${moduleGroups.size} Module Groups • ${filteredResources.size} Resources",
-                            color = Color(0xFF94A3B8),
+                            color = AppTheme.colors.textSecondary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -485,8 +488,8 @@ fun ResourcesScreen(
                                 onClick = { expandAll() },
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.primary),
+                                border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                                 modifier = Modifier.height(28.dp)
                             ) {
                                 Text("Expand All", fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -496,8 +499,8 @@ fun ResourcesScreen(
                                 onClick = { collapseAll() },
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textSecondary),
+                                border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
                                 modifier = Modifier.height(28.dp)
                             ) {
                                 Text("Collapse", fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -517,7 +520,7 @@ fun ResourcesScreen(
                         ) {
                             Text(
                                 text = "No study resources match your filter.",
-                                color = Color(0xFF94A3B8),
+                                color = AppTheme.colors.textSecondary,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
@@ -535,10 +538,10 @@ fun ResourcesScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
-                                border = androidx.compose.foundation.BorderStroke(
+                                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                                border = BorderStroke(
                                     1.dp,
-                                    if (isExpanded) Color(0xFF0284C7).copy(alpha = 0.5f) else Color(0xFF1E293B)
+                                    if (isExpanded) AppTheme.colors.primary.copy(alpha = 0.5f) else AppTheme.colors.cardBorder
                                 )
                             ) {
                                 Column {
@@ -561,7 +564,7 @@ fun ResourcesScreen(
                                                 modifier = Modifier
                                                     .size(32.dp)
                                                     .clip(RoundedCornerShape(8.dp))
-                                                    .background(Color(0xFF0284C7)),
+                                                    .background(AppTheme.colors.primary),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
@@ -579,7 +582,7 @@ fun ResourcesScreen(
                                                     text = group.moduleTitle,
                                                     style = MaterialTheme.typography.titleSmall.copy(
                                                         fontWeight = FontWeight.Bold,
-                                                        color = Color.White
+                                                        color = AppTheme.colors.textPrimary
                                                     ),
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
@@ -587,7 +590,7 @@ fun ResourcesScreen(
                                                 Text(
                                                     text = "${group.resources.size} study documents",
                                                     fontSize = 11.sp,
-                                                    color = Color(0xFF94A3B8)
+                                                    color = AppTheme.colors.textSecondary
                                                 )
                                             }
                                         }
@@ -597,12 +600,12 @@ fun ResourcesScreen(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             Surface(
-                                                color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                                                color = AppTheme.colors.primary.copy(alpha = 0.15f),
                                                 shape = RoundedCornerShape(8.dp)
                                             ) {
                                                 Text(
                                                     text = "${group.resources.size} files",
-                                                    color = Color(0xFF38BDF8),
+                                                    color = AppTheme.colors.primary,
                                                     fontSize = 10.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
@@ -612,7 +615,7 @@ fun ResourcesScreen(
                                             Icon(
                                                 imageVector = Icons.Default.KeyboardArrowDown,
                                                 contentDescription = if (isExpanded) "Collapse" else "Expand",
-                                                tint = if (isExpanded) Color(0xFF38BDF8) else Color(0xFF64748B),
+                                                tint = if (isExpanded) AppTheme.colors.primary else AppTheme.colors.textMuted,
                                                 modifier = Modifier
                                                     .size(22.dp)
                                                     .rotate(arrowRotation)
@@ -629,11 +632,11 @@ fun ResourcesScreen(
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .background(Color(0xFF0B0F19).copy(alpha = 0.5f))
+                                                .background(AppTheme.colors.surfaceVariant.copy(alpha = 0.5f))
                                                 .padding(12.dp),
                                             verticalArrangement = Arrangement.spacedBy(10.dp)
                                         ) {
-                                            HorizontalDivider(color = Color(0xFF1E293B))
+                                            HorizontalDivider(color = AppTheme.colors.cardBorder)
 
                                             group.resources.forEach { res ->
                                                 UdemyResourceCard(
