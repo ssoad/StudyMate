@@ -217,7 +217,7 @@ fun MyLearningScreen(
                                 .fillMaxWidth()
                                 .clickable { onResumeLessonClick(targetCourseId, targetLesson.id) },
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.primaryContainer),
+                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.primaryButton),
                             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
@@ -310,13 +310,13 @@ fun MyLearningScreen(
                                     Icon(
                                         Icons.Default.PlayArrow,
                                         contentDescription = null,
-                                        tint = Color(0xFF0284C7),
+                                        tint = AppTheme.colors.primaryButton,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = if (savedPlaybackPos > 2000L) "Resume from ${formatTime(savedPlaybackPos)}" else "Resume Lecture",
-                                        color = Color(0xFF0284C7),
+                                        color = AppTheme.colors.primaryButton,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp
                                     )
@@ -436,7 +436,10 @@ fun MyLearningScreen(
                                     Button(
                                         onClick = { onCourseClick(c.id) },
                                         shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = AppTheme.colors.primaryButton,
+                                            contentColor = AppTheme.colors.onPrimaryButton
+                                        ),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -495,7 +498,7 @@ fun MyLearningScreen(
                                             .clip(RoundedCornerShape(8.dp))
                                             .background(
                                                 if (isFullyDone) Color(0xFF059669)
-                                                else Color(0xFF0284C7).copy(alpha = 0.2f)
+                                                else AppTheme.colors.primary.copy(alpha = 0.15f)
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -509,7 +512,7 @@ fun MyLearningScreen(
                                         } else {
                                             Text(
                                                 text = "${idx + 1}",
-                                                color = Color(0xFF38BDF8),
+                                                color = AppTheme.colors.primary,
                                                 fontWeight = FontWeight.Black,
                                                 fontSize = 12.sp
                                             )

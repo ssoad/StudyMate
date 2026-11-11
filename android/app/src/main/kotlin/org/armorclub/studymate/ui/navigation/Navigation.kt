@@ -304,8 +304,8 @@ fun AppNavigation(
                                     .clip(RoundedCornerShape(16.dp))
                                     .background(
                                         Brush.linearGradient(
-                                            if (AppTheme.colors.isDark) listOf(Color(0xFF0F172A), Color(0xFF0369A1))
-                                            else listOf(Color(0xFF0284C7), Color(0xFF38BDF8))
+                                            if (AppTheme.colors.isDark) listOf(Color(0xFF0F172A), Color(0xFF0284C7))
+                                            else listOf(Color(0xFF1D4ED8), Color(0xFF2563EB))
                                         )
                                     )
                                     .padding(16.dp)
@@ -576,15 +576,16 @@ fun AppNavigation(
                         NavigationBar(
                             containerColor = AppTheme.colors.bottomNavBackground
                         ) {
+                            val navIndicatorColor = AppTheme.colors.primary.copy(alpha = if (AppTheme.colors.isDark) 0.16f else 0.12f)
                             NavigationBarItem(
                                 selected = selectedBottomNav == 0,
                                 onClick = { selectedBottomNav = 0 },
                                 icon = { Icon(Icons.Default.School, contentDescription = "Courses") },
                                 label = { Text("Courses", fontSize = 11.sp) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = if (AppTheme.colors.isDark) Color.White else Color(0xFF0284C7),
+                                    selectedIconColor = AppTheme.colors.primary,
                                     selectedTextColor = AppTheme.colors.primary,
-                                    indicatorColor = if (AppTheme.colors.isDark) Color(0xFF0284C7) else Color(0xFFE0F2FE),
+                                    indicatorColor = navIndicatorColor,
                                     unselectedIconColor = AppTheme.colors.textMuted,
                                     unselectedTextColor = AppTheme.colors.textMuted
                                 )
@@ -595,9 +596,9 @@ fun AppNavigation(
                                 icon = { Icon(Icons.Default.Book, contentDescription = "Resources") },
                                 label = { Text("Resources", fontSize = 11.sp) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = if (AppTheme.colors.isDark) Color.White else Color(0xFF0284C7),
+                                    selectedIconColor = AppTheme.colors.primary,
                                     selectedTextColor = AppTheme.colors.primary,
-                                    indicatorColor = if (AppTheme.colors.isDark) Color(0xFF0284C7) else Color(0xFFE0F2FE),
+                                    indicatorColor = navIndicatorColor,
                                     unselectedIconColor = AppTheme.colors.textMuted,
                                     unselectedTextColor = AppTheme.colors.textMuted
                                 )
@@ -608,9 +609,9 @@ fun AppNavigation(
                                 icon = { Icon(Icons.Default.PlayCircle, contentDescription = "My Learning") },
                                 label = { Text("My Learning", fontSize = 11.sp) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = if (AppTheme.colors.isDark) Color.White else Color(0xFF0284C7),
+                                    selectedIconColor = AppTheme.colors.primary,
                                     selectedTextColor = AppTheme.colors.primary,
-                                    indicatorColor = if (AppTheme.colors.isDark) Color(0xFF0284C7) else Color(0xFFE0F2FE),
+                                    indicatorColor = navIndicatorColor,
                                     unselectedIconColor = AppTheme.colors.textMuted,
                                     unselectedTextColor = AppTheme.colors.textMuted
                                 )
@@ -621,9 +622,9 @@ fun AppNavigation(
                                 icon = { Icon(Icons.Default.Person, contentDescription = "Account") },
                                 label = { Text("Account", fontSize = 11.sp) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = if (AppTheme.colors.isDark) Color.White else Color(0xFF0284C7),
+                                    selectedIconColor = AppTheme.colors.primary,
                                     selectedTextColor = AppTheme.colors.primary,
-                                    indicatorColor = if (AppTheme.colors.isDark) Color(0xFF0284C7) else Color(0xFFE0F2FE),
+                                    indicatorColor = navIndicatorColor,
                                     unselectedIconColor = AppTheme.colors.textMuted,
                                     unselectedTextColor = AppTheme.colors.textMuted
                                 )
@@ -768,7 +769,10 @@ fun AppNavigation(
                                     selectedBottomNav = 1
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = AppTheme.colors.primaryButton,
+                                    contentColor = AppTheme.colors.onPrimaryButton
+                                ),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text("Browse MCQ Question Banks", fontWeight = FontWeight.Bold)
@@ -831,7 +835,10 @@ fun AppNavigation(
                             Button(
                                 onClick = { showLeaderboardDialog = false },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = AppTheme.colors.primaryButton,
+                                    contentColor = AppTheme.colors.onPrimaryButton
+                                ),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text("Close", fontWeight = FontWeight.Bold)
@@ -876,7 +883,10 @@ fun AppNavigation(
                             Button(
                                 onClick = { showDiscussionDialog = false },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = AppTheme.colors.primaryButton,
+                                    contentColor = AppTheme.colors.onPrimaryButton
+                                ),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text("Got it!", fontWeight = FontWeight.Bold)

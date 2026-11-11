@@ -220,7 +220,7 @@ fun CourseDetailScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF0284C7))
+                CircularProgressIndicator(color = AppTheme.colors.primary)
             }
         } else {
             val c = course!!
@@ -292,7 +292,7 @@ fun CourseDetailScreen(
                                         Icon(
                                             Icons.Default.PlayArrow,
                                             contentDescription = "Preview Lecture",
-                                            tint = Color(0xFF0284C7),
+                                            tint = AppTheme.colors.primary,
                                             modifier = Modifier.size(32.dp)
                                         )
                                     }
@@ -321,7 +321,7 @@ fun CourseDetailScreen(
                                 ) {
                                     Text(
                                         text = c.category.uppercase(),
-                                        color = Color.White,
+                                        color = AppTheme.colors.onPrimaryContainer,
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Black,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -493,7 +493,8 @@ fun CourseDetailScreen(
                                         onClick = { onSelectLesson(c.id, targetLesson.id) },
                                         shape = RoundedCornerShape(12.dp),
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (completedCount > 0) Color(0xFF059669) else Color(0xFF0284C7)
+                                            containerColor = if (completedCount > 0) AppTheme.colors.success else AppTheme.colors.primaryButton,
+                                            contentColor = AppTheme.colors.onPrimaryButton
                                         ),
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -654,12 +655,12 @@ fun CourseDetailScreen(
                                         modifier = Modifier
                                             .size(34.dp)
                                             .clip(RoundedCornerShape(10.dp))
-                                            .background(Color(0xFF0284C7).copy(alpha = 0.2f)),
+                                            .background(AppTheme.colors.primary.copy(alpha = 0.15f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = "${sIdx + 1}",
-                                            color = Color(0xFF38BDF8),
+                                            color = AppTheme.colors.primary,
                                             fontWeight = FontWeight.Black,
                                             fontSize = 13.sp
                                         )
@@ -769,7 +770,7 @@ fun CourseDetailScreen(
                                                         .background(
                                                             if (isDone) Color(0xFF059669).copy(alpha = 0.2f)
                                                             else if (canPreview) Color(0xFF10B981).copy(alpha = 0.15f)
-                                                            else Color(0xFF0284C7).copy(alpha = 0.15f)
+                                                            else AppTheme.colors.primary.copy(alpha = 0.15f)
                                                         ),
                                                     contentAlignment = Alignment.Center
                                                 ) {
@@ -784,7 +785,7 @@ fun CourseDetailScreen(
                                                         Icon(
                                                             Icons.Default.PlayArrow,
                                                             contentDescription = null,
-                                                            tint = if (canPreview) Color(0xFF10B981) else Color(0xFF0284C7),
+                                                            tint = if (canPreview) Color(0xFF10B981) else AppTheme.colors.primary,
                                                             modifier = Modifier.size(16.dp)
                                                         )
                                                     }
@@ -1057,7 +1058,10 @@ fun CourseDetailScreen(
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AppTheme.colors.primaryButton,
+                                        contentColor = AppTheme.colors.onPrimaryButton
+                                    )
                                 ) {
                                     Icon(Icons.Default.PlayArrow, contentDescription = null)
                                     Spacer(modifier = Modifier.width(8.dp))

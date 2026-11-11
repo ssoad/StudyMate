@@ -113,14 +113,14 @@ fun LectureVideoCard(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(if (isPlaying) Color(0xFF38BDF8) else Color.Black.copy(alpha = 0.65f))
+                        .background(if (isPlaying) AppTheme.colors.primary else Color.Black.copy(alpha = 0.65f))
                         .align(Alignment.Center),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.PlayArrow,
                         contentDescription = "Play",
-                        tint = if (isPlaying) Color.Black else Color.White,
+                        tint = if (isPlaying) AppTheme.colors.onPrimary else Color.White,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -171,12 +171,12 @@ fun LectureVideoCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Surface(
-                        color = Color(0xFF38BDF8).copy(alpha = 0.15f),
+                        color = AppTheme.colors.primary.copy(alpha = 0.15f),
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
                             text = "LECTURE ${lectureIndex.toString().padStart(2, '0')}",
-                            color = Color(0xFF38BDF8),
+                            color = AppTheme.colors.primary,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)

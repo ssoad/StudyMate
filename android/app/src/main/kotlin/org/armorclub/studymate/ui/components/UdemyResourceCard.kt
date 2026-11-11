@@ -146,12 +146,12 @@ fun UdemyResourceCard(
                     ) {
                         if (moduleName.isNotBlank()) {
                             Surface(
-                                color = Color(0xFF0284C7).copy(alpha = 0.15f),
+                                color = AppTheme.colors.primary.copy(alpha = 0.15f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
                                     text = moduleName,
-                                    color = Color(0xFF38BDF8),
+                                    color = AppTheme.colors.primary,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -215,7 +215,8 @@ fun UdemyResourceCard(
                     onClick = { onRead() },
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AppTheme.colors.primary
+                        containerColor = AppTheme.colors.primaryButton,
+                        contentColor = AppTheme.colors.onPrimaryButton
                     ),
                     modifier = Modifier.weight(1f)
                 ) {

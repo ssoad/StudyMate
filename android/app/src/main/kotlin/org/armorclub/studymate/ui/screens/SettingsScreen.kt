@@ -355,7 +355,10 @@ fun SettingsScreen(
                                         Toast.makeText(context, "Server URL updated!", Toast.LENGTH_SHORT).show()
                                     },
                                     shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer)
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AppTheme.colors.primaryButton,
+                                        contentColor = AppTheme.colors.onPrimaryButton
+                                    )
                                 ) {
                                     Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))

@@ -184,7 +184,7 @@ fun ProfileScreen(
                                 .background(
                                     Brush.linearGradient(
                                         if (AppTheme.colors.isDark) listOf(Color(0xFF0F172A), Color(0xFF0284C7))
-                                        else listOf(Color(0xFF0284C7), Color(0xFF38BDF8))
+                                        else listOf(Color(0xFF1D4ED8), Color(0xFF2563EB))
                                     )
                                 )
                                 .padding(20.dp)
@@ -359,7 +359,10 @@ fun ProfileScreen(
                                     Button(
                                         onClick = { onSelectCourse(mainCourse.id) },
                                         shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = AppTheme.colors.primaryButton,
+                                            contentColor = AppTheme.colors.onPrimaryButton
+                                        ),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Icon(
@@ -638,7 +641,10 @@ fun ProfileScreen(
                                     }
                                 },
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = AppTheme.colors.primaryButton,
+                                    contentColor = AppTheme.colors.onPrimaryButton
+                                ),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp),

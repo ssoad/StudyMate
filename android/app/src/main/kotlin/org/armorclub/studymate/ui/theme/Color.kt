@@ -19,6 +19,9 @@ data class StudyMateColors(
     val textSecondary: Color,
     val textMuted: Color,
     val primary: Color,
+    val onPrimary: Color,
+    val primaryButton: Color,
+    val onPrimaryButton: Color,
     val primaryContainer: Color,
     val onPrimaryContainer: Color,
     val secondary: Color,
@@ -36,7 +39,7 @@ data class StudyMateColors(
     val playerOverlay: Color
 )
 
-// AMOLED Dark Palette: True Pitch-Black #000000, Deep Obsidian Cards, Crisp Sky Blue Accents
+// AMOLED Dark Palette: True Pitch-Black #000000, Deep Obsidian Cards, Electric Sky Accents & Deep Sapphire Buttons
 val AmoledDarkColors = StudyMateColors(
     isDark = true,
     background = Color(0xFF000000),             // 100% True Black (Pixels off on OLED)
@@ -49,9 +52,12 @@ val AmoledDarkColors = StudyMateColors(
     textPrimary = Color(0xFFFFFFFF),            // Crisp white
     textSecondary = Color(0xFF94A3B8),          // Slate 400
     textMuted = Color(0xFF64748B),              // Slate 500
-    primary = Color(0xFF38BDF8),                // Sky 400 (Vibrant on pure black)
-    primaryContainer = Color(0xFF0284C7),       // Sky 600
-    onPrimaryContainer = Color(0xFFFFFFFF),
+    primary = Color(0xFF38BDF8),                // Sky 400 (Radiant Electric Azure on pure black)
+    onPrimary = Color(0xFF000000),              // Pitch Black on primary
+    primaryButton = Color(0xFF0284C7),          // Deep Ocean Sapphire Sky 600 for solid CTA buttons
+    onPrimaryButton = Color(0xFFFFFFFF),        // Crisp White on CTA buttons
+    primaryContainer = Color(0xFF0C2238),       // Midnight Sapphire container
+    onPrimaryContainer = Color(0xFF7DD3FC),     // Sky 300
     secondary = Color(0xFF818CF8),              // Indigo 400
     accent = Color(0xFF38BDF8),
     success = Color(0xFF10B981),                // Emerald 500
@@ -67,7 +73,7 @@ val AmoledDarkColors = StudyMateColors(
     playerOverlay = Color(0xE6000000)
 )
 
-// Clean Modern Light Palette: Soft Slate 50 Background, Pure White Cards, Rich Slate Typography
+// Clean Modern Light Palette: Soft Slate 50 Background, Pure White Cards, Rich Electric Royal Blue
 val ModernLightColors = StudyMateColors(
     isDark = false,
     background = Color(0xFFF8FAFC),             // Slate 50
@@ -80,11 +86,14 @@ val ModernLightColors = StudyMateColors(
     textPrimary = Color(0xFF0F172A),            // Slate 900
     textSecondary = Color(0xFF475569),          // Slate 600
     textMuted = Color(0xFF94A3B8),              // Slate 400
-    primary = Color(0xFF0284C7),                // Sky 600
-    primaryContainer = Color(0xFFE0F2FE),       // Sky 100
-    onPrimaryContainer = Color(0xFF0369A1),     // Sky 700
+    primary = Color(0xFF2563EB),                // Tailwind Royal Blue 600 (High contrast 4.6:1, vivid, authoritative)
+    onPrimary = Color(0xFFFFFFFF),              // Pure White
+    primaryButton = Color(0xFF2563EB),          // Royal Blue 600 for solid, prominent CTA buttons
+    onPrimaryButton = Color(0xFFFFFFFF),        // Pure White text on buttons
+    primaryContainer = Color(0xFFEFF6FF),       // Blue 50 - soft clean blue container
+    onPrimaryContainer = Color(0xFF1D4ED8),     // Blue 700 - readable deep blue text
     secondary = Color(0xFF4F46E5),              // Indigo 600
-    accent = Color(0xFF0284C7),
+    accent = Color(0xFF2563EB),
     success = Color(0xFF059669),                // Emerald 600
     successContainer = Color(0xFFD1FAE5),       // Light Emerald
     warning = Color(0xFFD97706),                // Amber 600

@@ -254,7 +254,7 @@ fun CourseListScreen(
                         .padding(horizontal = 16.dp, vertical = 6.dp)
                         .clickable { onResumeLessonClick(activeCourseId!!, activeLesson!!.id) },
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0369A1))
+                    colors = CardDefaults.cardColors(containerColor = AppTheme.colors.primaryButton)
                 ) {
                     Row(
                         modifier = Modifier.padding(14.dp),
@@ -270,7 +270,7 @@ fun CourseListScreen(
                             Icon(
                                 Icons.Default.PlayArrow,
                                 contentDescription = null,
-                                tint = Color(0xFF0284C7),
+                                tint = AppTheme.colors.primaryButton,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -367,7 +367,7 @@ fun CourseListScreen(
                                     ) {
                                         Text(
                                             text = course.category.uppercase(),
-                                            color = Color.White,
+                                            color = AppTheme.colors.onPrimaryContainer,
                                             fontSize = 9.sp,
                                             fontWeight = FontWeight.Black,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -498,7 +498,10 @@ fun CourseListScreen(
                                     Button(
                                         onClick = { onCourseClick(course.id) },
                                         shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryContainer),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = AppTheme.colors.primaryButton,
+                                            contentColor = AppTheme.colors.onPrimaryButton
+                                        ),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Icon(

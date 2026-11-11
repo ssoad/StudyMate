@@ -38,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import org.armorclub.studymate.ui.theme.AppTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -177,7 +178,7 @@ fun InAppPictureInPicture(
                 .shadow(
                     elevation = 16.dp,
                     shape = RoundedCornerShape(16.dp),
-                    spotColor = Color(0xFF0284C7),
+                    spotColor = AppTheme.colors.primary,
                     ambientColor = Color.Black
                 )
                 .clip(RoundedCornerShape(16.dp))
@@ -317,7 +318,7 @@ fun InAppPictureInPicture(
                 modifier = Modifier
                     .fillMaxSize()
                     .border(
-                        BorderStroke(1.5.dp, Color(0xFF0284C7).copy(alpha = 0.85f)),
+                        BorderStroke(1.5.dp, AppTheme.colors.primary.copy(alpha = 0.85f)),
                         RoundedCornerShape(16.dp)
                     )
             )
@@ -339,7 +340,7 @@ fun InAppPictureInPicture(
                     modifier = Modifier
                         .fillMaxWidth(fraction = progressFraction)
                         .height(2.5.dp)
-                        .background(Color(0xFF38BDF8))
+                        .background(AppTheme.colors.primary)
                 )
             }
 
@@ -421,7 +422,7 @@ fun InAppPictureInPicture(
                             .size(44.dp)
                             .align(Alignment.Center)
                             .clip(CircleShape)
-                            .background(Color(0xFF0284C7).copy(alpha = 0.9f))
+                            .background(AppTheme.colors.primaryButton.copy(alpha = 0.9f))
                             .clickable {
                                 playerManager.togglePlayPause()
                             },

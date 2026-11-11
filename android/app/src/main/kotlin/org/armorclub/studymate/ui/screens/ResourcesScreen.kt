@@ -240,7 +240,8 @@ fun ResourcesScreen(
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(
                                     Brush.linearGradient(
-                                        listOf(Color(0xFF0284C7), Color(0xFF0369A1))
+                                        if (AppTheme.colors.isDark) listOf(Color(0xFF0F172A), Color(0xFF0284C7))
+                                        else listOf(Color(0xFF1D4ED8), Color(0xFF2563EB))
                                     )
                                 ),
                             contentAlignment = Alignment.Center
@@ -295,7 +296,7 @@ fun ResourcesScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF0284C7))
+                CircularProgressIndicator(color = AppTheme.colors.primary)
             }
         } else {
             LazyColumn(

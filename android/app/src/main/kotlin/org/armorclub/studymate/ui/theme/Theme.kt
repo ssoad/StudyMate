@@ -15,8 +15,8 @@ import androidx.core.view.WindowCompat
 private val AmoledDarkMaterialScheme = darkColorScheme(
     primary = Color(0xFF38BDF8),
     onPrimary = Color(0xFF000000),
-    primaryContainer = Color(0xFF0284C7),
-    onPrimaryContainer = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFF0C2238),
+    onPrimaryContainer = Color(0xFF7DD3FC),
     secondary = Color(0xFF818CF8),
     onSecondary = Color(0xFF000000),
     secondaryContainer = Color(0xFF312E81),
@@ -39,10 +39,10 @@ private val AmoledDarkMaterialScheme = darkColorScheme(
 )
 
 private val LightMaterialScheme = lightColorScheme(
-    primary = Color(0xFF0284C7),
+    primary = Color(0xFF2563EB),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFE0F2FE),
-    onPrimaryContainer = Color(0xFF0369A1),
+    primaryContainer = Color(0xFFEFF6FF),
+    onPrimaryContainer = Color(0xFF1D4ED8),
     secondary = Color(0xFF4F46E5),
     onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFEEF2FF),

@@ -1537,12 +1537,12 @@ private fun SyllabusTab(
 
                                         if (isCurrent) {
                                             Surface(
-                                                color = Color(0xFF0284C7),
+                                                color = AppTheme.colors.primaryButton,
                                                 shape = RoundedCornerShape(4.dp)
                                             ) {
                                                 Text(
                                                     text = "PLAYING",
-                                                    color = Color.White,
+                                                    color = AppTheme.colors.onPrimaryButton,
                                                     fontSize = 9.sp,
                                                     fontWeight = FontWeight.Black,
                                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
