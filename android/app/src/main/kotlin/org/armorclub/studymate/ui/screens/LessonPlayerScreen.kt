@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -46,6 +47,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.draw.rotate
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -67,7 +70,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -131,6 +139,7 @@ fun LessonPlayerScreen(
     onPiPClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val currentUser by authRepository.currentUser.collectAsState()
     val userId = currentUser?.id ?: "demo-student-id-001"
 
@@ -192,359 +201,425 @@ fun LessonPlayerScreen(
 
     val savedPlaybackPos = remember(lesson.id) { progressRepository.getPlaybackPosition(courseId, lesson.id) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    val configuration = LocalConfiguration.current
+    val isTabletOrLandscape = configuration.screenWidthDp >= 640 && !isFullScreen
+
+    val pagerState = rememberPagerState(initialPage = selectedTab) { 4 }
+
+    LaunchedEffect(selectedTab) {
+        if (pagerState.currentPage != selectedTab) {
+            pagerState.animateScrollToPage(selectedTab)
+        }
+    }
+    LaunchedEffect(pagerState.currentPage) {
+        selectedTab = pagerState.currentPage
+    }
+
+    var isLiked by remember { mutableStateOf(false) }
+    var isDescriptionExpanded by remember { mutableStateOf(false) }
+
+    @Composable
+    fun VideoDetailsSection() {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .then(if (!isFullScreen) Modifier.statusBarsPadding().navigationBarsPadding() else Modifier)
-                .background(MaterialTheme.colorScheme.background)
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
-            // High-Performance YouTube Video Player with Progress Auto-Save & Resume
-            VideoPlayerView(
-                playerManager = playerManager,
-                title = lesson.title,
-                courseId = courseId,
-                lessonId = lessonId,
-                resumePositionMs = savedPlaybackPos,
-                isCompleted = isCurrentLessonDone,
-                onSavePlaybackPosition = { posMs, durMs ->
-                    progressRepository.savePlaybackPosition(courseId, lesson.id, posMs, durMs)
-                },
-                onAutoComplete = {
-                    val wasNew = progressRepository.markLessonCompleted(userId, courseId, lesson.id)
-                    if (wasNew) {
-                        completionToastMessage = "Lesson marked as completed! (+15 Points) ✓"
-                    }
-                },
-                onBackClick = onBackClick,
-                onNextLessonClick = nextLesson?.let { nl -> { onSelectLesson(nl.id) } },
-                onPrevLessonClick = prevLesson?.let { pl -> { onSelectLesson(pl.id) } },
-                onPiPClick = onPiPClick,
-                isFullScreen = isFullScreen,
-                onToggleFullScreen = {
-                    val activity = context as? Activity
-                    if (!isFullScreen) {
-                        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                        isFullScreen = true
-                    } else {
-                        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                        isFullScreen = false
-                    }
-                }
-            )
-
-        if (!isFullScreen) {
-            var isLiked by remember { mutableStateOf(false) }
-            var isDescriptionExpanded by remember { mutableStateOf(false) }
-
-            // YouTube-style Video Details & Actions Section
-            Column(
+            // Video Title with expandable description chevron
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .clickable { isDescriptionExpanded = !isDescriptionExpanded },
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Video Title with expandable description chevron
-                Row(
+                Text(
+                    text = lesson.title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    ),
+                    maxLines = if (isDescriptionExpanded) 4 else 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Expand description",
+                    tint = Color(0xFF94A3B8),
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { isDescriptionExpanded = !isDescriptionExpanded },
-                    verticalAlignment = Alignment.Top,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                        .size(20.dp)
+                        .rotate(if (isDescriptionExpanded) 180f else 0f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Stats row
+            Text(
+                text = "${activeCourse.enrolledCount} enrolled • ${activeCourse.duration} • ${currentSection?.title?.substringBefore(':') ?: "Module"}",
+                color = Color(0xFF94A3B8),
+                fontSize = 11.sp
+            )
+
+            AnimatedVisibility(visible = isDescriptionExpanded) {
+                Column(modifier = Modifier.padding(top = 8.dp)) {
                     Text(
-                        text = lesson.title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        ),
-                        maxLines = if (isDescriptionExpanded) 4 else 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Expand description",
-                        tint = Color(0xFF94A3B8),
-                        modifier = Modifier
-                            .size(20.dp)
-                            .rotate(if (isDescriptionExpanded) 180f else 0f)
+                        text = lesson.description.ifBlank { activeCourse.description },
+                        color = Color(0xFFCBD5E1),
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp
                     )
                 }
+            }
 
-                Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-                // Stats row
-                Text(
-                    text = "${activeCourse.enrolledCount} enrolled • ${activeCourse.duration} • ${currentSection?.title?.substringBefore(':') ?: "Module"}",
-                    color = Color(0xFF94A3B8),
-                    fontSize = 11.sp
-                )
+            // YouTube-style Action Pills Row
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Complete Check Action Pill (Matching Web App & Coursera/Udemy standard)
+                item {
+                    Surface(
+                        color = if (isCurrentLessonDone) Color(0xFF059669).copy(alpha = 0.25f) else Color(0xFF1E293B),
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFF334155)
+                        ),
+                        modifier = Modifier.clickable {
+                            val nowDone = progressRepository.toggleLessonProgress(userId, courseId, lesson.id)
+                            completionToastMessage = if (nowDone) "Lesson marked as completed! (+15 Points) ✓" else "Lesson marked as incomplete"
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (isCurrentLessonDone) Icons.Default.CheckCircle else Icons.Default.CheckCircleOutline,
+                                contentDescription = "Complete Status",
+                                tint = if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFF94A3B8),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isCurrentLessonDone) "Completed ✓" else "Mark Complete",
+                                color = if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFFCBD5E1),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
 
-                AnimatedVisibility(visible = isDescriptionExpanded) {
-                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                item {
+                    Surface(
+                        color = if (isLiked) Color(0xFF0284C7).copy(alpha = 0.25f) else Color(0xFF1E293B),
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.clickable { isLiked = !isLiked }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.ThumbUp,
+                                contentDescription = "Helpful",
+                                tint = if (isLiked) Color(0xFF38BDF8) else Color(0xFFCBD5E1),
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isLiked) "342" else "341",
+                                color = if (isLiked) Color(0xFF38BDF8) else Color(0xFFCBD5E1),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Surface(
+                        color = Color(0xFF1E293B),
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.clickable {
+                            val shareText = "Watching ${lesson.title} on StudyMate: ${activeCourse.title}"
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, shareText)
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Share Lecture"))
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = "Share", tint = Color(0xFFCBD5E1), modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Share", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                item {
+                    Surface(
+                        color = Color(0xFF1E293B),
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.clickable { selectedTab = 1 }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = "Notes", tint = Color(0xFFF472B6), modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("${lesson.resources.size} Notes", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                item {
+                    Surface(
+                        color = Color(0xFF1E293B),
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.clickable {
+                            onOpenFullScreenNotes(activeCourse.id, lesson.id, lesson.title, activeCourse.title)
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.NoteAlt, contentDescription = "Write Notes", tint = Color(0xFF38BDF8), modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Full Notes", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = Color(0xFF1E293B))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // YouTube Channel / Instructor Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(Color(0xFF6366F1), Color(0xFF0284C7))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            text = lesson.description.ifBlank { activeCourse.description },
-                            color = Color(0xFFCBD5E1),
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp
+                            text = activeCourse.instructorName.take(2).uppercase(),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Column {
+                        Text(
+                            text = activeCourse.instructorName,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = "Lead ICT Mentors • ${activeCourse.enrolledCount} enrolled",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 10.sp
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // YouTube-style Action Pills Row
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Complete Check Action Pill (Matching Web App & Coursera/Udemy standard)
-                    item {
-                        Surface(
-                            color = if (isCurrentLessonDone) Color(0xFF059669).copy(alpha = 0.25f) else Color(0xFF1E293B),
-                            shape = RoundedCornerShape(18.dp),
-                            border = BorderStroke(
-                                1.dp,
-                                if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFF334155)
-                            ),
-                            modifier = Modifier.clickable {
-                                val nowDone = progressRepository.toggleLessonProgress(userId, courseId, lesson.id)
-                                completionToastMessage = if (nowDone) "Lesson marked as completed! (+15 Points) ✓" else "Lesson marked as incomplete"
-                            }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = if (isCurrentLessonDone) Icons.Default.CheckCircle else Icons.Default.CheckCircleOutline,
-                                    contentDescription = "Complete Status",
-                                    tint = if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFF94A3B8),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (isCurrentLessonDone) "Completed ✓" else "Mark Complete",
-                                    color = if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFFCBD5E1),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        Surface(
-                            color = if (isLiked) Color(0xFF0284C7).copy(alpha = 0.25f) else Color(0xFF1E293B),
-                            shape = RoundedCornerShape(18.dp),
-                            modifier = Modifier.clickable { isLiked = !isLiked }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.ThumbUp,
-                                    contentDescription = "Helpful",
-                                    tint = if (isLiked) Color(0xFF38BDF8) else Color(0xFFCBD5E1),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (isLiked) "342" else "341",
-                                    color = if (isLiked) Color(0xFF38BDF8) else Color(0xFFCBD5E1),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        Surface(
-                            color = Color(0xFF1E293B),
-                            shape = RoundedCornerShape(18.dp),
-                            modifier = Modifier.clickable {
-                                val shareText = "Watching ${lesson.title} on StudyMate: ${activeCourse.title}"
-                                val sendIntent = Intent().apply {
-                                    action = Intent.ACTION_SEND
-                                    putExtra(Intent.EXTRA_TEXT, shareText)
-                                    type = "text/plain"
-                                }
-                                context.startActivity(Intent.createChooser(sendIntent, "Share Lecture"))
-                            }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.Share, contentDescription = "Share", tint = Color(0xFFCBD5E1), modifier = Modifier.size(15.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Share", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-
-                    item {
-                        Surface(
-                            color = Color(0xFF1E293B),
-                            shape = RoundedCornerShape(18.dp),
-                            modifier = Modifier.clickable { selectedTab = 1 }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.PictureAsPdf, contentDescription = "Notes", tint = Color(0xFFF472B6), modifier = Modifier.size(15.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("${lesson.resources.size} Notes", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-
-                    item {
-                        Surface(
-                            color = Color(0xFF1E293B),
-                            shape = RoundedCornerShape(18.dp),
-                            modifier = Modifier.clickable {
-                                onOpenFullScreenNotes(activeCourse.id, lesson.id, lesson.title, activeCourse.title)
-                            }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.NoteAlt, contentDescription = "Write Notes", tint = Color(0xFF38BDF8), modifier = Modifier.size(15.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Full Notes", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider(color = Color(0xFF1E293B))
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // YouTube Channel / Instructor Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Surface(
+                    color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(Color(0xFF6366F1), Color(0xFF0284C7))
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = activeCourse.instructorName.take(2).uppercase(),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(10.dp))
-
-                        Column {
-                            Text(
-                                text = activeCourse.instructorName,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
-                            Text(
-                                text = "Lead ICT Mentors • ${activeCourse.enrolledCount} enrolled",
-                                color = Color(0xFF94A3B8),
-                                fontSize = 10.sp
-                            )
-                        }
-                    }
-
-                    Surface(
-                        color = Color(0xFF0284C7).copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(13.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Enrolled", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Enrolled", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
+        }
+    }
 
-            HorizontalDivider(color = Color(0xFF1E293B))
-
-            // Tab Header matching YouTube Style (Syllabus, Resources, Notes, Overview)
-            TabRow(
-                selectedTabIndex = selectedTab,
+    @Composable
+    fun TabsSection(modifier: Modifier = Modifier) {
+        Column(modifier = modifier) {
+            // Responsive Scrollable Tab Header with real-time badges & animated indicator
+            ScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
                 containerColor = Color(0xFF0B0F19),
-                contentColor = Color(0xFF38BDF8)
+                contentColor = Color(0xFF38BDF8),
+                edgePadding = 12.dp,
+                indicator = { tabPositions ->
+                    if (pagerState.currentPage < tabPositions.size) {
+                        TabRowDefaults.SecondaryIndicator(
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
+                            color = Color(0xFF38BDF8),
+                            height = 3.dp
+                        )
+                    }
+                },
+                divider = {
+                    HorizontalDivider(color = Color(0xFF1E293B))
+                }
             ) {
+                // Tab 0: Syllabus
                 Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
+                    selected = pagerState.currentPage == 0,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Syllabus", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Icon(
+                                Icons.AutoMirrored.Filled.List,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = if (pagerState.currentPage == 0) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "Syllabus",
+                                fontSize = 12.sp,
+                                fontWeight = if (pagerState.currentPage == 0) FontWeight.Bold else FontWeight.SemiBold,
+                                color = if (pagerState.currentPage == 0) Color.White else Color(0xFF94A3B8)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                color = if (pagerState.currentPage == 0) Color(0xFF0284C7).copy(alpha = 0.35f) else Color(0xFF1E293B),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(
+                                    text = "${allLessons.size}",
+                                    color = if (pagerState.currentPage == 0) Color(0xFF38BDF8) else Color(0xFF94A3B8),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 )
+
+                // Tab 1: Resources
                 Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
+                    selected = pagerState.currentPage == 1,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Resources", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Icon(
+                                Icons.Default.Folder,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = if (pagerState.currentPage == 1) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "Resources",
+                                fontSize = 12.sp,
+                                fontWeight = if (pagerState.currentPage == 1) FontWeight.Bold else FontWeight.SemiBold,
+                                color = if (pagerState.currentPage == 1) Color.White else Color(0xFF94A3B8)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                color = if (pagerState.currentPage == 1) Color(0xFF0284C7).copy(alpha = 0.35f) else Color(0xFF1E293B),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(
+                                    text = "${lesson.resources.size}",
+                                    color = if (pagerState.currentPage == 1) Color(0xFF38BDF8) else Color(0xFF94A3B8),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 )
+
+                // Tab 2: Notes
                 Tab(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
+                    selected = pagerState.currentPage == 2,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(2) } },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.NoteAlt, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Notes", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Icon(
+                                Icons.Default.NoteAlt,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = if (pagerState.currentPage == 2) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "Notes",
+                                fontSize = 12.sp,
+                                fontWeight = if (pagerState.currentPage == 2) FontWeight.Bold else FontWeight.SemiBold,
+                                color = if (pagerState.currentPage == 2) Color.White else Color(0xFF94A3B8)
+                            )
                         }
                     }
                 )
+
+                // Tab 3: Overview
                 Tab(
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
+                    selected = pagerState.currentPage == 3,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(3) } },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Overview", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Icon(
+                                Icons.Default.Description,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = if (pagerState.currentPage == 3) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "Overview",
+                                fontSize = 12.sp,
+                                fontWeight = if (pagerState.currentPage == 3) FontWeight.Bold else FontWeight.SemiBold,
+                                color = if (pagerState.currentPage == 3) Color.White else Color(0xFF94A3B8)
+                            )
                         }
                     }
                 )
             }
 
-            // Tab Content
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when (selectedTab) {
+            // Swipeable HorizontalPager Tab Content
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) { page ->
+                when (page) {
                     0 -> SyllabusTab(
                         course = activeCourse,
                         activeLessonId = lesson.id,
@@ -578,42 +653,151 @@ fun LessonPlayerScreen(
         }
     }
 
-    // Animated Completion Toast Banner (Matching Web App "+15 Points" alert)
-    AnimatedVisibility(
-        visible = completionToastMessage != null,
-        enter = fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
-        exit = fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
-        modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .padding(bottom = 24.dp)
-    ) {
-        Surface(
-            color = Color(0xFF064E3B),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, Color(0xFF10B981)),
-            shadowElevation = 8.dp
-        ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (isTabletOrLandscape) {
+            // Responsive 2-Pane Tablet / Landscape Split Layout
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .background(MaterialTheme.colorScheme.background)
             ) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = Color(0xFF34D399),
-                    modifier = Modifier.size(18.dp)
+                // Left Pane: Video Player + Details (56% width)
+                Column(
+                    modifier = Modifier
+                        .weight(0.56f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    VideoPlayerView(
+                        playerManager = playerManager,
+                        title = lesson.title,
+                        courseId = courseId,
+                        lessonId = lessonId,
+                        resumePositionMs = savedPlaybackPos,
+                        isCompleted = isCurrentLessonDone,
+                        onSavePlaybackPosition = { posMs, durMs ->
+                            progressRepository.savePlaybackPosition(courseId, lesson.id, posMs, durMs)
+                        },
+                        onAutoComplete = {
+                            val wasNew = progressRepository.markLessonCompleted(userId, courseId, lesson.id)
+                            if (wasNew) {
+                                completionToastMessage = "Lesson marked as completed! (+15 Points) ✓"
+                            }
+                        },
+                        onBackClick = onBackClick,
+                        onNextLessonClick = nextLesson?.let { nl -> { onSelectLesson(nl.id) } },
+                        onPrevLessonClick = prevLesson?.let { pl -> { onSelectLesson(pl.id) } },
+                        onPiPClick = onPiPClick,
+                        isFullScreen = false,
+                        onToggleFullScreen = {
+                            val activity = context as? Activity
+                            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                            isFullScreen = true
+                        }
+                    )
+                    VideoDetailsSection()
+                }
+
+                VerticalDivider(color = Color(0xFF1E293B), thickness = 1.dp)
+
+                // Right Pane: Full-Height Swipeable Tab Layout (44% width)
+                TabsSection(
+                    modifier = Modifier
+                        .weight(0.44f)
+                        .fillMaxHeight()
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = completionToastMessage ?: "",
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+            }
+        } else {
+            // Standard Phone Portrait Stack Layout
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (!isFullScreen) Modifier.statusBarsPadding().navigationBarsPadding() else Modifier)
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                VideoPlayerView(
+                    playerManager = playerManager,
+                    title = lesson.title,
+                    courseId = courseId,
+                    lessonId = lessonId,
+                    resumePositionMs = savedPlaybackPos,
+                    isCompleted = isCurrentLessonDone,
+                    onSavePlaybackPosition = { posMs, durMs ->
+                        progressRepository.savePlaybackPosition(courseId, lesson.id, posMs, durMs)
+                    },
+                    onAutoComplete = {
+                        val wasNew = progressRepository.markLessonCompleted(userId, courseId, lesson.id)
+                        if (wasNew) {
+                            completionToastMessage = "Lesson marked as completed! (+15 Points) ✓"
+                        }
+                    },
+                    onBackClick = onBackClick,
+                    onNextLessonClick = nextLesson?.let { nl -> { onSelectLesson(nl.id) } },
+                    onPrevLessonClick = prevLesson?.let { pl -> { onSelectLesson(pl.id) } },
+                    onPiPClick = onPiPClick,
+                    isFullScreen = isFullScreen,
+                    onToggleFullScreen = {
+                        val activity = context as? Activity
+                        if (!isFullScreen) {
+                            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                            isFullScreen = true
+                        } else {
+                            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                            isFullScreen = false
+                        }
+                    }
                 )
+
+                if (!isFullScreen) {
+                    VideoDetailsSection()
+                    HorizontalDivider(color = Color(0xFF1E293B))
+                    TabsSection(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    )
+                }
+            }
+        }
+
+        // Animated Completion Toast Banner (Matching Web App "+15 Points" alert)
+        AnimatedVisibility(
+            visible = completionToastMessage != null,
+            enter = fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
+            exit = fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 24.dp)
+        ) {
+            Surface(
+                color = Color(0xFF064E3B),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, Color(0xFF10B981)),
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF34D399),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = completionToastMessage ?: "",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
-}
 }
 
 @Composable
