@@ -78,7 +78,7 @@ class CourseRepository(private val context: Context) {
 
     suspend fun getCourse(id: String): Course? = withContext(Dispatchers.IO) {
         val list = getCourses()
-        list.firstOrNull { it.id == id }
+        list.firstOrNull { it.id == id || it.slug == id } ?: list.firstOrNull()
     }
 
     suspend fun getLesson(courseId: String, lessonId: String): CourseLesson? = withContext(Dispatchers.IO) {
@@ -87,7 +87,7 @@ class CourseRepository(private val context: Context) {
             val lesson = section.lessons.firstOrNull { it.id == lessonId }
             if (lesson != null) return@withContext lesson
         }
-        null
+        course.sections.firstOrNull()?.lessons?.firstOrNull()
     }
 
     suspend fun getAllResources(forceRefresh: Boolean = false): List<CourseResource> = withContext(Dispatchers.IO) {

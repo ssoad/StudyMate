@@ -22,20 +22,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.draw.rotate
@@ -59,6 +66,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -68,6 +77,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -83,6 +93,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.armorclub.studymate.data.BundledCourses
 import org.armorclub.studymate.data.model.Course
@@ -90,8 +101,11 @@ import org.armorclub.studymate.data.model.CourseLesson
 import org.armorclub.studymate.data.model.CourseResource
 import org.armorclub.studymate.data.model.CourseSection
 import org.armorclub.studymate.data.model.Note
+import org.armorclub.studymate.data.model.UserCourseProgress
+import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.NotesRepository
+import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.player.PlayerManager
 import org.armorclub.studymate.ui.components.LectureVideoCard
 import org.armorclub.studymate.ui.components.MarkdownView
@@ -100,12 +114,15 @@ import org.armorclub.studymate.ui.components.VideoPlayerView
 import org.armorclub.studymate.util.NotesShareHelper
 import java.io.File
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LessonPlayerScreen(
     courseId: String,
     lessonId: String,
     courseRepository: CourseRepository,
     notesRepository: NotesRepository,
+    progressRepository: ProgressRepository,
+    authRepository: AuthRepository,
     playerManager: PlayerManager,
     onBackClick: () -> Unit,
     onSelectLesson: (String) -> Unit,
@@ -114,11 +131,27 @@ fun LessonPlayerScreen(
     onPiPClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val currentUser by authRepository.currentUser.collectAsState()
+    val userId = currentUser?.id ?: "demo-student-id-001"
+
+    val progressMap by progressRepository.progressMap.collectAsState()
+    val courseProgress = progressMap[courseId] ?: progressRepository.getCourseProgress(userId, courseId)
+    val isCurrentLessonDone = courseProgress.isCompleted(lessonId)
+
     var course by remember { mutableStateOf<Course?>(null) }
     var currentLesson by remember { mutableStateOf<CourseLesson?>(null) }
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Resources, 1: Notes, 2: Syllabus, 3: Overview
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Syllabus, 1: Resources, 2: Notes, 3: Overview
     var note by remember { mutableStateOf<Note?>(null) }
     var isFullScreen by remember { mutableStateOf(false) }
+
+    var completionToastMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(completionToastMessage) {
+        if (completionToastMessage != null) {
+            delay(3000)
+            completionToastMessage = null
+        }
+    }
 
     LaunchedEffect(courseId, lessonId) {
         val c = courseRepository.getCourse(courseId)
@@ -129,7 +162,10 @@ fun LessonPlayerScreen(
         if (l != null && c != null) {
             val videoUrl = BundledCourses.resolveVideoUrl(l.videoUrl, courseRepository.getBaseUrl())
             if (videoUrl != null) {
-                playerManager.playLesson(courseId, l, videoUrl)
+                val savedPos = progressRepository.getPlaybackPosition(courseId, l.id)
+                val savedDur = progressRepository.getPlaybackDuration(courseId, l.id)
+                val startPos = if (savedPos > 2000L && (savedDur == 0L || savedPos < savedDur - 5000L)) savedPos else 0L
+                playerManager.playLesson(courseId, l, videoUrl, startPositionMs = startPos)
             }
             note = notesRepository.getNote(l.id, c.id, l.title, c.title)
         }
@@ -154,46 +190,320 @@ fun LessonPlayerScreen(
     // Locate current section
     val currentSection = activeCourse.sections.firstOrNull { sec -> sec.lessons.any { it.id == lesson.id } }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .then(if (!isFullScreen) Modifier.statusBarsPadding().navigationBarsPadding() else Modifier)
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        // High-Performance Video Player
-        VideoPlayerView(
-            playerManager = playerManager,
-            title = lesson.title,
-            courseId = courseId,
-            lessonId = lessonId,
-            onBackClick = onBackClick,
-            onNextLessonClick = nextLesson?.let { nl -> { onSelectLesson(nl.id) } },
-            onPrevLessonClick = prevLesson?.let { pl -> { onSelectLesson(pl.id) } },
-            onPiPClick = onPiPClick,
-            isFullScreen = isFullScreen,
-            onToggleFullScreen = {
-                val activity = context as? Activity
-                if (!isFullScreen) {
-                    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                    isFullScreen = true
-                } else {
-                    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                    isFullScreen = false
+    val savedPlaybackPos = remember(lesson.id) { progressRepository.getPlaybackPosition(courseId, lesson.id) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (!isFullScreen) Modifier.statusBarsPadding().navigationBarsPadding() else Modifier)
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            // High-Performance YouTube Video Player with Progress Auto-Save & Resume
+            VideoPlayerView(
+                playerManager = playerManager,
+                title = lesson.title,
+                courseId = courseId,
+                lessonId = lessonId,
+                resumePositionMs = savedPlaybackPos,
+                isCompleted = isCurrentLessonDone,
+                onSavePlaybackPosition = { posMs, durMs ->
+                    progressRepository.savePlaybackPosition(courseId, lesson.id, posMs, durMs)
+                },
+                onAutoComplete = {
+                    val wasNew = progressRepository.markLessonCompleted(userId, courseId, lesson.id)
+                    if (wasNew) {
+                        completionToastMessage = "Lesson marked as completed! (+15 Points) ✓"
+                    }
+                },
+                onBackClick = onBackClick,
+                onNextLessonClick = nextLesson?.let { nl -> { onSelectLesson(nl.id) } },
+                onPrevLessonClick = prevLesson?.let { pl -> { onSelectLesson(pl.id) } },
+                onPiPClick = onPiPClick,
+                isFullScreen = isFullScreen,
+                onToggleFullScreen = {
+                    val activity = context as? Activity
+                    if (!isFullScreen) {
+                        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        isFullScreen = true
+                    } else {
+                        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        isFullScreen = false
+                    }
                 }
-            }
-        )
+            )
 
         if (!isFullScreen) {
-            // Tab Header matching StudyMate: Resources, Notes, Syllabus, Overview
-            TabRow(selectedTabIndex = selectedTab) {
+            var isLiked by remember { mutableStateOf(false) }
+            var isDescriptionExpanded by remember { mutableStateOf(false) }
+
+            // YouTube-style Video Details & Actions Section
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                // Video Title with expandable description chevron
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isDescriptionExpanded = !isDescriptionExpanded },
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = lesson.title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        ),
+                        maxLines = if (isDescriptionExpanded) 4 else 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Expand description",
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .rotate(if (isDescriptionExpanded) 180f else 0f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Stats row
+                Text(
+                    text = "${activeCourse.enrolledCount} enrolled • ${activeCourse.duration} • ${currentSection?.title?.substringBefore(':') ?: "Module"}",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 11.sp
+                )
+
+                AnimatedVisibility(visible = isDescriptionExpanded) {
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                        Text(
+                            text = lesson.description.ifBlank { activeCourse.description },
+                            color = Color(0xFFCBD5E1),
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // YouTube-style Action Pills Row
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Complete Check Action Pill (Matching Web App & Coursera/Udemy standard)
+                    item {
+                        Surface(
+                            color = if (isCurrentLessonDone) Color(0xFF059669).copy(alpha = 0.25f) else Color(0xFF1E293B),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFF334155)
+                            ),
+                            modifier = Modifier.clickable {
+                                val nowDone = progressRepository.toggleLessonProgress(userId, courseId, lesson.id)
+                                completionToastMessage = if (nowDone) "Lesson marked as completed! (+15 Points) ✓" else "Lesson marked as incomplete"
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (isCurrentLessonDone) Icons.Default.CheckCircle else Icons.Default.CheckCircleOutline,
+                                    contentDescription = "Complete Status",
+                                    tint = if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFF94A3B8),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isCurrentLessonDone) "Completed ✓" else "Mark Complete",
+                                    color = if (isCurrentLessonDone) Color(0xFF10B981) else Color(0xFFCBD5E1),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        Surface(
+                            color = if (isLiked) Color(0xFF0284C7).copy(alpha = 0.25f) else Color(0xFF1E293B),
+                            shape = RoundedCornerShape(18.dp),
+                            modifier = Modifier.clickable { isLiked = !isLiked }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.ThumbUp,
+                                    contentDescription = "Helpful",
+                                    tint = if (isLiked) Color(0xFF38BDF8) else Color(0xFFCBD5E1),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isLiked) "342" else "341",
+                                    color = if (isLiked) Color(0xFF38BDF8) else Color(0xFFCBD5E1),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        Surface(
+                            color = Color(0xFF1E293B),
+                            shape = RoundedCornerShape(18.dp),
+                            modifier = Modifier.clickable {
+                                val shareText = "Watching ${lesson.title} on StudyMate: ${activeCourse.title}"
+                                val sendIntent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    putExtra(Intent.EXTRA_TEXT, shareText)
+                                    type = "text/plain"
+                                }
+                                context.startActivity(Intent.createChooser(sendIntent, "Share Lecture"))
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = "Share", tint = Color(0xFFCBD5E1), modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Share", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    item {
+                        Surface(
+                            color = Color(0xFF1E293B),
+                            shape = RoundedCornerShape(18.dp),
+                            modifier = Modifier.clickable { selectedTab = 1 }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.PictureAsPdf, contentDescription = "Notes", tint = Color(0xFFF472B6), modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("${lesson.resources.size} Notes", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    item {
+                        Surface(
+                            color = Color(0xFF1E293B),
+                            shape = RoundedCornerShape(18.dp),
+                            modifier = Modifier.clickable {
+                                onOpenFullScreenNotes(activeCourse.id, lesson.id, lesson.title, activeCourse.title)
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.NoteAlt, contentDescription = "Write Notes", tint = Color(0xFF38BDF8), modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Full Notes", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = Color(0xFF1E293B))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // YouTube Channel / Instructor Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(Color(0xFF6366F1), Color(0xFF0284C7))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = activeCourse.instructorName.take(2).uppercase(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Column {
+                            Text(
+                                text = activeCourse.instructorName,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                text = "Lead ICT Mentors • ${activeCourse.enrolledCount} enrolled",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+
+                    Surface(
+                        color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Enrolled", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = Color(0xFF1E293B))
+
+            // Tab Header matching YouTube Style (Syllabus, Resources, Notes, Overview)
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = Color(0xFF0B0F19),
+                contentColor = Color(0xFF38BDF8)
+            ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Resources", fontSize = 13.sp)
+                            Text("Syllabus", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 )
@@ -202,9 +512,9 @@ fun LessonPlayerScreen(
                     onClick = { selectedTab = 1 },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.NoteAlt, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Notes", fontSize = 13.sp)
+                            Text("Resources", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 )
@@ -213,9 +523,9 @@ fun LessonPlayerScreen(
                     onClick = { selectedTab = 2 },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.NoteAlt, contentDescription = null, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Syllabus", fontSize = 13.sp)
+                            Text("Notes", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 )
@@ -224,9 +534,9 @@ fun LessonPlayerScreen(
                     onClick = { selectedTab = 3 },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Overview", fontSize = 13.sp)
+                            Text("Overview", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 )
@@ -235,14 +545,24 @@ fun LessonPlayerScreen(
             // Tab Content
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (selectedTab) {
-                    0 -> LessonResourcesTab(
+                    0 -> SyllabusTab(
+                        course = activeCourse,
+                        activeLessonId = lesson.id,
+                        courseProgress = courseProgress,
+                        onSelectLesson = { newLessonId -> onSelectLesson(newLessonId) },
+                        onToggleLessonComplete = { targetLessonId ->
+                            val nowDone = progressRepository.toggleLessonProgress(userId, activeCourse.id, targetLessonId)
+                            completionToastMessage = if (nowDone) "Lesson marked as completed! (+15 Points) ✓" else "Lesson marked as incomplete"
+                        }
+                    )
+                    1 -> LessonResourcesTab(
                         course = activeCourse,
                         section = currentSection,
                         lesson = lesson,
                         courseRepository = courseRepository,
                         onViewResource = onViewResource
                     )
-                    1 -> NotesTab(
+                    2 -> NotesTab(
                         note = note,
                         onOpenFullScreen = {
                             onOpenFullScreenNotes(activeCourse.id, lesson.id, lesson.title, activeCourse.title)
@@ -252,16 +572,48 @@ fun LessonPlayerScreen(
                         },
                         onTimestampClick = { seekPosMs -> playerManager.seekTo(seekPosMs) }
                     )
-                    2 -> SyllabusTab(
-                        course = activeCourse,
-                        activeLessonId = lesson.id,
-                        onSelectLesson = { newLessonId -> onSelectLesson(newLessonId) }
-                    )
                     3 -> OverviewTab(lesson = lesson, course = activeCourse)
                 }
             }
         }
     }
+
+    // Animated Completion Toast Banner (Matching Web App "+15 Points" alert)
+    AnimatedVisibility(
+        visible = completionToastMessage != null,
+        enter = fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
+        exit = fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .padding(bottom = 24.dp)
+    ) {
+        Surface(
+            color = Color(0xFF064E3B),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, Color(0xFF10B981)),
+            shadowElevation = 8.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFF34D399),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = completionToastMessage ?: "",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
 }
 
 @Composable
@@ -639,7 +991,9 @@ private fun NotesTab(
 private fun SyllabusTab(
     course: Course,
     activeLessonId: String,
-    onSelectLesson: (String) -> Unit
+    courseProgress: UserCourseProgress,
+    onSelectLesson: (String) -> Unit,
+    onToggleLessonComplete: (String) -> Unit
 ) {
     // Accordion expansion state: maps section.id -> Boolean
     val expandedSections = remember { mutableStateMapOf<String, Boolean>() }
@@ -667,57 +1021,103 @@ private fun SyllabusTab(
         }
     }
 
-    val totalLectures = course.totalLessonsCount
+    val allLessonIds = course.sections.flatMap { it.lessons }.map { it.id }.toSet()
+    val totalLectures = allLessonIds.size
+    val completedCount = courseProgress.completedLessons.count { allLessonIds.contains(it) }
+    val progressPercent = if (totalLectures > 0) Math.min(100, Math.round((completedCount.toFloat() / totalLectures) * 100)) else 0
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Controls Row: Course curriculum summary & Expand/Collapse All
+        // Controls Row: Course curriculum summary, Progress Bar, & Expand/Collapse All
         item {
-            Row(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E)),
+                border = BorderStroke(1.dp, Color(0xFF1E293B))
             ) {
-                Column {
-                    Text(
-                        text = "Course Curriculum",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Course Curriculum",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            )
+                            Text(
+                                text = "${course.sections.size} Modules • $totalLectures Lectures",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedButton(
+                                onClick = { expandAll() },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
+                                border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text("Expand All", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = { collapseAll() },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
+                                border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text("Collapse", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Progress Bar & Percentage (Matching Web App)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "$completedCount of $totalLectures completed",
+                            color = Color(0xFF10B981),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                    )
-                    Text(
-                        text = "${course.sections.size} Modules • $totalLectures Lectures",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 11.sp
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(
-                        onClick = { expandAll() },
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Text("Expand All", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "$progressPercent%",
+                            color = Color(0xFF38BDF8),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
-                    OutlinedButton(
-                        onClick = { collapseAll() },
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B)),
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Text("Collapse", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    LinearProgressIndicator(
+                        progress = { progressPercent / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = Color(0xFF10B981),
+                        trackColor = Color(0xFF0F172A)
+                    )
                 }
             }
         }
@@ -731,6 +1131,8 @@ private fun SyllabusTab(
                 label = "syllabus_accordion_arrow"
             )
             val hasActiveLesson = section.lessons.any { it.id == activeLessonId }
+            val sectionCompletedCount = section.lessons.count { courseProgress.isCompleted(it.id) }
+            val isSectionFullyDone = sectionCompletedCount == section.lessons.size && section.lessons.isNotEmpty()
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -738,7 +1140,7 @@ private fun SyllabusTab(
                 colors = CardDefaults.cardColors(
                     containerColor = if (hasActiveLesson) Color(0xFF131B2E) else Color(0xFF0F172A)
                 ),
-                border = androidx.compose.foundation.BorderStroke(
+                border = BorderStroke(
                     1.dp,
                     if (hasActiveLesson) Color(0xFF0284C7).copy(alpha = 0.6f) else Color(0xFF1E293B)
                 )
@@ -764,17 +1166,27 @@ private fun SyllabusTab(
                                     .size(28.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(
-                                        if (hasActiveLesson) Color(0xFF0284C7)
+                                        if (isSectionFullyDone) Color(0xFF059669)
+                                        else if (hasActiveLesson) Color(0xFF0284C7)
                                         else Color(0xFF1E293B)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = "${sIdx + 1}",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
-                                )
+                                if (isSectionFullyDone) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = "${sIdx + 1}",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.width(10.dp))
@@ -790,9 +1202,9 @@ private fun SyllabusTab(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "${section.lessons.size} lectures",
+                                    text = "${section.lessons.size} lectures • $sectionCompletedCount/${section.lessons.size} completed",
                                     fontSize = 10.sp,
-                                    color = Color(0xFF94A3B8)
+                                    color = if (isSectionFullyDone) Color(0xFF10B981) else Color(0xFF94A3B8)
                                 )
                             }
                         }
@@ -822,6 +1234,7 @@ private fun SyllabusTab(
 
                             section.lessons.forEachIndexed { lIdx, itemLesson ->
                                 val isCurrent = itemLesson.id == activeLessonId
+                                val isDone = courseProgress.isCompleted(itemLesson.id)
 
                                 Row(
                                     modifier = Modifier
@@ -839,49 +1252,85 @@ private fun SyllabusTab(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.weight(1f)
                                     ) {
-                                        if (isCurrent) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(24.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color(0xFF0284C7)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
+                                        // Interactive Coursera/Udemy/Web Checkbox
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(CircleShape)
+                                                .clickable { onToggleLessonComplete(itemLesson.id) },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isDone) {
                                                 Icon(
-                                                    Icons.Default.PlayArrow,
-                                                    contentDescription = "Playing",
-                                                    tint = Color.White,
-                                                    modifier = Modifier.size(14.dp)
+                                                    imageVector = Icons.Default.CheckCircle,
+                                                    contentDescription = "Completed",
+                                                    tint = Color(0xFF10B981),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            } else if (isCurrent) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(22.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(0xFF0284C7)),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.PlayArrow,
+                                                        contentDescription = "Playing",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                }
+                                            } else {
+                                                Icon(
+                                                    imageVector = Icons.Default.RadioButtonUnchecked,
+                                                    contentDescription = "Incomplete",
+                                                    tint = Color(0xFF64748B),
+                                                    modifier = Modifier.size(18.dp)
                                                 )
                                             }
-                                        } else {
-                                            Text(
-                                                text = "${sIdx + 1}.${lIdx + 1}",
-                                                fontSize = 11.sp,
-                                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                                color = Color(0xFF64748B),
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.width(24.dp)
-                                            )
                                         }
 
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(modifier = Modifier.width(10.dp))
 
-                                        Text(
-                                            text = itemLesson.title,
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (isCurrent) Color(0xFF38BDF8) else Color(0xFFE2E8F0)
-                                            ),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = itemLesson.title,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                                    color = if (isCurrent) Color(0xFF38BDF8) else if (isDone) Color(0xFFE2E8F0) else Color(0xFFCBD5E1)
+                                                ),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "${sIdx + 1}.${lIdx + 1} • ${itemLesson.formattedDuration}",
+                                                fontSize = 10.sp,
+                                                color = Color(0xFF64748B)
+                                            )
+                                        }
                                     }
 
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
+                                        if (isDone) {
+                                            Surface(
+                                                color = Color(0xFF059669).copy(alpha = 0.2f),
+                                                shape = RoundedCornerShape(4.dp)
+                                            ) {
+                                                Text(
+                                                    text = "✓ DONE",
+                                                    color = Color(0xFF34D399),
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+
                                         if (itemLesson.resources.isNotEmpty()) {
                                             Surface(
                                                 color = Color(0xFFEC4899).copy(alpha = 0.15f),

@@ -66,13 +66,22 @@ import kotlinx.coroutines.launch
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.player.PlayerManager
+
+private fun formatTime(millis: Long): String {
+    val totalSeconds = (millis / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format("%02d:%02d", minutes, seconds)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyLearningScreen(
     courseRepository: CourseRepository,
     authRepository: AuthRepository,
+    progressRepository: ProgressRepository,
     playerManager: PlayerManager,
     onCourseClick: (String) -> Unit,
     onResumeLessonClick: (courseId: String, lessonId: String) -> Unit,
@@ -83,6 +92,9 @@ fun MyLearningScreen(
     var isLoading by remember { mutableStateOf(true) }
 
     val currentUser by authRepository.currentUser.collectAsState()
+    val userId = currentUser?.id ?: "demo-student-id-001"
+    val progressMap by progressRepository.progressMap.collectAsState()
+
     val activeLesson by playerManager.activeLesson.collectAsState()
     val activeCourseId by playerManager.activeCourseId.collectAsState()
 
@@ -98,7 +110,15 @@ fun MyLearningScreen(
         loadData()
     }
 
-    val enrolledCourse = courses.firstOrNull()
+    val enrolledCourse = courses.firstOrNull { it.id == "complexity-it-01" } ?: courses.firstOrNull()
+    val enrolledProgress = enrolledCourse?.let { progressMap[it.id] ?: progressRepository.getCourseProgress(userId, it.id) }
+    val completedCount = enrolledCourse?.let { progressRepository.getCompletedCount(userId, it) } ?: 0
+    val progressPercent = enrolledCourse?.let { progressRepository.getCourseProgressPercentage(userId, it) } ?: 0
+
+    val lastLessonId = enrolledProgress?.lastLessonId
+    val targetLesson = activeLesson ?: (if (enrolledCourse != null && lastLessonId != null) enrolledCourse.sections.flatMap { it.lessons }.firstOrNull { it.id == lastLessonId } else null) ?: enrolledCourse?.sections?.firstOrNull()?.lessons?.firstOrNull()
+    val targetCourseId = activeCourseId ?: enrolledCourse?.id
+    val savedPlaybackPos = if (targetCourseId != null && targetLesson != null) progressRepository.getPlaybackPosition(targetCourseId, targetLesson.id) else 0L
 
     Scaffold(
         topBar = {
@@ -185,13 +205,13 @@ fun MyLearningScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 1. ACTIVE / RESUME PLAYING CARD (Udemy Hero Pattern)
-                if (activeLesson != null && activeCourseId != null) {
+                // 1. ACTIVE / RESUME PLAYING CARD (Dynamic Progress & Last Watched)
+                if (targetLesson != null && targetCourseId != null) {
                     item {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onResumeLessonClick(activeCourseId!!, activeLesson!!.id) },
+                                .clickable { onResumeLessonClick(targetCourseId, targetLesson.id) },
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF0369A1)),
                             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
@@ -207,7 +227,7 @@ fun MyLearningScreen(
                                         shape = RoundedCornerShape(6.dp)
                                     ) {
                                         Text(
-                                            text = "RECENTLY PLAYING",
+                                            text = if (activeLesson != null) "NOW PLAYING" else "RESUME LEARNING",
                                             color = Color.White,
                                             fontSize = 9.sp,
                                             fontWeight = FontWeight.Black,
@@ -226,7 +246,7 @@ fun MyLearningScreen(
                                 Spacer(modifier = Modifier.height(10.dp))
 
                                 Text(
-                                    text = activeLesson!!.title,
+                                    text = targetLesson.title,
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White
@@ -245,8 +265,28 @@ fun MyLearningScreen(
 
                                 Spacer(modifier = Modifier.height(12.dp))
 
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Course Progress: $progressPercent%",
+                                        color = Color.White.copy(alpha = 0.95f),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "$completedCount / ${enrolledCourse?.totalLessonsCount ?: 0} done",
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 11.sp
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
                                 LinearProgressIndicator(
-                                    progress = { 0.45f },
+                                    progress = { progressPercent / 100f },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(6.dp)
@@ -255,10 +295,10 @@ fun MyLearningScreen(
                                     trackColor = Color.White.copy(alpha = 0.25f)
                                 )
 
-                                Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(14.dp))
 
                                 Button(
-                                    onClick = { onResumeLessonClick(activeCourseId!!, activeLesson!!.id) },
+                                    onClick = { onResumeLessonClick(targetCourseId, targetLesson.id) },
                                     shape = RoundedCornerShape(10.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                                     modifier = Modifier.fillMaxWidth()
@@ -271,7 +311,7 @@ fun MyLearningScreen(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "Resume Lecture",
+                                        text = if (savedPlaybackPos > 2000L) "Resume from ${formatTime(savedPlaybackPos)}" else "Resume Lecture",
                                         color = Color(0xFF0284C7),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp
@@ -367,8 +407,8 @@ fun MyLearningScreen(
                                             fontWeight = FontWeight.Medium
                                         )
                                         Text(
-                                            text = "14% Complete",
-                                            color = Color(0xFF38BDF8),
+                                            text = "$progressPercent% Complete ($completedCount / ${c.totalLessonsCount})",
+                                            color = Color(0xFF10B981),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -377,12 +417,12 @@ fun MyLearningScreen(
                                     Spacer(modifier = Modifier.height(6.dp))
 
                                     LinearProgressIndicator(
-                                        progress = { 0.14f },
+                                        progress = { progressPercent / 100f },
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(6.dp)
                                             .clip(RoundedCornerShape(3.dp)),
-                                        color = Color(0xFF0284C7),
+                                        color = Color(0xFF10B981),
                                         trackColor = Color(0xFF1E293B)
                                     )
 
@@ -416,6 +456,9 @@ fun MyLearningScreen(
 
                     itemsIndexed(c.sections) { idx, section ->
                         val firstLesson = section.lessons.firstOrNull()
+                        val sectionDone = section.lessons.count { enrolledProgress?.isCompleted(it.id) == true }
+                        val isFullyDone = sectionDone == section.lessons.size && section.lessons.isNotEmpty()
+
                         Surface(
                             color = Color(0xFF131B2E),
                             shape = RoundedCornerShape(12.dp),
@@ -445,15 +488,27 @@ fun MyLearningScreen(
                                         modifier = Modifier
                                             .size(32.dp)
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFF0284C7).copy(alpha = 0.2f)),
+                                            .background(
+                                                if (isFullyDone) Color(0xFF059669)
+                                                else Color(0xFF0284C7).copy(alpha = 0.2f)
+                                            ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = "${idx + 1}",
-                                            color = Color(0xFF38BDF8),
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 12.sp
-                                        )
+                                        if (isFullyDone) {
+                                            Icon(
+                                                Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "${idx + 1}",
+                                                color = Color(0xFF38BDF8),
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 12.sp
+                                            )
+                                        }
                                     }
 
                                     Spacer(modifier = Modifier.width(10.dp))
@@ -469,17 +524,17 @@ fun MyLearningScreen(
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
-                                            text = "${section.lessons.size} lectures",
+                                            text = "${section.lessons.size} lectures • $sectionDone completed",
                                             fontSize = 11.sp,
-                                            color = Color(0xFF94A3B8)
+                                            color = if (isFullyDone) Color(0xFF10B981) else Color(0xFF94A3B8)
                                         )
                                     }
                                 }
 
                                 Icon(
                                     Icons.Default.PlayArrow,
-                                    contentDescription = "Start Module",
-                                    tint = Color(0xFF38BDF8),
+                                    contentDescription = null,
+                                    tint = if (isFullyDone) Color(0xFF10B981) else Color(0xFF38BDF8),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }

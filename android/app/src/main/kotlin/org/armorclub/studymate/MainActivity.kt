@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.NotesRepository
+import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.player.PlayerManager
 import org.armorclub.studymate.service.FloatingVideoService
 import org.armorclub.studymate.ui.navigation.AppNavigation
@@ -29,6 +30,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var courseRepository: CourseRepository
     private lateinit var authRepository: AuthRepository
     private lateinit var notesRepository: NotesRepository
+    private lateinit var progressRepository: ProgressRepository
     private lateinit var playerManager: PlayerManager
 
     private var initialCourseId by mutableStateOf<String?>(null)
@@ -40,6 +42,7 @@ class MainActivity : ComponentActivity() {
         courseRepository = CourseRepository(this)
         authRepository = AuthRepository(this, courseRepository)
         notesRepository = NotesRepository(this)
+        progressRepository = ProgressRepository(this, courseRepository, authRepository)
         playerManager = PlayerManager.getInstance(this)
 
         handleIntent(intent)
@@ -56,6 +59,7 @@ class MainActivity : ComponentActivity() {
                         courseRepository = courseRepository,
                         authRepository = authRepository,
                         notesRepository = notesRepository,
+                        progressRepository = progressRepository,
                         playerManager = playerManager,
                         initialCourseId = initialCourseId,
                         initialLessonId = initialLessonId
@@ -72,7 +76,9 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         val cId = intent?.getStringExtra(FloatingVideoService.EXTRA_COURSE_ID)
+            ?: intent?.getStringExtra("course_id")
         val lId = intent?.getStringExtra(FloatingVideoService.EXTRA_LESSON_ID)
+            ?: intent?.getStringExtra("lesson_id")
         if (!cId.isNullOrBlank() && !lId.isNullOrBlank()) {
             initialCourseId = cId
             initialLessonId = lId

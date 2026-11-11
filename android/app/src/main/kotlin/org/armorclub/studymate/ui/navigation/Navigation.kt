@@ -79,6 +79,7 @@ import kotlinx.coroutines.launch
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.NotesRepository
+import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.player.PlayerManager
 import org.armorclub.studymate.ui.screens.CourseDetailScreen
 import org.armorclub.studymate.ui.screens.CourseListScreen
@@ -128,6 +129,7 @@ fun AppNavigation(
     courseRepository: CourseRepository,
     authRepository: AuthRepository,
     notesRepository: NotesRepository,
+    progressRepository: ProgressRepository,
     playerManager: PlayerManager,
     initialCourseId: String? = null,
     initialLessonId: String? = null
@@ -502,6 +504,7 @@ fun AppNavigation(
                             2 -> MyLearningScreen(
                                 courseRepository = courseRepository,
                                 authRepository = authRepository,
+                                progressRepository = progressRepository,
                                 playerManager = playerManager,
                                 onCourseClick = { courseId ->
                                     navController.navigate(Screen.CourseDetail.createRoute(courseId))
@@ -702,6 +705,8 @@ fun AppNavigation(
             CourseDetailScreen(
                 courseId = courseId,
                 courseRepository = courseRepository,
+                authRepository = authRepository,
+                progressRepository = progressRepository,
                 onBackClick = { navController.popBackStack() },
                 onSelectLesson = { cId, lessonId ->
                     navController.navigate(Screen.LessonPlayer.createRoute(cId, lessonId))
@@ -728,6 +733,8 @@ fun AppNavigation(
                 lessonId = lessonId,
                 courseRepository = courseRepository,
                 notesRepository = notesRepository,
+                progressRepository = progressRepository,
+                authRepository = authRepository,
                 playerManager = playerManager,
                 onBackClick = { navController.popBackStack() },
                 onSelectLesson = { newLessonId ->

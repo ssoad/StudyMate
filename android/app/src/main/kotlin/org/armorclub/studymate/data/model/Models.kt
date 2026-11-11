@@ -179,3 +179,15 @@ data class AuthUserData(
     @SerialName("user_metadata") val userMetadata: Map<String, String?>? = null,
     @SerialName("app_metadata") val appMetadata: Map<String, String?>? = null
 )
+
+@Serializable
+data class UserCourseProgress(
+    @SerialName("user_id") val userId: String = "",
+    @SerialName("course_id") val courseId: String = "",
+    @SerialName("completed_lessons") val completedLessons: List<String> = emptyList(),
+    @SerialName("last_lesson_id") val lastLessonId: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null
+) {
+    fun isCompleted(lessonId: String): Boolean = completedLessons.contains(lessonId)
+}
+

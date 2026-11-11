@@ -92,10 +92,15 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.collectAsState
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.model.CourseLesson
 import org.armorclub.studymate.data.model.CourseResource
+import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.ProgressRepository
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -103,6 +108,8 @@ import java.io.File
 fun CourseDetailScreen(
     courseId: String,
     courseRepository: CourseRepository,
+    authRepository: AuthRepository,
+    progressRepository: ProgressRepository,
     onBackClick: () -> Unit,
     onSelectLesson: (courseId: String, lessonId: String) -> Unit,
     onViewResource: (title: String, fileUrl: String) -> Unit
@@ -111,8 +118,19 @@ fun CourseDetailScreen(
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
+    val currentUser by authRepository.currentUser.collectAsState()
+    val userId = currentUser?.id ?: "demo-student-id-001"
+
+    val progressMap by progressRepository.progressMap.collectAsState()
+    val courseProgress = progressMap[courseId] ?: progressRepository.getCourseProgress(userId, courseId)
+
     var course by remember { mutableStateOf<Course?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+
+    val completedCount = course?.let { progressRepository.getCompletedCount(userId, it) } ?: 0
+    val progressPercent = course?.let { progressRepository.getCourseProgressPercentage(userId, it) } ?: 0
+    val lastLessonId = courseProgress.lastLessonId
+    val lastLesson = course?.sections?.flatMap { it.lessons }?.firstOrNull { it.id == lastLessonId }
 
     // Accordion expansion state: maps section.id -> Boolean
     val expandedSections = remember { mutableStateMapOf<String, Boolean>() }
@@ -430,28 +448,66 @@ fun CourseDetailScreen(
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(14.dp))
 
-                                // Primary CTA Button: Enter Classroom or Start Learning
-                                if (firstLesson != null) {
+                                // Real Course Progress Indicator (Matching Web App)
+                                if (completedCount > 0) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Your Progress: $completedCount / ${c.totalLessonsCount} lectures",
+                                            color = Color(0xFF10B981),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "$progressPercent%",
+                                            color = Color(0xFF38BDF8),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    LinearProgressIndicator(
+                                        progress = { progressPercent / 100f },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
+                                        color = Color(0xFF10B981),
+                                        trackColor = Color(0xFF1E293B)
+                                    )
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                }
+
+                                // Primary CTA Button: Resume or Enter Classroom
+                                val targetLesson = lastLesson ?: firstLesson
+                                if (targetLesson != null) {
                                     Button(
-                                        onClick = { onSelectLesson(c.id, firstLesson.id) },
+                                        onClick = { onSelectLesson(c.id, targetLesson.id) },
                                         shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (completedCount > 0) Color(0xFF059669) else Color(0xFF0284C7)
+                                        ),
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(50.dp)
                                     ) {
                                         Icon(
-                                            Icons.Default.PlayArrow,
+                                            if (completedCount > 0) Icons.Default.PlayCircle else Icons.Default.PlayArrow,
                                             contentDescription = null,
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Enter Classroom 🚀",
+                                            text = if (lastLesson != null) "Resume: ${lastLesson.title.take(22)}... 🚀" else "Enter Classroom 🚀",
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp
+                                            fontSize = 15.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -617,10 +673,11 @@ fun CourseDetailScreen(
                                             )
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
+                                        val sectionDoneCount = section.lessons.count { courseProgress.isCompleted(it.id) }
                                         Text(
-                                            text = "${section.lessons.size} Lectures" + if (sectionPdfCount > 0) " • $sectionPdfCount Notes & PDFs" else "",
+                                            text = "${section.lessons.size} Lectures • $sectionDoneCount completed" + if (sectionPdfCount > 0) " • $sectionPdfCount Notes & PDFs" else "",
                                             fontSize = 11.sp,
-                                            color = Color(0xFF94A3B8)
+                                            color = if (sectionDoneCount == section.lessons.size && section.lessons.isNotEmpty()) Color(0xFF10B981) else Color(0xFF94A3B8)
                                         )
                                     }
                                 }
@@ -670,10 +727,10 @@ fun CourseDetailScreen(
                                                     onRead = { onViewResource(res.title, res.fileUrl) },
                                                     onDownload = {
                                                         scope.launch {
-                                                            Toast.makeText(context, "Downloading ${res.title}...", Toast.LENGTH_SHORT).show()
-                                                            val dest = File(context.getExternalFilesDir(null) ?: context.filesDir, res.displayFileName)
-                                                            courseRepository.downloadResourceFile(res.fileUrl, dest)
-                                                            Toast.makeText(context, "Saved to ${dest.name}", Toast.LENGTH_SHORT).show()
+                                                             Toast.makeText(context, "Downloading ${res.title}...", Toast.LENGTH_SHORT).show()
+                                                             val dest = File(context.getExternalFilesDir(null) ?: context.filesDir, res.displayFileName)
+                                                             courseRepository.downloadResourceFile(res.fileUrl, dest)
+                                                             Toast.makeText(context, "Saved to ${dest.name}", Toast.LENGTH_SHORT).show()
                                                         }
                                                     }
                                                 )
@@ -687,6 +744,7 @@ fun CourseDetailScreen(
                                     section.lessons.forEachIndexed { lIdx, lesson ->
                                         val canPreview = lesson.isPreview || (sIdx == 0 && lIdx == 0)
                                         val hasNotes = lesson.resources.isNotEmpty()
+                                        val isDone = courseProgress.isCompleted(lesson.id)
 
                                         Row(
                                             modifier = Modifier
@@ -700,23 +758,33 @@ fun CourseDetailScreen(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 modifier = Modifier.weight(1f)
                                             ) {
-                                                // Play Icon / Preview Icon
+                                                // Play Icon / Completed Icon
                                                 Box(
                                                     modifier = Modifier
                                                         .size(28.dp)
                                                         .clip(CircleShape)
                                                         .background(
-                                                            if (canPreview) Color(0xFF10B981).copy(alpha = 0.15f)
+                                                            if (isDone) Color(0xFF059669).copy(alpha = 0.2f)
+                                                            else if (canPreview) Color(0xFF10B981).copy(alpha = 0.15f)
                                                             else Color(0xFF0284C7).copy(alpha = 0.15f)
                                                         ),
                                                     contentAlignment = Alignment.Center
                                                 ) {
-                                                    Icon(
-                                                        Icons.Default.PlayArrow,
-                                                        contentDescription = null,
-                                                        tint = if (canPreview) Color(0xFF10B981) else Color(0xFF0284C7),
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
+                                                    if (isDone) {
+                                                        Icon(
+                                                            Icons.Default.CheckCircle,
+                                                            contentDescription = "Completed",
+                                                            tint = Color(0xFF10B981),
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    } else {
+                                                        Icon(
+                                                            Icons.Default.PlayArrow,
+                                                            contentDescription = null,
+                                                            tint = if (canPreview) Color(0xFF10B981) else Color(0xFF0284C7),
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
                                                 }
 
                                                 Spacer(modifier = Modifier.width(10.dp))

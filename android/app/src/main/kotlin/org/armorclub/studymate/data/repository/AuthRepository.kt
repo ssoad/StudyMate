@@ -220,4 +220,33 @@ class AuthRepository(
     fun getAuthToken(): String? {
         return prefs.getString("access_token", null)
     }
+
+    fun addPoints(pointsDelta: Int) {
+        val current = _currentUser.value ?: return
+        val newPoints = (current.points + pointsDelta).coerceAtLeast(0)
+        val updated = current.copy(points = newPoints)
+        _currentUser.value = updated
+        prefs.edit().putInt("user_points", newPoints).apply()
+
+        // Sync points to Supabase profiles table in background if logged in
+        val token = getAuthToken()
+        if (!token.isNullOrBlank() && current.id.length > 20) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val baseUrl = courseRepository.getBaseUrl().trimEnd('/')
+                    val url = "$baseUrl/rest/v1/profiles?id=eq.${current.id}"
+                    val body = "{\"points\": $newPoints}"
+                    val request = Request.Builder()
+                        .url(url)
+                        .patch(body.toRequestBody("application/json".toMediaType()))
+                        .addHeader("apikey", "public-anon-key")
+                        .addHeader("Authorization", "Bearer $token")
+                        .build()
+                    httpClient.newCall(request).execute()
+                } catch (e: Exception) {
+                    Log.w("AuthRepository", "Failed to sync points remotely: ${e.message}")
+                }
+            }
+        }
+    }
 }

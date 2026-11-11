@@ -20,8 +20,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -78,6 +81,9 @@ class PlayerManager private constructor(context: Context) {
     private val _activeCourseId = MutableStateFlow<String?>(null)
     val activeCourseId: StateFlow<String?> = _activeCourseId.asStateFlow()
 
+    private val _onPlaybackEnded = MutableSharedFlow<CourseLesson>(extraBufferCapacity = 1)
+    val onPlaybackEnded: SharedFlow<CourseLesson> = _onPlaybackEnded.asSharedFlow()
+
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
     private var progressJob: Job? = null
 
@@ -128,6 +134,10 @@ class PlayerManager private constructor(context: Context) {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
                     _durationMs.value = exoPlayer.duration.coerceAtLeast(0L)
+                } else if (playbackState == Player.STATE_ENDED) {
+                    _activeLesson.value?.let { lesson ->
+                        _onPlaybackEnded.tryEmit(lesson)
+                    }
                 }
             }
         })
