@@ -690,11 +690,15 @@ fun VideoPlayerView(
                             subtitle = "Watch while using other apps",
                             onClick = {
                                 showSettingsSheet = false
-                                if (OverlayPermissionHelper.hasOverlayPermission(context)) {
-                                    FloatingVideoService.start(context, courseId, lessonId, title)
-                                    (context as? Activity)?.finish()
+                                if (playerManager.exoPlayer.isPlaying) {
+                                    if (OverlayPermissionHelper.hasOverlayPermission(context)) {
+                                        FloatingVideoService.start(context, courseId, lessonId, title)
+                                        (context as? Activity)?.finish()
+                                    } else {
+                                        OverlayPermissionHelper.requestOverlayPermission(context)
+                                    }
                                 } else {
-                                    OverlayPermissionHelper.requestOverlayPermission(context)
+                                    android.widget.Toast.makeText(context, "Start video playback before opening floating player", android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             }
                         )

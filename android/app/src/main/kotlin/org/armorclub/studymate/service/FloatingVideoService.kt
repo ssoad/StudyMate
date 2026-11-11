@@ -24,6 +24,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
 import org.armorclub.studymate.MainActivity
@@ -60,9 +61,24 @@ class FloatingVideoService : Service() {
 
     private var windowManager: WindowManager? = null
     private var floatingView: View? = null
+    private var playPauseButton: ImageButton? = null
     private var courseId: String = ""
     private var lessonId: String = ""
     private var lessonTitle: String = ""
+
+    private val playerListener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            playPauseButton?.setImageResource(
+                if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+            )
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED) {
+                stopSelf()
+            }
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -70,10 +86,17 @@ class FloatingVideoService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        PlayerManager.getInstance(applicationContext).exoPlayer.addListener(playerListener)
     }
 
     @OptIn(UnstableApi::class)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val pm = PlayerManager.getInstance(applicationContext)
+        if (!pm.exoPlayer.isPlaying && pm.activeLesson.value == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         courseId = intent?.getStringExtra(EXTRA_COURSE_ID) ?: courseId
         lessonId = intent?.getStringExtra(EXTRA_LESSON_ID) ?: lessonId
         lessonTitle = intent?.getStringExtra(EXTRA_LESSON_TITLE) ?: lessonTitle
@@ -175,6 +198,7 @@ class FloatingVideoService : Service() {
                 setImageResource(if (pm.exoPlayer.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
             }
         }
+        playPauseButton = playPauseBtn
         controlsOverlay.addView(playPauseBtn)
 
         // Fullscreen return button
@@ -297,6 +321,8 @@ class FloatingVideoService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        PlayerManager.getInstance(applicationContext).exoPlayer.removeListener(playerListener)
+        playPauseButton = null
         floatingView?.let {
             windowManager?.removeView(it)
             floatingView = null

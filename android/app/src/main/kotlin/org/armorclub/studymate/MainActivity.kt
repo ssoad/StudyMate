@@ -1,7 +1,9 @@
 package org.armorclub.studymate
 
+import android.Manifest
 import android.app.PictureInPictureParams
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
@@ -16,6 +18,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.NotesRepository
@@ -46,7 +52,9 @@ class MainActivity : ComponentActivity() {
         playerManager = PlayerManager.getInstance(this)
 
         handleIntent(intent)
+        checkNotificationPermission()
         setupPictureInPicture()
+        observePlaybackForPictureInPicture()
 
         enableEdgeToEdge()
         setContent {
@@ -85,10 +93,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
+            }
+        }
+    }
+
     private fun setupPictureInPicture() {
+        updatePictureInPictureParams(false)
+    }
+
+    private fun observePlaybackForPictureInPicture() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                playerManager.isPlaying.collect { isPlaying ->
+                    updatePictureInPictureParams(isPlaying)
+                }
+            }
+        }
+    }
+
+    private fun updatePictureInPictureParams(isPlaying: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val params = PictureInPictureParams.Builder()
-                .setAutoEnterEnabled(true)
+                .setAutoEnterEnabled(isPlaying) // Only auto-enter PiP when video is actively playing!
                 .setAspectRatio(Rational(16, 9))
                 .build()
             setPictureInPictureParams(params)

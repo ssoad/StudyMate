@@ -1,10 +1,18 @@
 package org.armorclub.studymate.player
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -16,6 +24,8 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.MediaSession
+import androidx.media3.ui.PlayerNotificationManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,7 +38,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.armorclub.studymate.MainActivity
 import org.armorclub.studymate.data.model.CourseLesson
+import org.armorclub.studymate.service.FloatingVideoService
 import java.io.File
 
 @OptIn(UnstableApi::class)
@@ -87,6 +99,9 @@ class PlayerManager private constructor(context: Context) {
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
     private var progressJob: Job? = null
 
+    private var playerNotificationManager: PlayerNotificationManager? = null
+    private var mediaSession: MediaSession? = null
+
     init {
         // High performance load control for instant playback start
         val loadControl = DefaultLoadControl.Builder()
@@ -141,6 +156,94 @@ class PlayerManager private constructor(context: Context) {
                 }
             }
         })
+
+        setupNotificationAndMediaSession()
+    }
+
+    private fun setupNotificationAndMediaSession() {
+        val channelId = "studymate_media_playback"
+        val notificationId = 2002
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "StudyMate Video Playback",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Media controls and playback status for StudyMate course lectures"
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.createNotificationChannel(channel)
+        }
+
+        val sessionIntent = Intent(appContext, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val sessionPendingIntent = PendingIntent.getActivity(
+            appContext,
+            0,
+            sessionIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        mediaSession = MediaSession.Builder(appContext, exoPlayer)
+            .setId("StudyMateMediaSession")
+            .setSessionActivity(sessionPendingIntent)
+            .build()
+
+        playerNotificationManager = PlayerNotificationManager.Builder(
+            appContext,
+            notificationId,
+            channelId
+        )
+            .setMediaDescriptionAdapter(object : PlayerNotificationManager.MediaDescriptionAdapter {
+                override fun getCurrentContentTitle(player: Player): CharSequence {
+                    return _activeLesson.value?.title ?: "StudyMate Video Lecture"
+                }
+
+                override fun createCurrentContentIntent(player: Player): PendingIntent? {
+                    val intent = Intent(appContext, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        _activeCourseId.value?.let { putExtra(FloatingVideoService.EXTRA_COURSE_ID, it) }
+                        _activeLesson.value?.id?.let { putExtra(FloatingVideoService.EXTRA_LESSON_ID, it) }
+                    }
+                    return PendingIntent.getActivity(
+                        appContext,
+                        101,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                }
+
+                override fun getCurrentContentText(player: Player): CharSequence? {
+                    return "Complexity IT • AD (ICT) Master Course"
+                }
+
+                override fun getCurrentLargeIcon(
+                    player: Player,
+                    callback: PlayerNotificationManager.BitmapCallback
+                ): Bitmap? {
+                    return null
+                }
+            })
+            .setNotificationListener(object : PlayerNotificationManager.NotificationListener {
+                override fun onNotificationPosted(notificationId: Int, notification: Notification, ongoing: Boolean) {
+                }
+
+                override fun onNotificationCancelled(notificationId: Int, dismissedByUser: Boolean) {
+                }
+            })
+            .setSmallIconResourceId(android.R.drawable.ic_media_play)
+            .build().apply {
+                setMediaSessionToken(mediaSession!!.platformToken)
+                setUseRewindAction(true)
+                setUseFastForwardAction(true)
+                setUseNextAction(false)
+                setUsePreviousAction(false)
+                setPlayer(exoPlayer)
+            }
     }
 
     fun playLesson(courseId: String, lesson: CourseLesson, videoUrl: String, startPositionMs: Long = 0L) {
@@ -152,14 +255,23 @@ class PlayerManager private constructor(context: Context) {
         _activeCourseId.value = courseId
         _activeLesson.value = lesson
 
+        val mediaMetadata = MediaMetadata.Builder()
+            .setTitle(lesson.title)
+            .setArtist("Complexity IT • AD ICT Master Course")
+            .setDisplayTitle(lesson.title)
+            .build()
+
         val mediaItem = MediaItem.Builder()
             .setUri(Uri.parse(videoUrl))
             .setMediaId(lesson.id)
+            .setMediaMetadata(mediaMetadata)
             .build()
 
         exoPlayer.setMediaItem(mediaItem, startPositionMs)
         exoPlayer.prepare()
         exoPlayer.play()
+
+        playerNotificationManager?.invalidate()
     }
 
     fun togglePlayPause() {
@@ -205,6 +317,10 @@ class PlayerManager private constructor(context: Context) {
 
     fun release() {
         stopProgressPolling()
+        playerNotificationManager?.setPlayer(null)
+        playerNotificationManager = null
+        mediaSession?.release()
+        mediaSession = null
         exoPlayer.release()
     }
 }
