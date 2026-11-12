@@ -26,6 +26,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.EnrollmentRepository
 import org.armorclub.studymate.data.repository.NotesRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.data.repository.ThemeMode
@@ -41,6 +42,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var authRepository: AuthRepository
     private lateinit var notesRepository: NotesRepository
     private lateinit var progressRepository: ProgressRepository
+    private lateinit var enrollmentRepository: EnrollmentRepository
     private lateinit var playerManager: PlayerManager
     private lateinit var themeRepository: ThemeRepository
 
@@ -54,6 +56,7 @@ class MainActivity : ComponentActivity() {
         authRepository = AuthRepository(this, courseRepository)
         notesRepository = NotesRepository(this)
         progressRepository = ProgressRepository(this, courseRepository, authRepository)
+        enrollmentRepository = EnrollmentRepository(this, courseRepository, authRepository)
         playerManager = PlayerManager.getInstance(this)
         themeRepository = ThemeRepository(this)
 
@@ -82,6 +85,7 @@ class MainActivity : ComponentActivity() {
                         authRepository = authRepository,
                         notesRepository = notesRepository,
                         progressRepository = progressRepository,
+                        enrollmentRepository = enrollmentRepository,
                         playerManager = playerManager,
                         themeRepository = themeRepository,
                         initialCourseId = initialCourseId,

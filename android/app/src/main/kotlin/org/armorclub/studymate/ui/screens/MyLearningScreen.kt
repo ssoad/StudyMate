@@ -60,6 +60,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,6 +69,7 @@ import kotlinx.coroutines.launch
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.EnrollmentRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.player.PlayerManager
 import org.armorclub.studymate.ui.theme.AppTheme
@@ -85,6 +87,7 @@ fun MyLearningScreen(
     courseRepository: CourseRepository,
     authRepository: AuthRepository,
     progressRepository: ProgressRepository,
+    enrollmentRepository: EnrollmentRepository,
     playerManager: PlayerManager,
     onCourseClick: (String) -> Unit,
     onResumeLessonClick: (courseId: String, lessonId: String) -> Unit,
@@ -113,7 +116,12 @@ fun MyLearningScreen(
         loadData()
     }
 
-    val enrolledCourse = courses.firstOrNull { it.id == "complexity-it-01" } ?: courses.firstOrNull()
+    val enrollments by enrollmentRepository.enrollments.collectAsState()
+
+    val enrolledCourses = courses.filter { course ->
+        enrollmentRepository.isCourseApproved(course.id, currentUser, course.price)
+    }
+    val enrolledCourse = enrolledCourses.firstOrNull()
     val enrolledProgress = enrolledCourse?.let { progressMap[it.id] ?: progressRepository.getCourseProgress(userId, it.id) }
     val completedCount = enrolledCourse?.let { progressRepository.getCompletedCount(userId, it) } ?: 0
     val progressPercent = enrolledCourse?.let { progressRepository.getCourseProgressPercentage(userId, it) } ?: 0
@@ -209,122 +217,233 @@ fun MyLearningScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 1. ACTIVE / RESUME PLAYING CARD (Dynamic Progress & Last Watched)
-                if (targetLesson != null && targetCourseId != null) {
+                if (currentUser == null) {
                     item {
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onResumeLessonClick(targetCourseId, targetLesson.id) },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.primaryButton),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Surface(
-                                        color = Color.White.copy(alpha = 0.2f),
-                                        shape = RoundedCornerShape(6.dp)
-                                    ) {
-                                        Text(
-                                            text = if (activeLesson != null) "NOW PLAYING" else "RESUME LEARNING",
-                                            color = Color.White,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-
-                                    Icon(
-                                        Icons.Default.PlayArrow,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                Text(
-                                    text = targetLesson.title,
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    ),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                Text(
-                                    text = enrolledCourse?.title ?: "Computer Science & ICT",
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    fontSize = 12.sp
-                                )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Course Progress: $progressPercent%",
-                                        color = Color.White.copy(alpha = 0.95f),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "$completedCount / ${enrolledCourse?.totalLessonsCount ?: 0} done",
-                                        color = Color.White.copy(alpha = 0.8f),
-                                        fontSize = 11.sp
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                LinearProgressIndicator(
-                                    progress = { progressPercent / 100f },
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(6.dp)
-                                        .clip(RoundedCornerShape(3.dp)),
-                                    color = Color.White,
-                                    trackColor = Color.White.copy(alpha = 0.25f)
-                                )
-
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                Button(
-                                    onClick = { onResumeLessonClick(targetCourseId, targetLesson.id) },
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                                    modifier = Modifier.fillMaxWidth()
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .background(AppTheme.colors.primary.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        Icons.Default.PlayArrow,
+                                        Icons.Default.School,
                                         contentDescription = null,
-                                        tint = AppTheme.colors.primaryButton,
-                                        modifier = Modifier.size(18.dp)
+                                        tint = AppTheme.colors.primary,
+                                        modifier = Modifier.size(28.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = if (savedPlaybackPos > 2000L) "Resume from ${formatTime(savedPlaybackPos)}" else "Resume Lecture",
-                                        color = AppTheme.colors.primaryButton,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
+                                }
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text(
+                                    text = "Sign in to view enrolled courses",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = AppTheme.colors.textPrimary
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Sign in with your student account to resume watching lectures, track syllabus progress, and access lecture notes across all your devices.",
+                                    color = AppTheme.colors.textSecondary,
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 17.sp
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = onOpenDrawer,
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AppTheme.colors.primaryButton,
+                                        contentColor = AppTheme.colors.onPrimaryButton
                                     )
+                                ) {
+                                    Text("Open Sign In Menu", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
                     }
-                }
+                } else if (enrolledCourses.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFF59E0B).copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Book,
+                                        contentDescription = null,
+                                        tint = Color(0xFFF59E0B),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text(
+                                    text = "No Enrolled Courses Yet",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = AppTheme.colors.textPrimary
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "You have not enrolled in any courses yet. Explore our course catalog to start learning with full curriculum lectures and reference handbooks.",
+                                    color = AppTheme.colors.textSecondary,
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 17.sp
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = onOpenDrawer,
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AppTheme.colors.primaryButton,
+                                        contentColor = AppTheme.colors.onPrimaryButton
+                                    )
+                                ) {
+                                    Text("Explore Courses", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // 1. ACTIVE / RESUME PLAYING CARD (Dynamic Progress & Last Watched)
+                    if (targetLesson != null && targetCourseId != null) {
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onResumeLessonClick(targetCourseId, targetLesson.id) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.primaryButton),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Surface(
+                                            color = Color.White.copy(alpha = 0.2f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                text = if (activeLesson != null) "NOW PLAYING" else "RESUME LEARNING",
+                                                color = Color.White,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+
+                                        Icon(
+                                            Icons.Default.PlayArrow,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Text(
+                                        text = targetLesson.title,
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Text(
+                                        text = enrolledCourse?.title ?: "Computer Science & ICT",
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 12.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Course Progress: $progressPercent%",
+                                            color = Color.White.copy(alpha = 0.95f),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "$completedCount / ${enrolledCourse?.totalLessonsCount ?: 0} done",
+                                            color = Color.White.copy(alpha = 0.8f),
+                                            fontSize = 11.sp
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    LinearProgressIndicator(
+                                        progress = { progressPercent / 100f },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
+                                        color = Color.White,
+                                        trackColor = Color.White.copy(alpha = 0.25f)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    Button(
+                                        onClick = { onResumeLessonClick(targetCourseId, targetLesson.id) },
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(
+                                            Icons.Default.PlayArrow,
+                                            contentDescription = null,
+                                            tint = AppTheme.colors.primaryButton,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (savedPlaybackPos > 2000L) "Resume from ${formatTime(savedPlaybackPos)}" else "Resume Lecture",
+                                            color = AppTheme.colors.primaryButton,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                 // 2. ENROLLED COURSE OVERVIEW CARD
                 if (enrolledCourse != null) {
@@ -552,4 +671,5 @@ fun MyLearningScreen(
             }
         }
     }
+}
 }

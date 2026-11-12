@@ -61,6 +61,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -83,9 +84,12 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.model.CourseResource
-import org.armorclub.studymate.ui.theme.AppTheme
+import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.EnrollmentRepository
+import org.armorclub.studymate.ui.components.EnrollmentDialog
 import org.armorclub.studymate.ui.components.UdemyResourceCard
+import org.armorclub.studymate.ui.theme.AppTheme
 import java.io.File
 
 data class ModuleResourceGroup(
@@ -98,16 +102,20 @@ data class ModuleResourceGroup(
 @Composable
 fun ResourcesScreen(
     courseRepository: CourseRepository,
+    authRepository: AuthRepository,
+    enrollmentRepository: EnrollmentRepository,
     onViewResource: (title: String, fileUrl: String) -> Unit,
     onCourseClick: (String) -> Unit = {},
     onOpenDrawer: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val currentUser by authRepository.currentUser.collectAsState()
 
     var courses by remember { mutableStateOf<List<Course>>(emptyList()) }
     var allResources by remember { mutableStateOf<List<CourseResource>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var showEnrollmentDialog by remember { mutableStateOf(false) }
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedTypeFilter by remember { mutableStateOf("All") } // All, PDFs, Diagrams
@@ -130,6 +138,7 @@ fun ResourcesScreen(
     }
 
     val primaryCourse = courses.firstOrNull()
+    val isApproved = primaryCourse?.let { enrollmentRepository.isCourseApproved(it.id, currentUser, it.price) } ?: false
 
     // Helper: Determine Module code/name from resource title/file
     fun resolveModuleForResource(res: CourseResource): Pair<String, String> {
@@ -643,6 +652,7 @@ fun ResourcesScreen(
                                                 UdemyResourceCard(
                                                     resource = res,
                                                     moduleName = group.moduleCode,
+                                                    isLocked = !isApproved,
                                                     onRead = {
                                                         onViewResource(res.title, res.fileUrl)
                                                     },
@@ -657,6 +667,14 @@ fun ResourcesScreen(
                                                     onOpenExternal = {
                                                         val fullUrl = courseRepository.resolveResourceUrl(res.fileUrl)
                                                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fullUrl)))
+                                                    },
+                                                    onLockedClick = {
+                                                        if (currentUser != null) {
+                                                            Toast.makeText(context, "🔒 Please enroll in the course to access study materials", Toast.LENGTH_SHORT).show()
+                                                            showEnrollmentDialog = true
+                                                        } else {
+                                                            Toast.makeText(context, "🔒 Please sign in and enroll to access study materials", Toast.LENGTH_LONG).show()
+                                                        }
                                                     }
                                                 )
                                             }
@@ -668,6 +686,18 @@ fun ResourcesScreen(
                     }
                 }
             }
+        }
+
+        if (showEnrollmentDialog && primaryCourse != null) {
+            EnrollmentDialog(
+                course = primaryCourse,
+                userId = currentUser?.id ?: "guest",
+                enrollmentRepository = enrollmentRepository,
+                onDismiss = { showEnrollmentDialog = false },
+                onSuccess = {
+                    Toast.makeText(context, "Enrollment submitted! Verification pending.", Toast.LENGTH_LONG).show()
+                }
+            )
         }
     }
 }

@@ -76,6 +76,7 @@ import org.armorclub.studymate.R
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.EnrollmentRepository
 import org.armorclub.studymate.player.PlayerManager
 import org.armorclub.studymate.ui.theme.AppTheme
 
@@ -84,6 +85,7 @@ import org.armorclub.studymate.ui.theme.AppTheme
 fun CourseListScreen(
     courseRepository: CourseRepository,
     authRepository: AuthRepository,
+    enrollmentRepository: EnrollmentRepository,
     playerManager: PlayerManager,
     onCourseClick: (String) -> Unit,
     onResumeLessonClick: (courseId: String, lessonId: String) -> Unit,
@@ -97,6 +99,7 @@ fun CourseListScreen(
     var selectedCategory by remember { mutableStateOf("All") }
 
     val currentUser by authRepository.currentUser.collectAsState()
+    val enrollments by enrollmentRepository.enrollments.collectAsState()
     val activeLesson by playerManager.activeLesson.collectAsState()
     val activeCourseId by playerManager.activeCourseId.collectAsState()
 
@@ -321,6 +324,8 @@ fun CourseListScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(filteredCourses) { course ->
+                        val isApproved = enrollmentRepository.isCourseApproved(course.id, currentUser, course.price)
+                        val enrollment = enrollments[course.id]
                         // Udemy Style Rich Course Card
                         Card(
                             modifier = Modifier
@@ -374,31 +379,63 @@ fun CourseListScreen(
                                         )
                                     }
 
-                                    // Rating Pill on Top Right
-                                    Surface(
-                                        color = Color.Black.copy(alpha = 0.75f),
-                                        shape = RoundedCornerShape(6.dp),
+                                    // Top Right: Status / Pricing & Rating Badges
+                                    Row(
                                         modifier = Modifier
                                             .padding(12.dp)
-                                            .align(Alignment.TopEnd)
+                                            .align(Alignment.TopEnd),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                        // Enrollment Status / Price Pill
+                                        Surface(
+                                            color = when {
+                                                isApproved -> Color(0xFF10B981)
+                                                enrollment?.isPending == true -> Color(0xFFF59E0B)
+                                                else -> AppTheme.colors.primary
+                                            },
+                                            shape = RoundedCornerShape(6.dp)
                                         ) {
-                                            Icon(
-                                                Icons.Default.Star,
-                                                contentDescription = null,
-                                                tint = Color(0xFFF59E0B),
-                                                modifier = Modifier.size(12.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(3.dp))
-                                            Text(
-                                                text = "${course.rating}",
-                                                color = Color.White,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = when {
+                                                        isApproved -> "ENROLLED"
+                                                        enrollment?.isPending == true -> "PENDING"
+                                                        course.isPaidCourse -> "৳${course.price?.toInt() ?: 2500}"
+                                                        else -> "FREE"
+                                                    },
+                                                    color = Color.White,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Black
+                                                )
+                                            }
+                                        }
+
+                                        // Rating Pill
+                                        Surface(
+                                            color = Color.Black.copy(alpha = 0.75f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Star,
+                                                    contentDescription = null,
+                                                    tint = Color(0xFFF59E0B),
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(3.dp))
+                                                Text(
+                                                    text = "${course.rating}",
+                                                    color = Color.White,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -499,7 +536,7 @@ fun CourseListScreen(
                                         onClick = { onCourseClick(course.id) },
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = AppTheme.colors.primaryButton,
+                                            containerColor = if (isApproved) AppTheme.colors.success else AppTheme.colors.primaryButton,
                                             contentColor = AppTheme.colors.onPrimaryButton
                                         ),
                                         modifier = Modifier.fillMaxWidth()
@@ -511,7 +548,11 @@ fun CourseListScreen(
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "Explore Curriculum & Resources",
+                                            text = when {
+                                                isApproved -> "Enter Classroom 🚀"
+                                                enrollment?.isPending == true -> "Pending Approval • View Syllabus"
+                                                else -> "Explore Syllabus (৳${course.price?.toInt() ?: 2500})"
+                                            },
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp
                                         )

@@ -19,9 +19,18 @@ data class Course(
     val rating: Double = 4.95,
     @SerialName("enrolled_count") val enrolledCount: Int = 341,
     @SerialName("is_published") val isPublished: Boolean = true,
+    val price: Double? = 2500.0,
+    val currency: String = "BDT",
+    @SerialName("payment_instructions") val paymentInstructions: String? = null,
     val sections: List<CourseSection> = emptyList(),
     val resources: List<CourseResource> = emptyList()
 ) {
+    val isPaidCourse: Boolean
+        get() = (price ?: 0.0) > 0.0
+
+    val formattedPrice: String
+        get() = if (isPaidCourse) "৳${price?.toInt() ?: 2500}" else "Free"
+
     val totalLessonsCount: Int
         get() = sections.sumOf { it.lessons.size }
 
@@ -189,5 +198,27 @@ data class UserCourseProgress(
     @SerialName("updated_at") val updatedAt: String? = null
 ) {
     fun isCompleted(lessonId: String): Boolean = completedLessons.contains(lessonId)
+}
+
+@Serializable
+data class CourseEnrollment(
+    val id: String = "",
+    @SerialName("course_id") val courseId: String = "",
+    @SerialName("user_id") val userId: String = "",
+    val status: String = "pending", // pending | approved | rejected
+    @SerialName("payment_method") val paymentMethod: String = "bKash",
+    @SerialName("transaction_id") val transactionId: String = "",
+    @SerialName("sender_number") val senderNumber: String = "",
+    val amount: Double = 2500.0,
+    @SerialName("proof_url") val proofUrl: String? = null,
+    @SerialName("student_notes") val studentNotes: String? = null,
+    @SerialName("admin_notes") val adminNotes: String? = null,
+    @SerialName("approved_at") val approvedAt: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null
+) {
+    val isApproved: Boolean get() = status.equals("approved", ignoreCase = true)
+    val isPending: Boolean get() = status.equals("pending", ignoreCase = true)
+    val isRejected: Boolean get() = status.equals("rejected", ignoreCase = true)
 }
 

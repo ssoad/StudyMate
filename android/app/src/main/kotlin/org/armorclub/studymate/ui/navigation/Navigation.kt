@@ -96,6 +96,7 @@ import kotlinx.coroutines.launch
 import org.armorclub.studymate.R
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.EnrollmentRepository
 import org.armorclub.studymate.data.repository.NotesRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.data.repository.ThemeMode
@@ -156,6 +157,7 @@ fun AppNavigation(
     authRepository: AuthRepository,
     notesRepository: NotesRepository,
     progressRepository: ProgressRepository,
+    enrollmentRepository: EnrollmentRepository,
     playerManager: PlayerManager,
     themeRepository: ThemeRepository,
     initialCourseId: String? = null,
@@ -692,6 +694,7 @@ fun AppNavigation(
                                 0 -> CourseListScreen(
                                     courseRepository = courseRepository,
                                     authRepository = authRepository,
+                                    enrollmentRepository = enrollmentRepository,
                                     playerManager = playerManager,
                                     onCourseClick = { courseId ->
                                         navController.navigate(Screen.CourseDetail.createRoute(courseId))
@@ -708,6 +711,8 @@ fun AppNavigation(
                                 )
                                 1 -> ResourcesScreen(
                                     courseRepository = courseRepository,
+                                    authRepository = authRepository,
+                                    enrollmentRepository = enrollmentRepository,
                                     onViewResource = { title, fileUrl ->
                                         navController.navigate(Screen.DocumentReader.createRoute(title, fileUrl))
                                     },
@@ -722,6 +727,7 @@ fun AppNavigation(
                                     courseRepository = courseRepository,
                                     authRepository = authRepository,
                                     progressRepository = progressRepository,
+                                    enrollmentRepository = enrollmentRepository,
                                     playerManager = playerManager,
                                     onCourseClick = { courseId ->
                                         navController.navigate(Screen.CourseDetail.createRoute(courseId))
@@ -940,6 +946,7 @@ fun AppNavigation(
                 courseRepository = courseRepository,
                 authRepository = authRepository,
                 progressRepository = progressRepository,
+                enrollmentRepository = enrollmentRepository,
                 onBackClick = { navController.popBackStack() },
                 onSelectLesson = { cId, lessonId ->
                     navController.navigate(Screen.LessonPlayer.createRoute(cId, lessonId))
@@ -968,6 +975,7 @@ fun AppNavigation(
                 notesRepository = notesRepository,
                 progressRepository = progressRepository,
                 authRepository = authRepository,
+                enrollmentRepository = enrollmentRepository,
                 playerManager = playerManager,
                 onBackClick = { navController.popBackStack() },
                 onSelectLesson = { newLessonId ->

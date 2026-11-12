@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Visibility
@@ -50,15 +51,17 @@ import org.armorclub.studymate.ui.theme.AppTheme
 fun UdemyResourceCard(
     resource: CourseResource,
     moduleName: String = "",
+    isLocked: Boolean = false,
     onRead: () -> Unit,
     onDownload: () -> Unit,
     onOpenExternal: () -> Unit,
+    onLockedClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onRead() },
+            .clickable { if (isLocked) onLockedClick() else onRead() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = AppTheme.colors.cardBackground
@@ -206,63 +209,89 @@ fun UdemyResourceCard(
             Spacer(modifier = Modifier.height(12.dp))
 
             // 3. Action Buttons Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            if (isLocked) {
                 Button(
-                    onClick = { onRead() },
+                    onClick = { onLockedClick() },
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AppTheme.colors.primaryButton,
-                        contentColor = AppTheme.colors.onPrimaryButton
+                        containerColor = AppTheme.colors.surfaceVariant,
+                        contentColor = AppTheme.colors.textSecondary
                     ),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
-                        Icons.Default.Visibility,
+                        Icons.Default.Lock,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = Color.White
+                        tint = AppTheme.colors.textMuted
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (resource.isPdf) "Read PDF" else "Preview",
+                        text = "Enroll in Course to Unlock Note",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = Color.White
+                        fontSize = 12.sp,
+                        color = AppTheme.colors.textSecondary
                     )
                 }
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                OutlinedIconButton(
-                    onClick = { onDownload() },
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
-                    modifier = Modifier.size(40.dp)
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        Icons.Default.Download,
-                        contentDescription = "Download",
-                        tint = AppTheme.colors.textSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+                    Button(
+                        onClick = { onRead() },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AppTheme.colors.primaryButton,
+                            contentColor = AppTheme.colors.onPrimaryButton
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            Icons.Default.Visibility,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (resource.isPdf) "Read PDF" else "Preview",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color.White
+                        )
+                    }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
 
-                IconButton(
-                    onClick = { onOpenExternal() },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        Icons.Default.OpenInNew,
-                        contentDescription = "External Viewer",
-                        tint = AppTheme.colors.textSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    OutlinedIconButton(
+                        onClick = { onDownload() },
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Download,
+                            contentDescription = "Download",
+                            tint = AppTheme.colors.textSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    IconButton(
+                        onClick = { onOpenExternal() },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.OpenInNew,
+                            contentDescription = "External Viewer",
+                            tint = AppTheme.colors.textSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }

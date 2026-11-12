@@ -86,6 +86,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -102,7 +103,9 @@ import org.armorclub.studymate.data.model.CourseResource
 import org.armorclub.studymate.ui.theme.AppTheme
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.EnrollmentRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
+import org.armorclub.studymate.ui.components.EnrollmentDialog
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -112,6 +115,7 @@ fun CourseDetailScreen(
     courseRepository: CourseRepository,
     authRepository: AuthRepository,
     progressRepository: ProgressRepository,
+    enrollmentRepository: EnrollmentRepository,
     onBackClick: () -> Unit,
     onSelectLesson: (courseId: String, lessonId: String) -> Unit,
     onViewResource: (title: String, fileUrl: String) -> Unit
@@ -121,6 +125,7 @@ fun CourseDetailScreen(
     val scope = rememberCoroutineScope()
 
     val currentUser by authRepository.currentUser.collectAsState()
+    val enrollments by enrollmentRepository.enrollments.collectAsState()
     val userId = progressRepository.getGuestOrUserId()
 
     val progressMap by progressRepository.progressMap.collectAsState()
@@ -128,6 +133,10 @@ fun CourseDetailScreen(
 
     var course by remember { mutableStateOf<Course?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+
+    val isApproved = course?.let { enrollmentRepository.isCourseApproved(courseId, currentUser, it.price) } ?: false
+    val currentEnrollment = enrollments[courseId]
+    var showEnrollmentDialog by remember { mutableStateOf(false) }
 
     val completedCount = course?.let { progressRepository.getCompletedCount(userId, it) } ?: 0
     val progressPercent = course?.let { progressRepository.getCourseProgressPercentage(userId, it) } ?: 0
@@ -486,32 +495,154 @@ fun CourseDetailScreen(
                                     Spacer(modifier = Modifier.height(14.dp))
                                 }
 
-                                // Primary CTA Button: Resume or Enter Classroom
+                                // Primary CTA Section (Exact Web Parity)
                                 val targetLesson = lastLesson ?: firstLesson
-                                if (targetLesson != null) {
-                                    Button(
-                                        onClick = { onSelectLesson(c.id, targetLesson.id) },
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (completedCount > 0) AppTheme.colors.success else AppTheme.colors.primaryButton,
-                                            contentColor = AppTheme.colors.onPrimaryButton
-                                        ),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(50.dp)
-                                    ) {
-                                        Icon(
-                                            if (completedCount > 0) Icons.Default.PlayCircle else Icons.Default.PlayArrow,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                if (isApproved) {
+                                    if (targetLesson != null) {
+                                        Button(
+                                            onClick = { onSelectLesson(c.id, targetLesson.id) },
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (completedCount > 0) AppTheme.colors.success else AppTheme.colors.primaryButton,
+                                                contentColor = AppTheme.colors.onPrimaryButton
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(50.dp)
+                                        ) {
+                                            Icon(
+                                                if (completedCount > 0) Icons.Default.PlayCircle else Icons.Default.PlayArrow,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = if (lastLesson != null) "Resume: ${lastLesson.title.take(22)}... 🚀" else "Enter Classroom 🚀",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                } else if (currentEnrollment?.isPending == true) {
+                                    // PENDING VERIFICATION NOTICE
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Surface(
+                                            color = Color(0xFFF59E0B).copy(alpha = 0.12f),
+                                            shape = RoundedCornerShape(12.dp),
+                                            border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.35f)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(modifier = Modifier.padding(12.dp)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        Icons.Default.AccessTime,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFFF59E0B),
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "Enrollment Pending Approval",
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFFF59E0B),
+                                                        fontSize = 13.sp
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "Your payment of ৳${currentEnrollment.amount.toInt()} via ${currentEnrollment.paymentMethod} (TrxID: ${currentEnrollment.transactionId}) is being verified by admin.",
+                                                    fontSize = 11.sp,
+                                                    color = AppTheme.colors.textSecondary,
+                                                    lineHeight = 15.sp
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        OutlinedButton(
+                                            onClick = { showEnrollmentDialog = true },
+                                            shape = RoundedCornerShape(12.dp),
+                                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(44.dp)
+                                        ) {
+                                            Text("Update / View Payment Details", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.colors.textPrimary)
+                                        }
+                                    }
+                                } else if (currentEnrollment?.isRejected == true) {
+                                    // REJECTED NOTICE
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Surface(
+                                            color = AppTheme.colors.error.copy(alpha = 0.12f),
+                                            shape = RoundedCornerShape(12.dp),
+                                            border = BorderStroke(1.dp, AppTheme.colors.error.copy(alpha = 0.35f)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(modifier = Modifier.padding(12.dp)) {
+                                                Text(
+                                                    text = "Enrollment Rejected",
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = AppTheme.colors.error,
+                                                    fontSize = 13.sp
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = currentEnrollment.adminNotes ?: "Transaction details could not be verified.",
+                                                    fontSize = 11.sp,
+                                                    color = AppTheme.colors.textSecondary
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Button(
+                                            onClick = { showEnrollmentDialog = true },
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = AppTheme.colors.primaryButton,
+                                                contentColor = AppTheme.colors.onPrimaryButton
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(48.dp)
+                                        ) {
+                                            Text("Re-submit Payment Proof", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                } else {
+                                    // NOT ENROLLED (PAID COURSE)
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Button(
+                                            onClick = { showEnrollmentDialog = true },
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = AppTheme.colors.primaryButton,
+                                                contentColor = AppTheme.colors.onPrimaryButton
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(50.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.CreditCard,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Enroll Now (৳${c.price?.toInt() ?: 2500}) 🎓",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
                                         Text(
-                                            text = if (lastLesson != null) "Resume: ${lastLesson.title.take(22)}... 🚀" else "Enter Classroom 🚀",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            text = "💡 Free preview available: First lecture is free to watch before enrolling.",
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF10B981),
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxWidth()
                                         )
                                     }
                                 }
@@ -712,6 +843,7 @@ fun CourseDetailScreen(
 
                                     // 1. Attached Module Resources (if any)
                                     if (section.resources.isNotEmpty()) {
+                                        val canAccessRes = enrollmentRepository.canAccessResource(c.id, null, currentUser, c.price)
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -728,6 +860,7 @@ fun CourseDetailScreen(
                                             section.resources.forEach { res ->
                                                 ResourceRowItem(
                                                     resource = res,
+                                                    isLocked = !canAccessRes,
                                                     onRead = { onViewResource(res.title, res.fileUrl) },
                                                     onDownload = {
                                                         scope.launch {
@@ -736,6 +869,9 @@ fun CourseDetailScreen(
                                                              courseRepository.downloadResourceFile(res.fileUrl, dest)
                                                              Toast.makeText(context, "Saved to ${dest.name}", Toast.LENGTH_SHORT).show()
                                                         }
+                                                    },
+                                                    onLockedClick = {
+                                                        showEnrollmentDialog = true
                                                     }
                                                 )
                                                 Spacer(modifier = Modifier.height(6.dp))
@@ -746,14 +882,21 @@ fun CourseDetailScreen(
 
                                     // 2. Section Lessons List (Udemy Lecture Row)
                                     section.lessons.forEachIndexed { lIdx, lesson ->
-                                        val canPreview = lesson.isPreview || (sIdx == 0 && lIdx == 0)
+                                        val canPreview = enrollmentRepository.canAccessLesson(c.id, sIdx, lIdx, lesson, currentUser, c.price)
+                                        val canAccess = isApproved || canPreview
                                         val hasNotes = lesson.resources.isNotEmpty()
                                         val isDone = courseProgress.isCompleted(lesson.id)
 
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .clickable { onSelectLesson(c.id, lesson.id) }
+                                                .clickable {
+                                                    if (canAccess) {
+                                                        onSelectLesson(c.id, lesson.id)
+                                                    } else {
+                                                        showEnrollmentDialog = true
+                                                    }
+                                                }
                                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween
@@ -762,7 +905,7 @@ fun CourseDetailScreen(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 modifier = Modifier.weight(1f)
                                             ) {
-                                                // Play Icon / Completed Icon
+                                                // Play Icon / Completed Icon / Lock Icon
                                                 Box(
                                                     modifier = Modifier
                                                         .size(28.dp)
@@ -770,7 +913,8 @@ fun CourseDetailScreen(
                                                         .background(
                                                             if (isDone) Color(0xFF059669).copy(alpha = 0.2f)
                                                             else if (canPreview) Color(0xFF10B981).copy(alpha = 0.15f)
-                                                            else AppTheme.colors.primary.copy(alpha = 0.15f)
+                                                            else if (isApproved) AppTheme.colors.primary.copy(alpha = 0.15f)
+                                                            else AppTheme.colors.cardBorder.copy(alpha = 0.5f)
                                                         ),
                                                     contentAlignment = Alignment.Center
                                                 ) {
@@ -781,12 +925,26 @@ fun CourseDetailScreen(
                                                             tint = Color(0xFF10B981),
                                                             modifier = Modifier.size(18.dp)
                                                         )
-                                                    } else {
+                                                    } else if (canPreview) {
                                                         Icon(
                                                             Icons.Default.PlayArrow,
-                                                            contentDescription = null,
-                                                            tint = if (canPreview) Color(0xFF10B981) else AppTheme.colors.primary,
+                                                            contentDescription = "Preview",
+                                                            tint = Color(0xFF10B981),
                                                             modifier = Modifier.size(16.dp)
+                                                        )
+                                                    } else if (isApproved) {
+                                                        Icon(
+                                                            Icons.Default.PlayArrow,
+                                                            contentDescription = "Play",
+                                                            tint = AppTheme.colors.primary,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    } else {
+                                                        Icon(
+                                                            Icons.Default.Lock,
+                                                            contentDescription = "Locked",
+                                                            tint = AppTheme.colors.textMuted,
+                                                            modifier = Modifier.size(14.dp)
                                                         )
                                                     }
                                                 }
@@ -809,7 +967,7 @@ fun CourseDetailScreen(
                                                     text = lesson.title,
                                                     style = MaterialTheme.typography.bodyMedium.copy(
                                                         fontWeight = FontWeight.Medium,
-                                                        color = AppTheme.colors.textPrimary
+                                                        color = if (canAccess) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary
                                                     ),
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis,
@@ -848,7 +1006,7 @@ fun CourseDetailScreen(
                                                     }
                                                 }
 
-                                                if (canPreview) {
+                                                if (canPreview && !isApproved) {
                                                     Surface(
                                                         color = Color(0xFF10B981).copy(alpha = 0.15f),
                                                         shape = RoundedCornerShape(6.dp),
@@ -864,16 +1022,24 @@ fun CourseDetailScreen(
                                                     }
                                                 }
 
-                                                // Watch Button
-                                                IconButton(
-                                                    onClick = { onSelectLesson(c.id, lesson.id) },
-                                                    modifier = Modifier.size(28.dp)
-                                                ) {
+                                                if (isApproved) {
+                                                    IconButton(
+                                                        onClick = { onSelectLesson(c.id, lesson.id) },
+                                                        modifier = Modifier.size(28.dp)
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.PlayCircle,
+                                                            contentDescription = "Play",
+                                                            tint = AppTheme.colors.primary,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                } else if (!canPreview) {
                                                     Icon(
-                                                        Icons.Default.PlayCircle,
-                                                        contentDescription = "Play",
-                                                        tint = AppTheme.colors.primary,
-                                                        modifier = Modifier.size(18.dp)
+                                                        Icons.Default.Lock,
+                                                        contentDescription = "Locked",
+                                                        tint = AppTheme.colors.textMuted,
+                                                        modifier = Modifier.size(16.dp)
                                                     )
                                                 }
                                             }
@@ -1072,6 +1238,18 @@ fun CourseDetailScreen(
                     }
                 }
             }
+            // MANUAL ENROLLMENT MODAL DIALOG
+            if (showEnrollmentDialog) {
+                EnrollmentDialog(
+                    course = c,
+                    userId = userId,
+                    enrollmentRepository = enrollmentRepository,
+                    onDismiss = { showEnrollmentDialog = false },
+                    onSuccess = {
+                        Toast.makeText(context, "Enrollment submitted! Verification pending.", Toast.LENGTH_LONG).show()
+                    }
+                )
+            }
         }
     }
 }
@@ -1097,13 +1275,19 @@ private fun CoursePerkRow(icon: androidx.compose.ui.graphics.vector.ImageVector,
 @Composable
 private fun ResourceRowItem(
     resource: CourseResource,
+    isLocked: Boolean = false,
     onRead: () -> Unit,
-    onDownload: () -> Unit
+    onDownload: () -> Unit,
+    onLockedClick: () -> Unit = {}
 ) {
     Surface(
         color = Color(0xFF1E293B).copy(alpha = 0.5f),
         shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                if (isLocked) onLockedClick() else onRead()
+            }
     ) {
         Row(
             modifier = Modifier
@@ -1119,13 +1303,13 @@ private fun ResourceRowItem(
                 Icon(
                     imageVector = Icons.Default.PictureAsPdf,
                     contentDescription = null,
-                    tint = Color(0xFFEC4899),
+                    tint = if (isLocked) Color(0xFF64748B) else Color(0xFFEC4899),
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = resource.title,
-                    color = Color.White,
+                    color = if (isLocked) Color(0xFF94A3B8) else Color.White,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
@@ -1133,22 +1317,33 @@ private fun ResourceRowItem(
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(onClick = onRead, modifier = Modifier.size(28.dp)) {
+            if (isLocked) {
+                IconButton(onClick = onLockedClick, modifier = Modifier.size(28.dp)) {
                     Icon(
-                        Icons.Default.Visibility,
-                        contentDescription = "Read",
-                        tint = Color(0xFF38BDF8),
+                        Icons.Default.Lock,
+                        contentDescription = "Locked Note",
+                        tint = AppTheme.colors.textMuted,
                         modifier = Modifier.size(16.dp)
                     )
                 }
-                IconButton(onClick = onDownload, modifier = Modifier.size(28.dp)) {
-                    Icon(
-                        Icons.Default.Download,
-                        contentDescription = "Download",
-                        tint = Color(0xFF10B981),
-                        modifier = Modifier.size(16.dp)
-                    )
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(onClick = onRead, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            Icons.Default.Visibility,
+                            contentDescription = "Read",
+                            tint = Color(0xFF38BDF8),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    IconButton(onClick = onDownload, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            Icons.Default.Download,
+                            contentDescription = "Download",
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
         }

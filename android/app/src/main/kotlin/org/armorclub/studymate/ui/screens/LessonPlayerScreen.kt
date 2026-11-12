@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +27,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.animation.AnimatedVisibility
@@ -98,6 +101,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -112,9 +116,11 @@ import org.armorclub.studymate.data.model.Note
 import org.armorclub.studymate.data.model.UserCourseProgress
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.EnrollmentRepository
 import org.armorclub.studymate.data.repository.NotesRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.player.PlayerManager
+import org.armorclub.studymate.ui.components.EnrollmentDialog
 import org.armorclub.studymate.ui.components.LectureVideoCard
 import org.armorclub.studymate.ui.components.MarkdownView
 import org.armorclub.studymate.ui.components.UdemyResourceCard
@@ -132,6 +138,7 @@ fun LessonPlayerScreen(
     notesRepository: NotesRepository,
     progressRepository: ProgressRepository,
     authRepository: AuthRepository,
+    enrollmentRepository: EnrollmentRepository,
     playerManager: PlayerManager,
     onBackClick: () -> Unit,
     onSelectLesson: (String) -> Unit,
@@ -155,6 +162,7 @@ fun LessonPlayerScreen(
     var isFullScreen by remember { mutableStateOf(false) }
 
     var completionToastMessage by remember { mutableStateOf<String?>(null) }
+    var showEnrollmentDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(completionToastMessage) {
         if (completionToastMessage != null) {
@@ -170,12 +178,20 @@ fun LessonPlayerScreen(
         currentLesson = l
 
         if (l != null && c != null) {
-            val videoUrl = BundledCourses.resolveVideoUrl(l.videoUrl, courseRepository.getBaseUrl())
-            if (videoUrl != null) {
-                val savedPos = progressRepository.getPlaybackPosition(courseId, l.id)
-                val savedDur = progressRepository.getPlaybackDuration(courseId, l.id)
-                val startPos = if (savedPos > 2000L && (savedDur == 0L || savedPos < savedDur - 5000L)) savedPos else 0L
-                playerManager.playLesson(courseId, l, videoUrl, startPositionMs = startPos)
+            val secIdx = c.sections.indexOfFirst { sec -> sec.lessons.any { it.id == l.id } }.coerceAtLeast(0)
+            val lesIdx = c.sections.getOrNull(secIdx)?.lessons?.indexOfFirst { it.id == l.id }?.coerceAtLeast(0) ?: 0
+            val canAccess = enrollmentRepository.canAccessLesson(courseId, secIdx, lesIdx, l, currentUser, c.price)
+
+            if (canAccess) {
+                val videoUrl = BundledCourses.resolveVideoUrl(l.videoUrl, courseRepository.getBaseUrl())
+                if (videoUrl != null) {
+                    val savedPos = progressRepository.getPlaybackPosition(courseId, l.id)
+                    val savedDur = progressRepository.getPlaybackDuration(courseId, l.id)
+                    val startPos = if (savedPos > 2000L && (savedDur == 0L || savedPos < savedDur - 5000L)) savedPos else 0L
+                    playerManager.playLesson(courseId, l, videoUrl, startPositionMs = startPos)
+                }
+            } else {
+                playerManager.pause()
             }
             note = notesRepository.getNote(l.id, c.id, l.title, c.title)
         }
@@ -199,6 +215,99 @@ fun LessonPlayerScreen(
 
     // Locate current section
     val currentSection = activeCourse.sections.firstOrNull { sec -> sec.lessons.any { it.id == lesson.id } }
+    val currentSecIdx = activeCourse.sections.indexOfFirst { sec -> sec.lessons.any { it.id == lesson.id } }.coerceAtLeast(0)
+    val currentLesIdx = currentSection?.lessons?.indexOfFirst { it.id == lesson.id }?.coerceAtLeast(0) ?: 0
+    val isCourseApproved = enrollmentRepository.isCourseApproved(courseId, currentUser, activeCourse.price)
+    val canAccessCurrentLesson = enrollmentRepository.canAccessLesson(courseId, currentSecIdx, currentLesIdx, lesson, currentUser, activeCourse.price)
+
+    @Composable
+    fun LockedLectureBarrier(modifier: Modifier = Modifier) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .then(if (isFullScreen) Modifier.fillMaxSize() else Modifier.aspectRatio(16f / 9f))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFF0F172A), Color(0xFF020617))
+                    )
+                )
+                .padding(16.dp)
+        ) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier.align(Alignment.TopStart)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.Center)
+                    .padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF59E0B).copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = Color(0xFFF59E0B),
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Premium Lecture Locked",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 16.sp
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "This lecture is part of the full curriculum. Enroll in the course to unlock on-demand HD videos & study materials.",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 15.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = { showEnrollmentDialog = true },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppTheme.colors.primaryButton,
+                        contentColor = AppTheme.colors.onPrimaryButton
+                    ),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                    modifier = Modifier.height(38.dp)
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (currentUser != null) "Enroll Now (৳${activeCourse.price?.toInt() ?: 2500}) 🎓" else "Enroll Now (Sign In) 🎓",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+    }
 
     val savedPlaybackPos = remember(lesson.id) { progressRepository.getPlaybackPosition(courseId, lesson.id) }
 
@@ -629,7 +738,12 @@ fun LessonPlayerScreen(
                         course = activeCourse,
                         activeLessonId = lesson.id,
                         courseProgress = courseProgress,
+                        enrollmentRepository = enrollmentRepository,
+                        currentUser = currentUser,
                         onSelectLesson = { newLessonId -> onSelectLesson(newLessonId) },
+                        onLockedLessonClick = {
+                            showEnrollmentDialog = true
+                        },
                         onToggleLessonComplete = { targetLessonId ->
                             val nowDone = progressRepository.toggleLessonProgress(userId, activeCourse.id, targetLessonId)
                             completionToastMessage = if (nowDone) "Lesson marked as completed! (+15 Points) ✓" else "Lesson marked as incomplete"
@@ -639,8 +753,12 @@ fun LessonPlayerScreen(
                         course = activeCourse,
                         section = currentSection,
                         lesson = lesson,
+                        isCourseApproved = isCourseApproved,
                         courseRepository = courseRepository,
-                        onViewResource = onViewResource
+                        onViewResource = onViewResource,
+                        onLockedClick = {
+                            showEnrollmentDialog = true
+                        }
                     )
                     2 -> NotesTab(
                         note = note,
@@ -675,33 +793,37 @@ fun LessonPlayerScreen(
                         .fillMaxHeight()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    VideoPlayerView(
-                        playerManager = playerManager,
-                        title = lesson.title,
-                        courseId = courseId,
-                        lessonId = lessonId,
-                        resumePositionMs = savedPlaybackPos,
-                        isCompleted = isCurrentLessonDone,
-                        onSavePlaybackPosition = { posMs, durMs ->
-                            progressRepository.savePlaybackPosition(courseId, lesson.id, posMs, durMs)
-                        },
-                        onAutoComplete = {
-                            val wasNew = progressRepository.markLessonCompleted(userId, courseId, lesson.id)
-                            if (wasNew) {
-                                completionToastMessage = "Lesson marked as completed! (+15 Points) ✓"
+                    if (!canAccessCurrentLesson) {
+                        LockedLectureBarrier()
+                    } else {
+                        VideoPlayerView(
+                            playerManager = playerManager,
+                            title = lesson.title,
+                            courseId = courseId,
+                            lessonId = lessonId,
+                            resumePositionMs = savedPlaybackPos,
+                            isCompleted = isCurrentLessonDone,
+                            onSavePlaybackPosition = { posMs, durMs ->
+                                progressRepository.savePlaybackPosition(courseId, lesson.id, posMs, durMs)
+                            },
+                            onAutoComplete = {
+                                val wasNew = progressRepository.markLessonCompleted(userId, courseId, lesson.id)
+                                if (wasNew) {
+                                    completionToastMessage = "Lesson marked as completed! (+15 Points) ✓"
+                                }
+                            },
+                            onBackClick = onBackClick,
+                            onNextLessonClick = nextLesson?.let { nl -> { onSelectLesson(nl.id) } },
+                            onPrevLessonClick = prevLesson?.let { pl -> { onSelectLesson(pl.id) } },
+                            onPiPClick = onPiPClick,
+                            isFullScreen = false,
+                            onToggleFullScreen = {
+                                val activity = context as? Activity
+                                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                                isFullScreen = true
                             }
-                        },
-                        onBackClick = onBackClick,
-                        onNextLessonClick = nextLesson?.let { nl -> { onSelectLesson(nl.id) } },
-                        onPrevLessonClick = prevLesson?.let { pl -> { onSelectLesson(pl.id) } },
-                        onPiPClick = onPiPClick,
-                        isFullScreen = false,
-                        onToggleFullScreen = {
-                            val activity = context as? Activity
-                            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                            isFullScreen = true
-                        }
-                    )
+                        )
+                    }
                     VideoDetailsSection()
                 }
 
@@ -722,38 +844,42 @@ fun LessonPlayerScreen(
                     .then(if (!isFullScreen) Modifier.statusBarsPadding().navigationBarsPadding() else Modifier)
                     .background(MaterialTheme.colorScheme.background)
             ) {
-                VideoPlayerView(
-                    playerManager = playerManager,
-                    title = lesson.title,
-                    courseId = courseId,
-                    lessonId = lessonId,
-                    resumePositionMs = savedPlaybackPos,
-                    isCompleted = isCurrentLessonDone,
-                    onSavePlaybackPosition = { posMs, durMs ->
-                        progressRepository.savePlaybackPosition(courseId, lesson.id, posMs, durMs)
-                    },
-                    onAutoComplete = {
-                        val wasNew = progressRepository.markLessonCompleted(userId, courseId, lesson.id)
-                        if (wasNew) {
-                            completionToastMessage = "Lesson marked as completed! (+15 Points) ✓"
+                if (!canAccessCurrentLesson) {
+                    LockedLectureBarrier()
+                } else {
+                    VideoPlayerView(
+                        playerManager = playerManager,
+                        title = lesson.title,
+                        courseId = courseId,
+                        lessonId = lessonId,
+                        resumePositionMs = savedPlaybackPos,
+                        isCompleted = isCurrentLessonDone,
+                        onSavePlaybackPosition = { posMs, durMs ->
+                            progressRepository.savePlaybackPosition(courseId, lesson.id, posMs, durMs)
+                        },
+                        onAutoComplete = {
+                            val wasNew = progressRepository.markLessonCompleted(userId, courseId, lesson.id)
+                            if (wasNew) {
+                                completionToastMessage = "Lesson marked as completed! (+15 Points) ✓"
+                            }
+                        },
+                        onBackClick = onBackClick,
+                        onNextLessonClick = nextLesson?.let { nl -> { onSelectLesson(nl.id) } },
+                        onPrevLessonClick = prevLesson?.let { pl -> { onSelectLesson(pl.id) } },
+                        onPiPClick = onPiPClick,
+                        isFullScreen = isFullScreen,
+                        onToggleFullScreen = {
+                            val activity = context as? Activity
+                            if (!isFullScreen) {
+                                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                                isFullScreen = true
+                            } else {
+                                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                                isFullScreen = false
+                            }
                         }
-                    },
-                    onBackClick = onBackClick,
-                    onNextLessonClick = nextLesson?.let { nl -> { onSelectLesson(nl.id) } },
-                    onPrevLessonClick = prevLesson?.let { pl -> { onSelectLesson(pl.id) } },
-                    onPiPClick = onPiPClick,
-                    isFullScreen = isFullScreen,
-                    onToggleFullScreen = {
-                        val activity = context as? Activity
-                        if (!isFullScreen) {
-                            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                            isFullScreen = true
-                        } else {
-                            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                            isFullScreen = false
-                        }
-                    }
-                )
+                    )
+                }
 
                 if (!isFullScreen) {
                     VideoDetailsSection()
@@ -802,6 +928,18 @@ fun LessonPlayerScreen(
                 }
             }
         }
+
+        if (showEnrollmentDialog) {
+            EnrollmentDialog(
+                course = activeCourse,
+                userId = userId,
+                enrollmentRepository = enrollmentRepository,
+                onDismiss = { showEnrollmentDialog = false },
+                onSuccess = {
+                    Toast.makeText(context, "Enrollment submitted! Verification pending.", Toast.LENGTH_LONG).show()
+                }
+            )
+        }
     }
 }
 
@@ -810,8 +948,10 @@ private fun LessonResourcesTab(
     course: Course,
     section: CourseSection?,
     lesson: CourseLesson,
+    isCourseApproved: Boolean,
     courseRepository: CourseRepository,
-    onViewResource: (title: String, fileUrl: String) -> Unit
+    onViewResource: (title: String, fileUrl: String) -> Unit,
+    onLockedClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -877,6 +1017,7 @@ private fun LessonResourcesTab(
                 UdemyResourceCard(
                     resource = res,
                     moduleName = "LECTURE RESOURCE",
+                    isLocked = !isCourseApproved,
                     onRead = { onViewResource(res.title, res.fileUrl) },
                     onDownload = {
                         scope.launch {
@@ -889,7 +1030,8 @@ private fun LessonResourcesTab(
                     onOpenExternal = {
                         val fullUrl = courseRepository.resolveResourceUrl(res.fileUrl)
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fullUrl)))
-                    }
+                    },
+                    onLockedClick = onLockedClick
                 )
             }
         }
@@ -909,6 +1051,7 @@ private fun LessonResourcesTab(
                 UdemyResourceCard(
                     resource = res,
                     moduleName = "MODULE RESOURCE",
+                    isLocked = !isCourseApproved,
                     onRead = { onViewResource(res.title, res.fileUrl) },
                     onDownload = {
                         scope.launch {
@@ -921,7 +1064,8 @@ private fun LessonResourcesTab(
                     onOpenExternal = {
                         val fullUrl = courseRepository.resolveResourceUrl(res.fileUrl)
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fullUrl)))
-                    }
+                    },
+                    onLockedClick = onLockedClick
                 )
             }
         }
@@ -938,6 +1082,7 @@ private fun LessonResourcesTab(
                 UdemyResourceCard(
                     resource = res,
                     moduleName = "HANDBOOK",
+                    isLocked = !isCourseApproved,
                     onRead = { onViewResource(res.title, res.fileUrl) },
                     onDownload = {
                         scope.launch {
@@ -949,7 +1094,8 @@ private fun LessonResourcesTab(
                     onOpenExternal = {
                         val fullUrl = courseRepository.resolveResourceUrl(res.fileUrl)
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fullUrl)))
-                    }
+                    },
+                    onLockedClick = onLockedClick
                 )
             }
         }
@@ -1181,7 +1327,10 @@ private fun SyllabusTab(
     course: Course,
     activeLessonId: String,
     courseProgress: UserCourseProgress,
+    enrollmentRepository: EnrollmentRepository,
+    currentUser: org.armorclub.studymate.data.model.UserProfile?,
     onSelectLesson: (String) -> Unit,
+    onLockedLessonClick: (CourseLesson) -> Unit,
     onToggleLessonComplete: (String) -> Unit
 ) {
     // Accordion expansion state: maps section.id -> Boolean
@@ -1424,11 +1573,18 @@ private fun SyllabusTab(
                             section.lessons.forEachIndexed { lIdx, itemLesson ->
                                 val isCurrent = itemLesson.id == activeLessonId
                                 val isDone = courseProgress.isCompleted(itemLesson.id)
+                                val canAccessItem = enrollmentRepository.canAccessLesson(course.id, sIdx, lIdx, itemLesson, currentUser, course.price)
 
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable { onSelectLesson(itemLesson.id) }
+                                        .clickable {
+                                            if (canAccessItem) {
+                                                onSelectLesson(itemLesson.id)
+                                            } else {
+                                                onLockedLessonClick(itemLesson)
+                                            }
+                                        }
                                         .background(
                                             if (isCurrent) AppTheme.colors.primary.copy(alpha = 0.15f)
                                             else Color.Transparent
@@ -1471,6 +1627,13 @@ private fun SyllabusTab(
                                                         modifier = Modifier.size(13.dp)
                                                     )
                                                 }
+                                            } else if (!canAccessItem) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Lock,
+                                                    contentDescription = "Locked",
+                                                    tint = AppTheme.colors.textMuted,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
                                             } else {
                                                 Icon(
                                                     imageVector = Icons.Default.RadioButtonUnchecked,
@@ -1488,7 +1651,7 @@ private fun SyllabusTab(
                                                 text = itemLesson.title,
                                                 style = MaterialTheme.typography.bodySmall.copy(
                                                     fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                                    color = if (isCurrent) AppTheme.colors.primary else AppTheme.colors.textPrimary
+                                                    color = if (isCurrent) AppTheme.colors.primary else if (!canAccessItem) AppTheme.colors.textSecondary else AppTheme.colors.textPrimary
                                                 ),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
@@ -1548,6 +1711,13 @@ private fun SyllabusTab(
                                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                                 )
                                             }
+                                        } else if (!canAccessItem) {
+                                            Icon(
+                                                Icons.Default.Lock,
+                                                contentDescription = "Locked",
+                                                tint = AppTheme.colors.textMuted,
+                                                modifier = Modifier.size(14.dp)
+                                            )
                                         }
                                     }
                                 }

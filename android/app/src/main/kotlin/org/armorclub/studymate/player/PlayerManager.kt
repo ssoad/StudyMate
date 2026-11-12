@@ -282,6 +282,14 @@ class PlayerManager private constructor(context: Context) {
         }
     }
 
+    fun pause() {
+        exoPlayer.pause()
+    }
+
+    fun stop() {
+        exoPlayer.stop()
+    }
+
     fun seekTo(positionMs: Long) {
         val safePos = positionMs.coerceIn(0L, exoPlayer.duration.coerceAtLeast(0L))
         exoPlayer.seekTo(safePos)
