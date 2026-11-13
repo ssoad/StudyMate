@@ -59,6 +59,7 @@ class MainActivity : ComponentActivity() {
         enrollmentRepository = EnrollmentRepository(this, courseRepository, authRepository)
         playerManager = PlayerManager.getInstance(this)
         themeRepository = ThemeRepository(this)
+        lifecycleScope.launch { authRepository.validateSession() }
 
         handleIntent(intent)
         checkNotificationPermission()

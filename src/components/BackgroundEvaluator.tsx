@@ -5,14 +5,14 @@ import { useAuthStore } from '../store/authStore';
 import { Loader2 } from 'lucide-react';
 
 export default function BackgroundEvaluator() {
-  const { user } = useAuthStore();
+  const { user, role } = useAuthStore();
   const [evaluatingTarget, setEvaluatingTarget] = useState<string | null>(null);
   const [progress, setProgress] = useState({ total: 0, completed: 0 });
   const isProcessing = useRef(false);
 
   useEffect(() => {
     // Only run for admins
-    if (!user?.email?.includes('admin')) return;
+    if (!user || role !== 'admin') return;
 
     const interval = setInterval(() => {
       checkQueue();
@@ -22,7 +22,7 @@ export default function BackgroundEvaluator() {
     checkQueue();
 
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, role]);
 
   const checkQueue = async () => {
     if (isProcessing.current) return;

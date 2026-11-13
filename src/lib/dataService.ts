@@ -1,4 +1,17 @@
 import { supabase } from './supabase';
+
+// Columns clients may read from profiles (password_hash / last_accessed_ip are server-only).
+const PROFILE_COLUMNS = 'id, email, full_name, avatar_url, points, bio, last_accessed_at, created_at';
+
+async function authHeader(): Promise<Record<string, string>> {
+  try {
+    const { data } = await supabase!.auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
 import { INITIAL_DEMO_COURSES } from './demoCourses';
 import type { TranscriptCue, TranscriptMetadata } from './transcriptParser';
 
@@ -207,7 +220,7 @@ export const dataService = {
       { count: topicsCount },
       { count: discussionsCount }
     ] = await Promise.all([
-      supabase!.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase!.from('profiles').select('id', { count: 'exact', head: true }),
       supabase!.from('study_days').select('*', { count: 'exact', head: true }),
       supabase!.from('discussions').select('*', { count: 'exact', head: true }),
     ]);
@@ -280,10 +293,10 @@ export const dataService = {
     return await supabase!.from('profiles').select('points').eq('id', userId).maybeSingle();
   },
   getAllUsers: async () => {
-    return await supabase!.from('profiles').select('*').order('last_accessed_at', { ascending: false, nullsFirst: false });
+    return await supabase!.rpc('admin_list_users');
   },
   getUserProfile: async (userId: string) => {
-    return await supabase!.from('profiles').select('*').eq('id', userId).maybeSingle();
+    return await supabase!.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).maybeSingle();
   },
   updateProfile: async (userId: string, updates: Partial<UserProfile>) => {
     return await supabase!.from('profiles').update(updates).eq('id', userId);
@@ -380,7 +393,7 @@ export const dataService = {
     try {
       const res = await fetch('/api/storage/upload', {
         method: 'POST',
-        headers: { 'x-filename': encodeURIComponent(file.name) },
+        headers: { 'x-filename': encodeURIComponent(file.name), ...(await authHeader()) },
         body: file,
       });
       if (res.ok) {
@@ -576,7 +589,7 @@ export const dataService = {
       // First try dedicated server endpoint
       const resp = await fetch('/api/transcripts/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify({ lessonId, transcript }),
       });
       if (resp.ok) {
@@ -606,7 +619,7 @@ export const dataService = {
     try {
       const resp = await fetch('/api/transcripts/delete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify({ lessonId }),
       });
       if (resp.ok) {
@@ -740,7 +753,7 @@ export const dataService = {
     try {
       const res = await fetch('/api/storage/upload', {
         method: 'POST',
-        headers: { 'x-filename': encodeURIComponent(file.name) },
+        headers: { 'x-filename': encodeURIComponent(file.name), ...(await authHeader()) },
         body: file,
       });
       if (res.ok) {

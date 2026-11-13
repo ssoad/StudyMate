@@ -56,7 +56,15 @@ function App() {
       const authRole = isAdmin ? 'admin' : 'user';
       setAuth(session?.user ?? null, session?.user ? authRole : null);
       if (session?.user) {
-        supabase!.rpc('update_last_access').then(() => {});
+        // Verify the stored token with the server; a rejected token (e.g. after the
+        // signing secret was rotated) signs the user out instead of failing silently.
+        supabase!.auth.getUser().then(({ error }) => {
+          if (error && (error as { status?: number }).status === 401) {
+            supabase!.auth.signOut();
+            return;
+          }
+          supabase!.rpc('update_last_access').then(() => {});
+        });
       }
     });
 

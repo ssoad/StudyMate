@@ -260,6 +260,33 @@ class AuthRepository(
         return prefs.getString("access_token", null)
     }
 
+    /**
+     * Verifies the stored access token with the server. If the server explicitly
+     * rejects it (401 — e.g. after the signing secret was rotated), the local session
+     * is cleared so the user is asked to sign in again instead of silently failing to sync.
+     * Network errors keep the session (offline use).
+     */
+    suspend fun validateSession() = withContext(Dispatchers.IO) {
+        val token = getAuthToken()
+        if (token.isNullOrBlank() || token == "offline_demo_token" || token == "demo_token_offline") return@withContext
+        try {
+            val baseUrl = courseRepository.getBaseUrl().trimEnd('/')
+            val request = Request.Builder()
+                .url("$baseUrl/auth/v1/user")
+                .get()
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+            httpClient.newCall(request).execute().use { resp ->
+                if (resp.code == 401) {
+                    Log.i("AuthRepository", "Stored session rejected by server; signing out")
+                    withContext(Dispatchers.Main) { signOut() }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("AuthRepository", "Session check skipped: ${e.message}")
+        }
+    }
+
     fun addPoints(pointsDelta: Int) {
         val current = _currentUser.value ?: return
         val newPoints = (current.points + pointsDelta).coerceAtLeast(0)

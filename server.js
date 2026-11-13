@@ -11,7 +11,21 @@ const PORT = parseInt(process.env.PORT || '5173', 10);
 const STORAGE_DIR = process.env.STORAGE_DIR || path.join(__dirname, 'storage');
 const DIST_DIR = path.join(__dirname, 'dist');
 const POSTGREST_URL = process.env.POSTGREST_URL || 'http://postgrest:3000';
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-token-with-at-least-32-characters-long';
+const JWT_SECRET = process.env.JWT_SECRET || '';
+const KNOWN_PUBLIC_SECRETS = new Set(['super-secret-jwt-token-with-at-least-32-characters-long']);
+if (JWT_SECRET.length < 32 || KNOWN_PUBLIC_SECRETS.has(JWT_SECRET)) {
+  console.error('[Startup] JWT_SECRET must be set to a private random value of at least 32 characters (e.g. `openssl rand -hex 32`). Refusing to start.');
+  process.exit(1);
+}
+// Comma-separated list of emails that receive the admin role in their access token.
+const ADMIN_EMAILS = new Set(
+  (process.env.ADMIN_EMAILS || 'admin@studymate.org')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+);
+const MAX_UPLOAD_BYTES = parseInt(process.env.MAX_UPLOAD_MB || '200', 10) * 1024 * 1024;
+const TOKEN_TTL_SECONDS = 86400 * 30;
 
 // Ensure storage directory exists
 if (!fs.existsSync(STORAGE_DIR)) {
@@ -63,8 +77,12 @@ function verifyJwt(token, secret = JWT_SECRET) {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     const [header, body, signature] = parts;
+    const headerJson = JSON.parse(Buffer.from(header, 'base64url').toString('utf8'));
+    if (headerJson.alg !== 'HS256') return null;
     const expected = crypto.createHmac('sha256', secret).update(`${header}.${body}`).digest('base64url');
-    if (signature !== expected) return null;
+    const a = Buffer.from(signature);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
     if (payload.exp && Date.now() / 1000 > payload.exp) return null;
     return payload;
@@ -84,7 +102,9 @@ function verifyPassword(password, stored) {
   if (parts.length !== 2) return false;
   const [salt, expectedHash] = parts;
   const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha256').toString('hex');
-  return hash === expectedHash;
+  const a = Buffer.from(hash, 'hex');
+  const b = Buffer.from(expectedHash, 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 // In-memory rate limiter for failed login attempts (IP -> { count, lastAttempt })
@@ -106,6 +126,46 @@ const ANON_TOKEN = signJwt({
   iat: 1700000000,
   exp: 2500000000,
 });
+
+// Server-internal token. service_role has BYPASSRLS and can read password hashes;
+// it is never sent to clients.
+const SERVICE_TOKEN = signJwt({
+  role: 'service_role',
+  iss: 'studymate-server',
+  iat: Math.floor(Date.now() / 1000),
+});
+
+function isAdminEmail(email) {
+  return ADMIN_EMAILS.has(String(email || '').trim().toLowerCase());
+}
+
+function signUserToken(id, email) {
+  const isAdmin = isAdminEmail(email);
+  return {
+    isAdmin,
+    token: signJwt({
+      sub: id,
+      email,
+      role: 'authenticated',
+      aud: 'authenticated',
+      app_role: isAdmin ? 'admin' : 'student',
+      exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS,
+    }),
+  };
+}
+
+// Returns the verified JWT payload of a signed-in user, or null.
+function getRequestUser(req) {
+  const token = String(req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
+  const payload = verifyJwt(token);
+  if (!payload || payload.role !== 'authenticated' || !payload.sub) return null;
+  return payload;
+}
+
+function sendJson(res, status, obj) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(obj));
+}
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -136,7 +196,7 @@ function queryPostgREST(apiPath, method = 'GET', body = null, extraHeaders = {})
     const url = new URL(apiPath, POSTGREST_URL);
     const headers = {
       'Accept': 'application/json',
-      'Authorization': `Bearer ${ANON_TOKEN}`,
+      'Authorization': `Bearer ${SERVICE_TOKEN}`,
       ...extraHeaders,
     };
 
@@ -371,6 +431,16 @@ const server = http.createServer(async (req, res) => {
 
   // 2. Storage Upload
   if (pathname === '/api/storage/upload' && req.method === 'POST') {
+    if (!getRequestUser(req)) {
+      sendJson(res, 401, { error: 'Sign in to upload files' });
+      return;
+    }
+    const declaredLength = parseInt(req.headers['content-length'] || '0', 10);
+    if (declaredLength > MAX_UPLOAD_BYTES) {
+      sendJson(res, 413, { error: `File too large (max ${Math.round(MAX_UPLOAD_BYTES / 1048576)} MB)` });
+      req.destroy();
+      return;
+    }
     const rawFilename = req.headers['x-filename']
       ? decodeURIComponent(req.headers['x-filename'])
       : `file_${Date.now()}`;
@@ -380,8 +450,21 @@ const server = http.createServer(async (req, res) => {
     const safeFilename = `${Date.now()}_${base}${ext}`;
 
     const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
+    let received = 0;
+    let aborted = false;
+    req.on('data', (chunk) => {
+      if (aborted) return;
+      received += chunk.length;
+      if (received > MAX_UPLOAD_BYTES) {
+        aborted = true;
+        sendJson(res, 413, { error: `File too large (max ${Math.round(MAX_UPLOAD_BYTES / 1048576)} MB)` });
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on('end', () => {
+      if (aborted) return;
       const buffer = Buffer.concat(chunks);
       const contentType = req.headers['content-type'] || '';
       let finalData = buffer;
@@ -568,6 +651,10 @@ const server = http.createServer(async (req, res) => {
 
   // 3.6 Manual Transcript Save / Delete Endpoints
   if (pathname === '/api/transcripts/save' && req.method === 'POST') {
+    if (getRequestUser(req)?.app_role !== 'admin') {
+      sendJson(res, 403, { error: 'Admin access required' });
+      return;
+    }
     try {
       const body = await readBodyJson(req);
       const { lessonId, transcript } = body;
@@ -595,6 +682,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/api/transcripts/delete' && req.method === 'POST') {
+    if (getRequestUser(req)?.app_role !== 'admin') {
+      sendJson(res, 403, { error: 'Admin access required' });
+      return;
+    }
     try {
       const body = await readBodyJson(req);
       const { lessonId } = body;
@@ -741,15 +832,7 @@ const server = http.createServer(async (req, res) => {
 
           console.log(`[Auth] Login SUCCESS for: "${cleanEmail}" (ID: ${userProfile.id})`);
 
-          const isAdmin = cleanEmail === 'admin@studymate.org' || cleanEmail === 'admin@studymate.local';
-          const token = signJwt({
-            sub: userProfile.id,
-            email: userProfile.email,
-            role: 'authenticated',
-            aud: 'authenticated',
-            app_role: isAdmin ? 'admin' : 'student',
-            exp: Math.floor(Date.now() / 1000) + 86400 * 30, // 30 days
-          });
+          const { isAdmin, token } = signUserToken(userProfile.id, userProfile.email);
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(
@@ -787,13 +870,11 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        const newToken = signJwt({
-          sub: payload.sub,
-          email: payload.email,
-          role: 'authenticated',
-          aud: 'authenticated',
-          exp: Math.floor(Date.now() / 1000) + 86400 * 30,
-        });
+        if (payload.role !== 'authenticated' || !payload.sub) {
+          sendJson(res, 400, { error: 'invalid_grant', error_description: 'Invalid refresh token' });
+          return;
+        }
+        const { isAdmin, token: newToken } = signUserToken(payload.sub, payload.email);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(
@@ -807,8 +888,8 @@ const server = http.createServer(async (req, res) => {
               aud: 'authenticated',
               role: 'authenticated',
               email: payload.email,
-              app_metadata: { provider: 'email' },
-              user_metadata: {},
+              app_metadata: { provider: 'email', role: isAdmin ? 'admin' : 'student' },
+              user_metadata: { role: isAdmin ? 'admin' : 'student' },
             },
           })
         );
@@ -819,11 +900,16 @@ const server = http.createServer(async (req, res) => {
     // 4b. Sign Up
     if (authEndpoint === 'signup' && req.method === 'POST') {
       const body = await readBodyJson(req);
-      const { email, password, data } = body;
+      const { password, data } = body;
+      const email = String(body.email || '').trim().toLowerCase();
 
       if (!email || !password) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ msg: 'Email and password are required' }));
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || String(password).length < 8) {
+        sendJson(res, 400, { msg: 'Enter a valid email and a password of at least 8 characters' });
         return;
       }
 
@@ -847,13 +933,7 @@ const server = http.createServer(async (req, res) => {
 
         const userProfile = Array.isArray(insertResp.data) ? insertResp.data[0] : insertResp.data;
 
-        const token = signJwt({
-          sub: newId,
-          email: email,
-          role: 'authenticated',
-          aud: 'authenticated',
-          exp: Math.floor(Date.now() / 1000) + 86400 * 30,
-        });
+        const { token } = signUserToken(newId, email);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(
@@ -887,11 +967,12 @@ const server = http.createServer(async (req, res) => {
       const token = authHeader.replace(/^Bearer\s+/i, '');
       const payload = verifyJwt(token);
 
-      if (!payload) {
+      if (!payload || payload.role !== 'authenticated') {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ msg: 'Unauthorized' }));
         return;
       }
+      const userRole = payload.app_role === 'admin' ? 'admin' : 'student';
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
@@ -900,8 +981,8 @@ const server = http.createServer(async (req, res) => {
           aud: 'authenticated',
           role: 'authenticated',
           email: payload.email,
-          app_metadata: { provider: 'email' },
-          user_metadata: {},
+          app_metadata: { provider: 'email', role: userRole },
+          user_metadata: { role: userRole },
         })
       );
       return;
@@ -936,9 +1017,6 @@ const server = http.createServer(async (req, res) => {
             last_accessed_at: new Date().toISOString(),
             last_accessed_ip: clientIp,
           });
-        } else {
-          // Update latest profile
-          await queryPostgREST('/rpc/update_last_access', 'POST', {});
         }
       } catch {}
 
@@ -956,13 +1034,13 @@ const server = http.createServer(async (req, res) => {
       headers[key] = val;
     }
 
-    // Ensure valid authorization and apikey headers exist for PostgREST role resolution
-    if (!headers['apikey'] || (typeof headers['apikey'] === 'string' && headers['apikey'].endsWith('.local'))) {
-      headers['apikey'] = ANON_TOKEN;
-    }
-    if (!headers['authorization'] || (typeof headers['authorization'] === 'string' && headers['authorization'].endsWith('.local'))) {
-      headers['authorization'] = `Bearer ${ANON_TOKEN}`;
-    }
+    // Only a signed-in user's token or the anon token may reach PostgREST.
+    // Anything else (missing, expired, forged, or a service token) is downgraded to anon.
+    headers['apikey'] = ANON_TOKEN;
+    const proxiedUser = getRequestUser(req);
+    headers['authorization'] = proxiedUser
+      ? String(req.headers['authorization'])
+      : `Bearer ${ANON_TOKEN}`;
 
     const options = {
       hostname: targetUrl.hostname,
