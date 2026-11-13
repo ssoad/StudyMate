@@ -521,6 +521,34 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // App downloads: /downloads/studymate.apk and /downloads/android.json (version info).
+  // Files live in STORAGE_DIR/downloads (a persistent volume, not part of the web build).
+  if (pathname === '/downloads/studymate.apk' || pathname === '/downloads/android.json') {
+    const name = path.basename(pathname);
+    const filePath = path.join(STORAGE_DIR, 'downloads', name);
+    if (!fs.existsSync(filePath)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not available yet');
+      return;
+    }
+    const stat = fs.statSync(filePath);
+    const isApk = name.endsWith('.apk');
+    res.writeHead(200, {
+      'Content-Type': isApk ? 'application/vnd.android.package-archive' : 'application/json',
+      'Content-Length': stat.size,
+      ...(isApk ? { 'Content-Disposition': 'attachment; filename="StudyMate.apk"' } : {}),
+      // Version info must stay fresh; the APK URL is stable, so revalidate it too.
+      'Cache-Control': 'no-cache',
+      'Last-Modified': stat.mtime.toUTCString(),
+    });
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
+    fs.createReadStream(filePath).pipe(res);
+    return;
+  }
+
   // 3. Serve uploaded & local files: /api/storage/files/*
   if (pathname.startsWith('/api/storage/files/')) {
     const rawRel = pathname.replace('/api/storage/files/', '');

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
@@ -11,16 +13,31 @@ android {
     applicationId = "org.armorclub.studymate"
     minSdk = 26
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = 2
+    versionName = "1.1.0"
   }
+
+  // Release signing comes from android/keystore.properties (gitignored),
+  // created by scripts/create-release-key.sh.
+  val keystoreProps = rootProject.file("keystore.properties")
+  val releaseSigning = if (keystoreProps.exists()) {
+    val p = Properties().apply { keystoreProps.inputStream().use { load(it) } }
+    signingConfigs.create("release") {
+      storeFile = file(p.getProperty("storeFile"))
+      storePassword = p.getProperty("storePassword")
+      keyAlias = p.getProperty("keyAlias")
+      keyPassword = p.getProperty("keyPassword")
+    }
+  } else null
 
   buildTypes {
     release {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("debug")
+      // Falls back to the debug key only so local release builds still work;
+      // public APKs must be built with keystore.properties present.
+      signingConfig = releaseSigning ?: signingConfigs.getByName("debug")
     }
   }
   compileOptions {

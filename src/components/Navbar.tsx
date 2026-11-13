@@ -248,14 +248,13 @@ export function Navbar() {
             <button
               type="button"
               onClick={openInstall}
-              className={`w-full py-2 px-2.5 mb-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md shadow-indigo-500/20 transition-all flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}
-              title="Install StudyMate App to Desktop / Tablet"
+              className={`w-full py-2 px-2.5 mb-1.5 rounded-[var(--radius-md)] text-xs font-semibold border border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors flex items-center ${isCollapsed ? 'justify-center' : 'justify-start'}`}
+              title="Get the StudyMate app"
             >
               <div className="flex items-center gap-2 overflow-hidden">
                 <Download size={15} className="shrink-0" />
-                {!isCollapsed && <span className="truncate">Install App</span>}
+                {!isCollapsed && <span className="truncate">Get the app</span>}
               </div>
-              {!isCollapsed && <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded font-mono uppercase tracking-wider">App</span>}
             </button>
           )}
 

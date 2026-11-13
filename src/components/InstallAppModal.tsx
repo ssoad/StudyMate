@@ -1,153 +1,137 @@
 import { useState } from 'react';
-import { Download, X, Share, PlusSquare, Smartphone, Zap, Bell, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Download, Monitor, PlusSquare, Share, Smartphone, X } from 'lucide-react';
 import { usePWA } from '../lib/pwa';
 import { useToastStore } from '../store/toastStore';
+import { buttonClass } from './Button';
+import { APK_URL, detectPlatform, useAndroidRelease, type Platform } from '../lib/appRelease';
 
 interface InstallAppModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+function formatSize(bytes: number) {
+  return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
+
 export function InstallAppModal({ isOpen, onClose }: InstallAppModalProps) {
-  const { isInstalled, isIOS, canInstall, promptInstall } = usePWA();
+  const { isInstalled, canInstall, promptInstall } = usePWA();
   const { addToast } = useToastStore();
   const [installing, setInstalling] = useState(false);
+  const [platform] = useState<Platform>(detectPlatform);
+  const release = useAndroidRelease(isOpen);
 
   if (!isOpen) return null;
 
-  const handleInstallClick = async () => {
+  const installWebApp = async () => {
     setInstalling(true);
     try {
       const result = await promptInstall();
       if (result === 'accepted') {
-        addToast('StudyMate is installing to your device!', 'success');
+        addToast('StudyMate is being added to your device', 'success');
         onClose();
-      } else if (result === 'manual_ios') {
-        // Modal will stay open to show iOS instructions
       }
     } catch {
-      addToast('Could not trigger install prompt.', 'info');
+      addToast("Your browser didn't offer an install prompt", 'info');
     } finally {
       setInstalling(false);
     }
   };
 
+  const apkMeta = release ? `Version ${release.versionName} · ${formatSize(release.sizeBytes)}` : null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="install-title">
       <div className="absolute inset-0" onClick={onClose} />
 
-      <div className="relative w-full max-w-md bg-[var(--surface)] border-t sm:border border-[var(--border)] rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 space-y-6 overflow-hidden z-10 animate-slide-up">
-        {/* Grab bar for mobile */}
-        <div className="w-12 h-1.5 rounded-full bg-[var(--border)] mx-auto sm:hidden" />
-
-        {/* Header */}
+      <div className="relative z-10 w-full max-w-md space-y-5 rounded-t-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-6 sm:rounded-[var(--radius-lg)]">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 p-0.5 shadow-md flex items-center justify-center shrink-0">
-              <img src="/icon-192.png" alt="StudyMate Icon" className="w-full h-full rounded-[14px] object-cover" />
-            </div>
+            <img src="/icon-192.png" alt="" className="h-11 w-11 rounded-xl" />
             <div>
-              <h3 className="font-bold text-base text-[var(--text-main)] font-[var(--font-heading)] leading-snug">
-                Install StudyMate
-              </h3>
-              <p className="text-xs text-[var(--text-muted)]">Official Learning Companion App</p>
+              <h3 id="install-title" className="text-base font-semibold">Get the StudyMate app</h3>
+              <p className="text-xs text-[var(--text-muted)]">
+                {platform === 'android' ? 'For your Android phone' : platform === 'ios' ? 'For your iPhone or iPad' : 'For this computer'}
+              </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-full text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors"
-          >
-            <X size={20} />
+          <button type="button" onClick={onClose} aria-label="Close" className="btn btn-ghost btn-sm !p-1.5">
+            <X size={18} />
           </button>
         </div>
 
-        {/* Status / Perks */}
         {isInstalled ? (
-          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center space-y-2">
-            <CheckCircle2 size={32} className="mx-auto text-emerald-500" />
-            <h4 className="font-bold text-sm text-[var(--text-main)]">App Already Installed!</h4>
-            <p className="text-xs text-[var(--text-muted)]">
-              StudyMate is running in standalone app mode on your device.
-            </p>
+          <div className="flex items-center gap-3 rounded-[var(--radius-md)] bg-[var(--surface-hover)] p-4 text-sm">
+            <CheckCircle2 size={20} className="shrink-0 text-emerald-500" />
+            <span>You're already using the installed app.</span>
           </div>
-        ) : isIOS ? (
-          /* iOS Safari Specific Guide */
-          <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-3">
-              <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider block">
-                How to install on iPhone & iPad
-              </span>
-              <ol className="text-xs text-[var(--text-main)] space-y-2.5 list-decimal list-inside">
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-500 font-bold flex items-center justify-center shrink-0 text-[11px]">1</span>
-                  <span>Tap the <strong className="text-indigo-400">Share</strong> button <Share size={14} className="inline mx-1 text-indigo-400" /> at the bottom or top of Safari.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-500 font-bold flex items-center justify-center shrink-0 text-[11px]">2</span>
-                  <span>Scroll down and select <strong className="text-indigo-400">Add to Home Screen</strong> <PlusSquare size={14} className="inline mx-1 text-indigo-400" />.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-500 font-bold flex items-center justify-center shrink-0 text-[11px]">3</span>
-                  <span>Tap <strong className="text-indigo-400">Add</strong> in the top-right corner. Enjoy full-screen learning!</span>
-                </li>
-              </ol>
-            </div>
+        ) : platform === 'android' ? (
+          <div className="space-y-3">
+            {release ? (
+              <>
+                <a href={APK_URL} download className={buttonClass('primary', 'lg', 'w-full')}>
+                  <Download size={18} /> Download for Android
+                </a>
+                <p className="text-center text-xs text-[var(--text-muted)]">{apkMeta}</p>
+                <ol className="list-decimal space-y-1 pl-5 text-xs text-[var(--text-muted)]">
+                  <li>Open the downloaded file.</li>
+                  <li>If asked, allow your browser to install apps, then tap Install.</li>
+                </ol>
+                <p className="text-xs text-[var(--text-muted)]">
+                  The Android app adds background playback, picture-in-picture and offline video cache.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">The Android app isn't available to download yet.</p>
+            )}
+            <button type="button" onClick={installWebApp} disabled={installing || !canInstall} className={buttonClass('ghost', 'sm', 'w-full')}>
+              {canInstall ? 'Or add the web app to your home screen' : 'Web app install not offered by this browser'}
+            </button>
+          </div>
+        ) : platform === 'ios' ? (
+          <div className="space-y-3 text-sm">
+            <p className="text-[var(--text-muted)]">Add StudyMate to your home screen from Safari:</p>
+            <ol className="space-y-2">
+              <li className="flex items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-hover)] text-xs font-semibold">1</span>
+                Tap <Share size={15} className="inline" /> Share in Safari's toolbar.
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-hover)] text-xs font-semibold">2</span>
+                Choose <PlusSquare size={15} className="inline" /> Add to Home Screen.
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-hover)] text-xs font-semibold">3</span>
+                Tap Add.
+              </li>
+            </ol>
           </div>
         ) : (
-          /* Android / Chrome / Edge Native Install */
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-2.5">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)]">
-                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500 shrink-0">
-                  <Zap size={18} />
-                </div>
-                <div className="text-left">
-                  <span className="text-xs font-bold text-[var(--text-main)] block">Lightning Fast & Offline</span>
-                  <span className="text-[11px] text-[var(--text-muted)]">Instant page loading & offline notes caching</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)]">
-                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
-                  <Smartphone size={18} />
-                </div>
-                <div className="text-left">
-                  <span className="text-xs font-bold text-[var(--text-main)] block">Native Fullscreen App</span>
-                  <span className="text-[11px] text-[var(--text-muted)]">Zero browser URL bars or navigation clutter</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)]">
-                <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
-                  <Bell size={18} />
-                </div>
-                <div className="text-left">
-                  <span className="text-xs font-bold text-[var(--text-main)] block">Real-time Chimes & Alerts</span>
-                  <span className="text-[11px] text-[var(--text-muted)]">Instant enrollment and study plan alerts</span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleInstallClick}
-              disabled={installing}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 transition-all transform active:scale-[0.98]"
-            >
-              <Download size={18} />
-              <span>{canInstall ? 'Install to Home Screen' : 'Add App Shortcut'}</span>
+          <div className="space-y-3">
+            <button type="button" onClick={installWebApp} disabled={installing || !canInstall} className={buttonClass('primary', 'lg', 'w-full')}>
+              <Monitor size={18} /> {canInstall ? 'Install on this computer' : 'Install not offered by this browser'}
             </button>
+            {!canInstall && (
+              <p className="text-xs text-[var(--text-muted)]">Use Chrome or Edge to install StudyMate as a desktop app.</p>
+            )}
+            {release && (
+              <div className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] p-3">
+                <Smartphone size={18} className="shrink-0 text-[var(--text-muted)]" />
+                <div className="flex-1 text-xs">
+                  <div className="font-medium">Android phone?</div>
+                  <div className="text-[var(--text-muted)]">Open this site on your phone, or download the APK. {apkMeta}</div>
+                </div>
+                <a href={APK_URL} download className={buttonClass('secondary', 'sm')}>
+                  APK
+                </a>
+              </div>
+            )}
           </div>
         )}
 
-        <div className="text-center pt-1 border-t border-[var(--border)]">
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors py-1"
-          >
-            Continue in Browser
+        <div className="border-t border-[var(--border)] pt-3 text-center">
+          <button type="button" onClick={onClose} className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-main)]">
+            Continue in browser
           </button>
         </div>
       </div>

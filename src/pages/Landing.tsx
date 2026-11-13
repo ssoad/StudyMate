@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, ClipboardCheck, PlayCircle } from 'lucide-react';
+import { ArrowRight, BookOpen, ClipboardCheck, Download, PlayCircle } from 'lucide-react';
+import { APK_URL, detectPlatform, useAndroidRelease } from '../lib/appRelease';
 import { buttonClass } from '../components/Button';
 import { ThemeToggle } from '../components/ThemeToggle';
 
@@ -22,6 +23,9 @@ const FEATURES = [
 ];
 
 export function Landing() {
+  const isAndroid = detectPlatform() === 'android';
+  const release = useAndroidRelease();
+
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--text-main)]">
       <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur">
@@ -62,6 +66,17 @@ export function Landing() {
               Sign in
             </Link>
           </div>
+          {release && (
+            <a
+              href={APK_URL}
+              download
+              className={isAndroid ? buttonClass('secondary', 'lg', 'w-full sm:w-auto') : 'inline-flex items-center gap-2 text-sm'}
+            >
+              <Download size={isAndroid ? 18 : 15} />
+              {isAndroid ? 'Download the Android app' : 'Get the Android app (APK)'}
+              <span className="text-xs text-[var(--text-muted)]">v{release.versionName}</span>
+            </a>
+          )}
         </section>
 
         <section className="grid gap-4 border-t border-[var(--border)] py-12 sm:grid-cols-3 sm:py-16">
