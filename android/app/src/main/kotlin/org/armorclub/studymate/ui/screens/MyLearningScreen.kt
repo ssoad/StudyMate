@@ -1,6 +1,5 @@
 package org.armorclub.studymate.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,42 +8,31 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -56,30 +44,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.armorclub.studymate.data.model.Course
+import org.armorclub.studymate.data.model.CourseLesson
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.EnrollmentRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.player.PlayerManager
+import org.armorclub.studymate.ui.components.EmptyState
+import org.armorclub.studymate.ui.components.PrimaryButton
+import org.armorclub.studymate.ui.components.ProgressTrack
+import org.armorclub.studymate.ui.components.ScreenHeader
+import org.armorclub.studymate.ui.components.SectionHeader
+import org.armorclub.studymate.ui.components.SmCard
 import org.armorclub.studymate.ui.theme.AppTheme
+import org.armorclub.studymate.ui.theme.Radius
+import org.armorclub.studymate.ui.theme.Spacing
 
 private fun formatTime(millis: Long): String {
     val totalSeconds = (millis / 1000).coerceAtLeast(0)
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return String.format("%02d:%02d", minutes, seconds)
+    val h = totalSeconds / 3600
+    val m = (totalSeconds % 3600) / 60
+    val s = totalSeconds % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
+
+private data class LearningRow(
+    val course: Course,
+    val done: Int,
+    val total: Int,
+    val resumeLesson: CourseLesson?
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,585 +91,236 @@ fun MyLearningScreen(
     playerManager: PlayerManager,
     onCourseClick: (String) -> Unit,
     onResumeLessonClick: (courseId: String, lessonId: String) -> Unit,
-    onOpenDrawer: () -> Unit = {}
+    onOpenDrawer: () -> Unit = {},
+    onBrowseCourses: () -> Unit = {},
+    onSignIn: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     var courses by remember { mutableStateOf<List<Course>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     val currentUser by authRepository.currentUser.collectAsState()
-    val userId = progressRepository.getGuestOrUserId()
     val progressMap by progressRepository.progressMap.collectAsState()
-
+    val enrollments by enrollmentRepository.enrollments.collectAsState()
     val activeLesson by playerManager.activeLesson.collectAsState()
     val activeCourseId by playerManager.activeCourseId.collectAsState()
 
-    fun loadData(refresh: Boolean = false) {
-        scope.launch {
-            isLoading = true
-            courses = courseRepository.getCourses(forceRefresh = refresh)
-            isLoading = false
-        }
-    }
-
     LaunchedEffect(Unit) {
-        loadData()
+        courses = courseRepository.getCourses()
+        isLoading = false
     }
 
-    val enrollments by enrollmentRepository.enrollments.collectAsState()
-
-    val enrolledCourses = courses.filter { course ->
-        enrollmentRepository.isCourseApproved(course.id, currentUser, course.price)
-    }
-    val enrolledCourse = enrolledCourses.firstOrNull()
-    val enrolledProgress = enrolledCourse?.let { progressMap[it.id] ?: progressRepository.getCourseProgress(userId, it.id) }
-    val completedCount = enrolledCourse?.let { progressRepository.getCompletedCount(userId, it) } ?: 0
-    val progressPercent = enrolledCourse?.let { progressRepository.getCourseProgressPercentage(userId, it) } ?: 0
-
-    val lastLessonId = enrolledProgress?.lastLessonId
-    val targetLesson = activeLesson ?: (if (enrolledCourse != null && lastLessonId != null) enrolledCourse.sections.flatMap { it.lessons }.firstOrNull { it.id == lastLessonId } else null) ?: enrolledCourse?.sections?.firstOrNull()?.lessons?.firstOrNull()
-    val targetCourseId = activeCourseId ?: enrolledCourse?.id
-    val savedPlaybackPos = if (targetCourseId != null && targetLesson != null) progressRepository.getPlaybackPosition(targetCourseId, targetLesson.id) else 0L
-
-    Scaffold(
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(Color(0xFF6366F1), Color(0xFF0284C7))
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.PlayCircle,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(10.dp))
-
-                        Column {
-                            Text(
-                                text = "My Learning",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.White
-                                )
-                            )
-                            Text(
-                                text = "Continue Learning & Curriculum Progress",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF94A3B8)
-                                )
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Menu",
-                            tint = AppTheme.colors.textPrimary
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { loadData(refresh = true) }) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = AppTheme.colors.textPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppTheme.colors.topAppBarBackground
-                )
-            )
-        },
-        containerColor = AppTheme.colors.background
-    ) { paddingValues ->
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = AppTheme.colors.primary)
+    val userId = progressRepository.getGuestOrUserId()
+    val rows = remember(courses, progressMap, enrollments, currentUser) {
+        courses
+            .filter { enrollmentRepository.isCourseApproved(it.id, currentUser, it.price) }
+            .map { c ->
+                val lessons = c.sections.flatMap { it.lessons }
+                val progress = progressRepository.getCourseProgress(userId, c.id)
+                val resume = lessons.firstOrNull { it.id == progress.lastLessonId }
+                    ?: lessons.firstOrNull { !progress.isCompleted(it.id) }
+                    ?: lessons.firstOrNull()
+                LearningRow(c, lessons.count { progress.isCompleted(it.id) }, lessons.size, resume)
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+    }
+
+    // "Continue" target: what's playing now, otherwise the first enrolled course's resume point.
+    val continueCourse = rows.firstOrNull { it.course.id == activeCourseId } ?: rows.firstOrNull()
+    val continueLesson = if (continueCourse != null && continueCourse.course.id == activeCourseId) activeLesson ?: continueCourse.resumeLesson
+    else continueCourse?.resumeLesson
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+    ) {
+        ScreenHeader(
+            title = "My learning",
+            leading = {
+                IconButton(onClick = onOpenDrawer) {
+                    Icon(Icons.Outlined.Menu, contentDescription = "Open menu", tint = AppTheme.colors.textPrimary)
+                }
+            }
+        )
+
+        when {
+            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = AppTheme.colors.primary, strokeWidth = 2.dp)
+            }
+
+            currentUser == null -> EmptyState(
+                icon = Icons.Outlined.School,
+                title = "Sign in to see your courses",
+                body = "Your enrolled courses and progress sync across devices once you sign in.",
+                actionText = "Sign in",
+                onAction = onSignIn,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            rows.isEmpty() -> EmptyState(
+                icon = Icons.Outlined.Explore,
+                title = "No courses yet",
+                body = "Once an enrollment is approved, the course shows up here with your progress.",
+                actionText = "Browse courses",
+                onAction = onBrowseCourses,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            else -> PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    scope.launch {
+                        isRefreshing = true
+                        courses = courseRepository.getCourses(forceRefresh = true)
+                        currentUser?.id?.let { enrollmentRepository.fetchRemoteEnrollments(it) }
+                        isRefreshing = false
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
             ) {
-                if (currentUser == null) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .clip(CircleShape)
-                                        .background(AppTheme.colors.primary.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.School,
-                                        contentDescription = null,
-                                        tint = AppTheme.colors.primary,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(14.dp))
-                                Text(
-                                    text = "Sign in to view enrolled courses",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    color = AppTheme.colors.textPrimary
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "Sign in with your student account to resume watching lectures, track syllabus progress, and access lecture notes across all your devices.",
-                                    color = AppTheme.colors.textSecondary,
-                                    fontSize = 12.sp,
-                                    textAlign = TextAlign.Center,
-                                    lineHeight = 17.sp
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Button(
-                                    onClick = onOpenDrawer,
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = AppTheme.colors.primaryButton,
-                                        contentColor = AppTheme.colors.onPrimaryButton
-                                    )
-                                ) {
-                                    Text("Open Sign In Menu", fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                } else if (enrolledCourses.isEmpty()) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFF59E0B).copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.Book,
-                                        contentDescription = null,
-                                        tint = Color(0xFFF59E0B),
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(14.dp))
-                                Text(
-                                    text = "No Enrolled Courses Yet",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    color = AppTheme.colors.textPrimary
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "You have not enrolled in any courses yet. Explore our course catalog to start learning with full curriculum lectures and reference handbooks.",
-                                    color = AppTheme.colors.textSecondary,
-                                    fontSize = 12.sp,
-                                    textAlign = TextAlign.Center,
-                                    lineHeight = 17.sp
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Button(
-                                    onClick = onOpenDrawer,
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = AppTheme.colors.primaryButton,
-                                        contentColor = AppTheme.colors.onPrimaryButton
-                                    )
-                                ) {
-                                    Text("Explore Courses", fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    // 1. ACTIVE / RESUME PLAYING CARD (Dynamic Progress & Last Watched)
-                    if (targetLesson != null && targetCourseId != null) {
-                        item {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onResumeLessonClick(targetCourseId, targetLesson.id) },
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.primaryButton),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Surface(
-                                            color = Color.White.copy(alpha = 0.2f),
-                                            shape = RoundedCornerShape(6.dp)
-                                        ) {
-                                            Text(
-                                                text = if (activeLesson != null) "NOW PLAYING" else "RESUME LEARNING",
-                                                color = Color.White,
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Black,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                            )
-                                        }
-
-                                        Icon(
-                                            Icons.Default.PlayArrow,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(10.dp))
-
-                                    Text(
-                                        text = targetLesson.title,
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        ),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    Text(
-                                        text = enrolledCourse?.title ?: "Computer Science & ICT",
-                                        color = Color.White.copy(alpha = 0.8f),
-                                        fontSize = 12.sp
-                                    )
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Course Progress: $progressPercent%",
-                                            color = Color.White.copy(alpha = 0.95f),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = "$completedCount / ${enrolledCourse?.totalLessonsCount ?: 0} done",
-                                            color = Color.White.copy(alpha = 0.8f),
-                                            fontSize = 11.sp
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    LinearProgressIndicator(
-                                        progress = { progressPercent / 100f },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .clip(RoundedCornerShape(3.dp)),
-                                        color = Color.White,
-                                        trackColor = Color.White.copy(alpha = 0.25f)
-                                    )
-
-                                    Spacer(modifier = Modifier.height(14.dp))
-
-                                    Button(
-                                        onClick = { onResumeLessonClick(targetCourseId, targetLesson.id) },
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Icon(
-                                            Icons.Default.PlayArrow,
-                                            contentDescription = null,
-                                            tint = AppTheme.colors.primaryButton,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = if (savedPlaybackPos > 2000L) "Resume from ${formatTime(savedPlaybackPos)}" else "Resume Lecture",
-                                            color = AppTheme.colors.primaryButton,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                // 2. ENROLLED COURSE OVERVIEW CARD
-                if (enrolledCourse != null) {
-                    val c = enrolledCourse
-                    item {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onCourseClick(c.id) },
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Column {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(160.dp)
-                                        .background(Color(0xFF1E1B4B))
-                                ) {
-                                    if (c.thumbnailUrl.isNotBlank()) {
-                                        AsyncImage(
-                                            model = c.thumbnailUrl,
-                                            contentDescription = c.title,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(
-                                                    Brush.verticalGradient(
-                                                        listOf(Color.Transparent, AppTheme.colors.cardBackground)
-                                                    )
-                                                )
-                                        )
-                                    }
-
-                                    Surface(
-                                        color = AppTheme.colors.success,
-                                        shape = RoundedCornerShape(6.dp),
-                                        modifier = Modifier
-                                            .padding(12.dp)
-                                            .align(Alignment.TopStart)
-                                    ) {
-                                        Text(
-                                            text = "ENROLLED • IN PROGRESS",
-                                            color = Color.White,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                        )
-                                    }
-                                }
-
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = c.title,
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = AppTheme.colors.textPrimary
-                                        )
-                                    )
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    Text(
-                                        text = "${c.sections.size} Modules • ${c.totalLessonsCount} Lectures • ${c.duration}",
-                                        color = AppTheme.colors.textSecondary,
-                                        fontSize = 12.sp
-                                    )
-
-                                    Spacer(modifier = Modifier.height(14.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Curriculum Completion",
-                                            color = AppTheme.colors.textSecondary,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        Text(
-                                            text = "$progressPercent% Complete ($completedCount / ${c.totalLessonsCount})",
-                                            color = AppTheme.colors.success,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(6.dp))
-
-                                    LinearProgressIndicator(
-                                        progress = { progressPercent / 100f },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .clip(RoundedCornerShape(3.dp)),
-                                        color = AppTheme.colors.success,
-                                        trackColor = AppTheme.colors.cardBorder
-                                    )
-
-                                    Spacer(modifier = Modifier.height(14.dp))
-
-                                    Button(
-                                        onClick = { onCourseClick(c.id) },
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = AppTheme.colors.primaryButton,
-                                            contentColor = AppTheme.colors.onPrimaryButton
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Open Course Syllabus", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // 3. QUICK MODULE JUMP LIST (Coursera Pattern)
-                    item {
-                        Text(
-                            text = "Course Modules (${c.sections.size})",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = AppTheme.colors.textPrimary
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, bottom = Spacing.xl)
+                ) {
+                    if (continueCourse != null && continueLesson != null) {
+                        item(key = "continue") {
+                            val saved = progressRepository.getPlaybackPosition(continueCourse.course.id, continueLesson.id)
+                            ContinueCard(
+                                isPlaying = activeLesson != null && continueCourse.course.id == activeCourseId,
+                                lessonTitle = continueLesson.title,
+                                courseTitle = continueCourse.course.title,
+                                resumeAt = if (saved > 2000L) formatTime(saved) else null,
+                                onClick = { onResumeLessonClick(continueCourse.course.id, continueLesson.id) }
                             )
-                        )
+                        }
                     }
 
-                    itemsIndexed(c.sections) { idx, section ->
-                        val firstLesson = section.lessons.firstOrNull()
-                        val sectionDone = section.lessons.count { enrolledProgress?.isCompleted(it.id) == true }
-                        val isFullyDone = sectionDone == section.lessons.size && section.lessons.isNotEmpty()
+                    item(key = "courses-header") { SectionHeader("Enrolled courses") }
 
-                        Surface(
-                            color = AppTheme.colors.cardBackground,
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    if (firstLesson != null) {
-                                        onResumeLessonClick(c.id, firstLesson.id)
-                                    } else {
-                                        onCourseClick(c.id)
-                                    }
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(
-                                                if (isFullyDone) Color(0xFF059669)
-                                                else AppTheme.colors.primary.copy(alpha = 0.15f)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (isFullyDone) {
-                                            Icon(
-                                                Icons.Default.CheckCircle,
-                                                contentDescription = null,
-                                                tint = Color.White,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        } else {
-                                            Text(
-                                                text = "${idx + 1}",
-                                                color = AppTheme.colors.primary,
-                                                fontWeight = FontWeight.Black,
-                                                fontSize = 12.sp
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.width(10.dp))
-
-                                    Column {
-                                        Text(
-                                            text = section.title,
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = AppTheme.colors.textPrimary
-                                            ),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = "${section.lessons.size} lectures • $sectionDone completed",
-                                            fontSize = 11.sp,
-                                            color = if (isFullyDone) AppTheme.colors.success else AppTheme.colors.textSecondary
-                                        )
-                                    }
-                                }
-
-                                Icon(
-                                    Icons.Default.PlayArrow,
-                                    contentDescription = null,
-                                    tint = if (isFullyDone) Color(0xFF10B981) else Color(0xFF38BDF8),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
+                    items(rows, key = { it.course.id }) { row ->
+                        LearningCourseCard(
+                            row = row,
+                            onOpen = { onCourseClick(row.course.id) },
+                            onResume = row.resumeLesson?.let { l -> { onResumeLessonClick(row.course.id, l.id) } }
+                        )
                     }
                 }
             }
         }
     }
 }
+
+@Composable
+private fun ContinueCard(
+    isPlaying: Boolean,
+    lessonTitle: String,
+    courseTitle: String,
+    resumeAt: String?,
+    onClick: () -> Unit
+) {
+    SmCard(modifier = Modifier.padding(top = Spacing.sm), onClick = onClick) {
+        Text(
+            if (isPlaying) "Now playing" else "Continue where you left off",
+            style = MaterialTheme.typography.labelMedium,
+            color = AppTheme.colors.primary
+        )
+        Spacer(Modifier.height(Spacing.xxs))
+        Text(
+            lessonTitle,
+            style = MaterialTheme.typography.titleMedium,
+            color = AppTheme.colors.textPrimary,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            courseTitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = AppTheme.colors.textSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(Spacing.md))
+        PrimaryButton(
+            text = if (resumeAt != null) "Resume at $resumeAt" else "Play lesson",
+            icon = Icons.Rounded.PlayArrow,
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun LearningCourseCard(row: LearningRow, onOpen: () -> Unit, onResume: (() -> Unit)?) {
+    val c = row.course
+    val progress = if (row.total == 0) 0f else row.done.toFloat() / row.total
+    val complete = row.total > 0 && row.done == row.total
+    SmCard(modifier = Modifier.padding(bottom = Spacing.sm), onClick = onOpen, padding = 0.dp) {
+        Row(Modifier.padding(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .width(96.dp)
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(Radius.xs))
+                    .background(AppTheme.colors.thumbnailPlaceholder)
+            ) {
+                if (c.thumbnailUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = c.thumbnailUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    c.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = AppTheme.colors.textPrimary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (complete) {
+                        Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = AppTheme.colors.success, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text(
+                        if (complete) "Completed" else "${row.done} of ${row.total} lessons · ${(progress * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (complete) AppTheme.colors.success else AppTheme.colors.textSecondary
+                    )
+                }
+            }
+            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = AppTheme.colors.textMuted)
+        }
+        ProgressTrack(
+            progress,
+            modifier = Modifier.padding(start = Spacing.sm, end = Spacing.sm, bottom = Spacing.sm),
+            color = if (complete) AppTheme.colors.success else AppTheme.colors.primary
+        )
+        if (onResume != null && !complete && row.resumeLesson != null) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onResume)
+                    .background(AppTheme.colors.surfaceVariant)
+                    .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = AppTheme.colors.primary, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(Spacing.xxs))
+                Text(
+                    "Next: ${row.resumeLesson.title}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppTheme.colors.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
 }

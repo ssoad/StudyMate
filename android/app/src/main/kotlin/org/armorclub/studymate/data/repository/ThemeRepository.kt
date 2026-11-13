@@ -7,18 +7,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 enum class ThemeMode(val title: String, val description: String) {
-    AMOLED_DARK(
-        title = "AMOLED Dark",
-        description = "Pitch black (#000000) for OLED panels to turn pixels off & maximize battery"
-    ),
-    LIGHT(
-        title = "Light Mode",
-        description = "Clean modern slate & pure white cards for comfortable daylight reading"
-    ),
-    SYSTEM(
-        title = "System Default",
-        description = "Automatically match your Android device's system dark/light mode"
-    )
+    SYSTEM(title = "System", description = "Match your device setting"),
+    LIGHT(title = "Light", description = "Light background for daytime reading"),
+    DARK(title = "Dark", description = "Soft dark background, easy on the eyes"),
+    AMOLED_DARK(title = "Black", description = "Pure black for OLED screens, saves battery")
 }
 
 class ThemeRepository(context: Context) {
@@ -28,11 +20,11 @@ class ThemeRepository(context: Context) {
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
     private fun loadThemeMode(): ThemeMode {
-        val saved = prefs.getString(KEY_THEME_MODE, ThemeMode.AMOLED_DARK.name)
+        val saved = prefs.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name)
         return try {
-            ThemeMode.valueOf(saved ?: ThemeMode.AMOLED_DARK.name)
+            ThemeMode.valueOf(saved ?: ThemeMode.SYSTEM.name)
         } catch (e: Exception) {
-            ThemeMode.AMOLED_DARK
+            ThemeMode.SYSTEM
         }
     }
 
@@ -44,9 +36,9 @@ class ThemeRepository(context: Context) {
     fun toggleTheme() {
         val current = _themeMode.value
         val next = when (current) {
-            ThemeMode.AMOLED_DARK -> ThemeMode.LIGHT
-            ThemeMode.LIGHT -> ThemeMode.AMOLED_DARK
-            ThemeMode.SYSTEM -> ThemeMode.AMOLED_DARK
+            ThemeMode.LIGHT -> ThemeMode.DARK
+            ThemeMode.DARK, ThemeMode.AMOLED_DARK -> ThemeMode.LIGHT
+            ThemeMode.SYSTEM -> ThemeMode.DARK
         }
         setThemeMode(next)
     }

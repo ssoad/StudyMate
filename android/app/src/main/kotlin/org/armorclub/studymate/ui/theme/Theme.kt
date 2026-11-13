@@ -1,76 +1,102 @@
 package org.armorclub.studymate.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
-private val AmoledDarkMaterialScheme = darkColorScheme(
-    primary = Color(0xFF38BDF8),
-    onPrimary = Color(0xFF000000),
-    primaryContainer = Color(0xFF0C2238),
-    onPrimaryContainer = Color(0xFF7DD3FC),
-    secondary = Color(0xFF818CF8),
-    onSecondary = Color(0xFF000000),
-    secondaryContainer = Color(0xFF312E81),
-    onSecondaryContainer = Color(0xFFE0E7FF),
-    tertiary = Color(0xFF10B981),
-    onTertiary = Color(0xFF000000),
-    background = Color(0xFF000000),
-    onBackground = Color(0xFFFFFFFF),
-    surface = Color(0xFF090B10),
-    onSurface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFF141824),
-    onSurfaceVariant = Color(0xFF94A3B8),
-    surfaceContainer = Color(0xFF0A0D15),
-    surfaceContainerHigh = Color(0xFF10131B),
-    surfaceContainerHighest = Color(0xFF141824),
-    outline = Color(0xFF1E2433),
-    outlineVariant = Color(0xFF181D29),
-    error = Color(0xFFEF4444),
-    onError = Color(0xFFFFFFFF)
+/** Spacing scale: 4 · 8 · 12 · 16 · 24 · 32. Screen gutter is 16dp (lg is 24dp on tablets). */
+@Immutable
+object Spacing {
+    val xxs: Dp = 4.dp
+    val xs: Dp = 8.dp
+    val sm: Dp = 12.dp
+    val md: Dp = 16.dp
+    val lg: Dp = 24.dp
+    val xl: Dp = 32.dp
+    val gutter: Dp = 16.dp
+}
+
+/** Corner radii: 10 for controls, 14 for cards, 20 for sheets. */
+@Immutable
+object Radius {
+    val xs: Dp = 6.dp
+    val control: Dp = 10.dp
+    val card: Dp = 14.dp
+    val sheet: Dp = 20.dp
+}
+
+val StudyMateShapes = Shapes(
+    extraSmall = RoundedCornerShape(Radius.xs),
+    small = RoundedCornerShape(Radius.control),
+    medium = RoundedCornerShape(Radius.card),
+    large = RoundedCornerShape(Radius.sheet),
+    extraLarge = RoundedCornerShape(Radius.sheet)
 )
 
-private val LightMaterialScheme = lightColorScheme(
-    primary = Color(0xFF2563EB),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFEFF6FF),
-    onPrimaryContainer = Color(0xFF1D4ED8),
-    secondary = Color(0xFF4F46E5),
-    onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFEEF2FF),
-    onSecondaryContainer = Color(0xFF3730A3),
-    tertiary = Color(0xFF059669),
-    onTertiary = Color(0xFFFFFFFF),
-    background = Color(0xFFF8FAFC),
-    onBackground = Color(0xFF0F172A),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF0F172A),
-    surfaceVariant = Color(0xFFF1F5F9),
-    onSurfaceVariant = Color(0xFF475569),
-    surfaceContainer = Color(0xFFFFFFFF),
-    surfaceContainerHigh = Color(0xFFF8FAFC),
-    surfaceContainerHighest = Color(0xFFF1F5F9),
-    outline = Color(0xFFCBD5E1),
-    outlineVariant = Color(0xFFE2E8F0),
-    error = Color(0xFFDC2626),
-    onError = Color(0xFFFFFFFF)
-)
+private fun StudyMateColors.toMaterial(): ColorScheme {
+    val base = if (isDark) darkColorScheme() else lightColorScheme()
+    return base.copy(
+        primary = primary,
+        onPrimary = onPrimary,
+        primaryContainer = primaryContainer,
+        onPrimaryContainer = onPrimaryContainer,
+        inversePrimary = primary,
+        secondary = textSecondary,
+        onSecondary = surface,
+        secondaryContainer = primaryContainer,     // M3 nav bar / chip selection pill
+        onSecondaryContainer = onPrimaryContainer,
+        tertiary = success,
+        onTertiary = surface,
+        background = background,
+        onBackground = textPrimary,
+        surface = surface,
+        onSurface = textPrimary,
+        surfaceVariant = surfaceVariant,
+        onSurfaceVariant = textSecondary,
+        surfaceTint = surface,                     // no tonal elevation tint
+        surfaceBright = surfaceElevated,
+        surfaceDim = background,
+        surfaceContainerLowest = background,
+        surfaceContainerLow = surface,
+        surfaceContainer = surface,
+        surfaceContainerHigh = surfaceElevated,
+        surfaceContainerHighest = surfaceVariant,
+        outline = cardBorder,
+        outlineVariant = divider,
+        error = error,
+        onError = surface,
+        errorContainer = errorContainer,
+        onErrorContainer = error,
+        scrim = playerOverlay
+    )
+}
 
 @Composable
 fun StudyMateTheme(
     isDark: Boolean = true,
+    amoled: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val appColors = if (isDark) AmoledDarkColors else ModernLightColors
-    val materialScheme = if (isDark) AmoledDarkMaterialScheme else LightMaterialScheme
+    val appColors = when {
+        !isDark -> LightColors
+        amoled -> AmoledDarkColors
+        else -> DarkColors
+    }
+    val materialScheme = remember(appColors) { appColors.toMaterial() }
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -88,7 +114,11 @@ fun StudyMateTheme(
         MaterialTheme(
             colorScheme = materialScheme,
             typography = Typography,
+            shapes = StudyMateShapes,
             content = content
         )
     }
 }
+
+// Unused but handy for previews of a single token set.
+internal val LocalPreviewDark = staticCompositionLocalOf { true }

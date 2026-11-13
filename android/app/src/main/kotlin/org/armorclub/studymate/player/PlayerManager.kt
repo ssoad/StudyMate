@@ -61,11 +61,36 @@ class PlayerManager private constructor(context: Context) {
         @Synchronized
         fun getCache(context: Context): SimpleCache {
             if (simpleCache == null) {
-                val cacheDir = File(context.cacheDir, "studymate_video_cache")
+                val cacheDir = File(context.cacheDir, VIDEO_CACHE_DIR)
                 val evictor = LeastRecentlyUsedCacheEvictor(256 * 1024 * 1024) // 256MB cache
                 simpleCache = SimpleCache(cacheDir, evictor)
             }
             return simpleCache!!
+        }
+
+        private const val VIDEO_CACHE_DIR = "studymate_video_cache"
+
+        /** Bytes used by the video cache plus other temporary files. Call off the main thread. */
+        fun cacheSizeBytes(context: Context): Long {
+            val video = getCache(context).cacheSpace
+            val other = context.cacheDir.listFiles().orEmpty()
+                .filter { it.name != VIDEO_CACHE_DIR }
+                .sumOf { f -> f.walkTopDown().filter { it.isFile }.sumOf { it.length() } }
+            return video + other
+        }
+
+        /**
+         * Empties caches without deleting the live SimpleCache directory underneath it
+         * (doing that corrupts the cache index). Call off the main thread.
+         */
+        fun clearCaches(context: Context) {
+            val cache = getCache(context)
+            cache.keys.toList().forEach { key ->
+                runCatching { cache.removeResource(key) }
+            }
+            context.cacheDir.listFiles().orEmpty()
+                .filter { it.name != VIDEO_CACHE_DIR }
+                .forEach { it.deleteRecursively() }
         }
     }
 

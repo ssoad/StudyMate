@@ -11,6 +11,9 @@ import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.runtime.LaunchedEffect
+import androidx.activity.SystemBarStyle
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -71,12 +74,20 @@ class MainActivity : ComponentActivity() {
             val themeMode by themeRepository.themeMode.collectAsState()
             val isSystemDark = isSystemInDarkTheme()
             val isDark = when (themeMode) {
-                ThemeMode.AMOLED_DARK -> true
+                ThemeMode.DARK, ThemeMode.AMOLED_DARK -> true
                 ThemeMode.LIGHT -> false
                 ThemeMode.SYSTEM -> isSystemDark
             }
+            // Bar icon colors follow the app theme (not the system one), and are
+            // re-applied after rotation since the activity handles config changes itself.
+            val orientation = LocalConfiguration.current.orientation
+            LaunchedEffect(isDark, orientation) {
+                val style = if (isDark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
 
-            StudyMateTheme(isDark = isDark) {
+            StudyMateTheme(isDark = isDark, amoled = themeMode == ThemeMode.AMOLED_DARK) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

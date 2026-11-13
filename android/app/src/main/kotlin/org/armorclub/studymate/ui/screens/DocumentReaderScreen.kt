@@ -70,6 +70,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.armorclub.studymate.data.repository.CourseRepository
 import java.io.File
+import org.armorclub.studymate.ui.theme.AppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -178,7 +179,7 @@ fun DocumentReaderScreen(
                         )
                         Text(
                             text = if (isPdf && pageCount > 0) "PDF Document • $pageCount pages" else "Study Document",
-                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            style = MaterialTheme.typography.labelSmall.copy(color = AppTheme.colors.textSecondary)
                         )
                     }
                 },
@@ -193,7 +194,7 @@ fun DocumentReaderScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = AppTheme.colors.background
                 )
             )
         }
@@ -202,7 +203,7 @@ fun DocumentReaderScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFF0F172A)),
+                .background(AppTheme.colors.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
             when {
@@ -211,11 +212,11 @@ fun DocumentReaderScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        CircularProgressIndicator(color = AppTheme.colors.primary)
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = "Loading document...",
-                            color = Color.White,
+                            color = AppTheme.colors.textSecondary,
                             fontSize = 13.sp
                         )
                     }
@@ -234,7 +235,7 @@ fun DocumentReaderScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = errorMessage ?: "",
-                            color = Color.White,
+                            color = AppTheme.colors.textSecondary,
                             fontSize = 14.sp
                         )
                         Spacer(modifier = Modifier.height(16.dp))

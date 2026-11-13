@@ -1,704 +1,448 @@
 package org.armorclub.studymate.ui.screens
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.BrightnessAuto
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.armorclub.studymate.BuildConfig
 import org.armorclub.studymate.R
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
+import org.armorclub.studymate.data.repository.EnrollmentRepository
+import org.armorclub.studymate.data.repository.ProgressRepository
 import org.armorclub.studymate.data.repository.ThemeMode
 import org.armorclub.studymate.data.repository.ThemeRepository
+import org.armorclub.studymate.ui.components.Badge
+import org.armorclub.studymate.ui.components.BadgeTone
+import org.armorclub.studymate.ui.components.FilterPill
+import org.armorclub.studymate.ui.components.GhostButton
+import org.armorclub.studymate.ui.components.InitialsAvatar
+import org.armorclub.studymate.ui.components.ListRow
+import org.armorclub.studymate.ui.components.PrimaryButton
+import org.armorclub.studymate.ui.components.ProgressTrack
+import org.armorclub.studymate.ui.components.ScreenHeader
+import org.armorclub.studymate.ui.components.SecondaryButton
+import org.armorclub.studymate.ui.components.SectionHeader
+import org.armorclub.studymate.ui.components.SmCard
 import org.armorclub.studymate.ui.theme.AppTheme
+import org.armorclub.studymate.ui.theme.Radius
+import org.armorclub.studymate.ui.theme.Spacing
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     authRepository: AuthRepository,
     courseRepository: CourseRepository,
     themeRepository: ThemeRepository,
+    progressRepository: ProgressRepository,
+    enrollmentRepository: EnrollmentRepository,
     onNavigateToSettings: () -> Unit,
     onSelectCourse: (String) -> Unit,
     onOpenDrawer: () -> Unit = {}
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val currentUser by authRepository.currentUser.collectAsState()
     val isLoggedIn by authRepository.isLoggedIn.collectAsState()
 
-    var activeCourses by remember { mutableStateOf<List<Course>>(emptyList()) }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+    ) {
+        ScreenHeader(
+            title = "Account",
+            leading = {
+                IconButton(onClick = onOpenDrawer) {
+                    Icon(Icons.Outlined.Menu, contentDescription = "Open menu", tint = AppTheme.colors.textPrimary)
+                }
+            },
+            actions = {
+                IconButton(onClick = onNavigateToSettings) {
+                    Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = AppTheme.colors.textPrimary)
+                }
+            }
+        )
 
-    // Auth Form State
-    var authMode by remember { mutableIntStateOf(0) } // 0: Sign In, 1: Sign Up
-    var emailInput by remember { mutableStateOf("") }
-    var passwordInput by remember { mutableStateOf("") }
-    var nameInput by remember { mutableStateOf("") }
-    var isAuthLoading by remember { mutableStateOf(false) }
-    var authError by remember { mutableStateOf<String?>(null) }
+        val user = currentUser
+        if (isLoggedIn && user != null) {
+            SignedInContent(
+                userName = user.fullName,
+                email = user.email,
+                role = user.role,
+                points = user.points,
+                courseRepository = courseRepository,
+                progressRepository = progressRepository,
+                enrollmentRepository = enrollmentRepository,
+                themeRepository = themeRepository,
+                currentUser = user,
+                onSelectCourse = onSelectCourse,
+                onSignOut = { authRepository.signOut() }
+            )
+        } else {
+            SignInContent(authRepository = authRepository, themeRepository = themeRepository)
+        }
+    }
+}
 
-    remember {
+private data class CourseProgressRow(val course: Course, val done: Int, val total: Int)
+
+@Composable
+private fun SignedInContent(
+    userName: String,
+    email: String,
+    role: String,
+    points: Int,
+    courseRepository: CourseRepository,
+    progressRepository: ProgressRepository,
+    enrollmentRepository: EnrollmentRepository,
+    themeRepository: ThemeRepository,
+    currentUser: org.armorclub.studymate.data.model.UserProfile,
+    onSelectCourse: (String) -> Unit,
+    onSignOut: () -> Unit
+) {
+    val context = LocalContext.current
+    var courses by remember { mutableStateOf<List<Course>>(emptyList()) }
+    val progressMap by progressRepository.progressMap.collectAsState()
+    val enrollments by enrollmentRepository.enrollments.collectAsState()
+    val themeMode by themeRepository.themeMode.collectAsState()
+
+    LaunchedEffect(Unit) { courses = courseRepository.getCourses() }
+
+    val userId = progressRepository.getGuestOrUserId()
+    // Recomputed when progress or enrollments change.
+    val rows = remember(courses, progressMap, enrollments) {
+        courses.mapNotNull { c ->
+            val total = c.sections.sumOf { it.lessons.size }
+            val done = progressRepository.getCompletedCount(userId, c)
+            val enrolled = enrollmentRepository.isCourseApproved(c.id, currentUser, c.price)
+            if (enrolled || done > 0) CourseProgressRow(c, done, total) else null
+        }
+    }
+    val lessonsDone = rows.sumOf { it.done }
+    val enrolledCount = remember(courses, enrollments) {
+        courses.count { enrollmentRepository.isCourseApproved(it.id, currentUser, it.price) }
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, bottom = Spacing.xl)
+    ) {
+        item(key = "identity") {
+            Row(
+                Modifier.padding(top = Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                InitialsAvatar(userName, size = 56.dp)
+                Spacer(Modifier.width(Spacing.md))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        userName,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = AppTheme.colors.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        email,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppTheme.colors.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Badge(
+                    if (role == "admin") "Admin" else "Student",
+                    tone = if (role == "admin") BadgeTone.Accent else BadgeTone.Neutral
+                )
+            }
+        }
+
+        item(key = "stats") {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                StatTile("Points", points.toString(), Modifier.weight(1f))
+                StatTile("Lessons done", lessonsDone.toString(), Modifier.weight(1f))
+                StatTile("Enrolled", enrolledCount.toString(), Modifier.weight(1f))
+            }
+        }
+
+        item(key = "courses-header") { SectionHeader("Your courses") }
+        if (rows.isEmpty()) {
+            item(key = "courses-empty") {
+                Text(
+                    "Courses you enroll in or start will show up here.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppTheme.colors.textSecondary
+                )
+            }
+        } else {
+            items(rows, key = { "course-${it.course.id}" }) { row ->
+                SmCard(
+                    modifier = Modifier.padding(bottom = Spacing.sm),
+                    onClick = { onSelectCourse(row.course.id) }
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            row.course.title,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = AppTheme.colors.textPrimary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = AppTheme.colors.textMuted)
+                    }
+                    Spacer(Modifier.height(Spacing.xs))
+                    Text(
+                        "${row.done} of ${row.total} lessons done",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppTheme.colors.textSecondary
+                    )
+                    Spacer(Modifier.height(Spacing.xs))
+                    ProgressTrack(if (row.total == 0) 0f else row.done.toFloat() / row.total)
+                }
+            }
+        }
+
+        item(key = "appearance") {
+            SectionHeader("Appearance")
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+            ) {
+                ThemeMode.entries.forEach { mode ->
+                    FilterPill(
+                        text = mode.title,
+                        selected = themeMode == mode,
+                        onClick = { themeRepository.setThemeMode(mode) }
+                    )
+                }
+            }
+        }
+
+        item(key = "session") {
+            SectionHeader("Session")
+            ListRow(
+                title = "Sign out",
+                titleColor = AppTheme.colors.error,
+                showDivider = false,
+                onClick = {
+                    onSignOut()
+                    Toast.makeText(context, "Signed out", Toast.LENGTH_SHORT).show()
+                },
+                leading = {
+                    Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null, tint = AppTheme.colors.error, modifier = Modifier.size(20.dp))
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
+    SmCard(modifier = modifier, padding = Spacing.sm) {
+        Text(value, style = MaterialTheme.typography.titleLarge, color = AppTheme.colors.textPrimary, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textSecondary, maxLines = 1)
+    }
+}
+
+@Composable
+private fun SignInContent(authRepository: AuthRepository, themeRepository: ThemeRepository) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var isSignUp by rememberSaveable { mutableStateOf(false) }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    fun submit() {
+        if (email.isBlank() || password.isBlank()) {
+            error = "Enter your email and password."
+            return
+        }
+        if (isSignUp && password.length < 8) {
+            error = "Password must be at least 8 characters."
+            return
+        }
         scope.launch {
-            activeCourses = courseRepository.getCourses()
+            loading = true
+            error = null
+            val result = if (isSignUp) authRepository.signUp(email.trim(), password, name.trim())
+            else authRepository.signIn(email.trim(), password)
+            loading = false
+            result.onSuccess {
+                Toast.makeText(context, "Welcome, ${it.fullName}", Toast.LENGTH_SHORT).show()
+            }.onFailure { err ->
+                error = err.localizedMessage ?: "Couldn't sign in. Try again."
+            }
         }
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Navigation Menu",
-                            tint = AppTheme.colors.textPrimary
-                        )
-                    }
-                },
-                title = {
-                    Text(
-                        text = if (isLoggedIn) "Student Profile" else "Account & Authentication",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = AppTheme.colors.textPrimary
-                        )
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = AppTheme.colors.textPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppTheme.colors.topAppBarBackground
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, bottom = Spacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        item(key = "brand") {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = Spacing.lg)) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_studymate_logo),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(Radius.card))
                 )
-            )
-        },
-        containerColor = AppTheme.colors.background
-    ) { paddingValues ->
-        if (isLoggedIn && currentUser != null) {
-            val user = currentUser!!
-            val mainCourse = activeCourses.firstOrNull()
+                Spacer(Modifier.height(Spacing.md))
+                Text(
+                    if (isSignUp) "Create your account" else "Sign in to StudyMate",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = AppTheme.colors.textPrimary
+                )
+                Spacer(Modifier.height(Spacing.xxs))
+                Text(
+                    "Track progress, keep notes, and pick up where you left off on any device.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppTheme.colors.textSecondary,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(Spacing.lg))
+            }
+        }
 
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // 1. Profile Header Banner
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    Brush.linearGradient(
-                                        if (AppTheme.colors.isDark) listOf(Color(0xFF0F172A), Color(0xFF0284C7))
-                                        else listOf(Color(0xFF1D4ED8), Color(0xFF2563EB))
-                                    )
-                                )
-                                .padding(20.dp)
-                        ) {
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(64.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White.copy(alpha = 0.25f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = user.fullName.take(1).uppercase().ifBlank { "U" },
-                                            color = Color.White,
-                                            fontSize = 28.sp,
-                                            fontWeight = FontWeight.Black
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(16.dp))
-
-                                    Column {
-                                        Text(
-                                            text = user.fullName,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 20.sp
-                                        )
-                                        Text(
-                                            text = user.email,
-                                            color = Color.White.copy(alpha = 0.85f),
-                                            fontSize = 12.sp
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Surface(
-                                            color = Color(0xFF10B981),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "ENROLLED STUDENT",
-                                                color = Color.White,
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Black,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+        item(key = "form") {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                if (isSignUp) {
+                    SmTextField(value = name, onValueChange = { name = it }, label = "Full name")
                 }
-
-                // 2. Stats Dashboard
-                item {
-                    Text(
-                        text = "Learning Statistics",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = AppTheme.colors.textPrimary
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        StatCard(
-                            title = "Hours Watched",
-                            value = "12.5 hrs",
-                            icon = Icons.Default.Timer,
-                            accentColor = Color(0xFF38BDF8),
-                            modifier = Modifier.weight(1f)
-                        )
-                        StatCard(
-                            title = "Completed",
-                            value = "7 Lectures",
-                            icon = Icons.Default.CheckCircle,
-                            accentColor = Color(0xFF10B981),
-                            modifier = Modifier.weight(1f)
-                        )
-                        StatCard(
-                            title = "Prep Score",
-                            value = "850 Pts",
-                            icon = Icons.Default.Star,
-                            accentColor = Color(0xFFF59E0B),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                // 3. Current Enrolled Master Course
-                item {
-                    Text(
-                        text = "Current Course in Progress",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = AppTheme.colors.textPrimary
-                        ),
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-
-                    if (mainCourse != null) {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelectCourse(mainCourse.id) },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
-                        ) {
-                            Column {
-                                if (mainCourse.thumbnailUrl.isNotBlank()) {
-                                    AsyncImage(
-                                        model = mainCourse.thumbnailUrl,
-                                        contentDescription = mainCourse.title,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(140.dp)
-                                    )
-                                }
-
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Complexity IT - AD ICT",
-                                            color = AppTheme.colors.primary,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = "14% Complete",
-                                            color = AppTheme.colors.textSecondary,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    Text(
-                                        text = mainCourse.title,
-                                        style = MaterialTheme.typography.titleSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = AppTheme.colors.textPrimary
-                                        )
-                                    )
-
-                                    Spacer(modifier = Modifier.height(10.dp))
-
-                                    LinearProgressIndicator(
-                                        progress = { 0.14f },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .clip(RoundedCornerShape(3.dp)),
-                                        color = AppTheme.colors.primary,
-                                        trackColor = AppTheme.colors.cardBorder
-                                    )
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    Button(
-                                        onClick = { onSelectCourse(mainCourse.id) },
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = AppTheme.colors.primaryButton,
-                                            contentColor = AppTheme.colors.onPrimaryButton
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Icon(
-                                            Icons.Default.PlayArrow,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Continue Learning (Lecture 01)", fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 4. Server, Theme & Session Controls
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "Account & System",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = AppTheme.colors.textPrimary
-                                )
+                SmTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = "Email",
+                    keyboardType = KeyboardType.Email
+                )
+                SmTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = "Password",
+                    keyboardType = KeyboardType.Password,
+                    visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailing = {
+                        IconButton(onClick = { showPassword = !showPassword }) {
+                            Icon(
+                                if (showPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                                contentDescription = if (showPassword) "Hide password" else "Show password",
+                                tint = AppTheme.colors.textMuted
                             )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = "Active Endpoint: ${courseRepository.getBaseUrl()}",
-                                style = MaterialTheme.typography.bodySmall.copy(color = AppTheme.colors.textSecondary)
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Theme Quick Toggle Pill
-                            val currentTheme by themeRepository.themeMode.collectAsState()
-                            Surface(
-                                color = AppTheme.colors.surfaceVariant.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
-                                onClick = { themeRepository.toggleTheme() },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Icon(
-                                            imageVector = when (currentTheme) {
-                                                ThemeMode.AMOLED_DARK -> Icons.Default.DarkMode
-                                                ThemeMode.LIGHT -> Icons.Default.LightMode
-                                                ThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
-                                            },
-                                            contentDescription = null,
-                                            tint = AppTheme.colors.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column {
-                                            Text(
-                                                text = "Theme: ${currentTheme.title}",
-                                                color = AppTheme.colors.textPrimary,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Text(
-                                                text = "Tap to switch between AMOLED Dark and Light",
-                                                color = AppTheme.colors.textSecondary,
-                                                fontSize = 10.sp
-                                            )
-                                        }
-                                    }
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(AppTheme.colors.primary.copy(alpha = 0.15f))
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    ) {
-                                        Text(
-                                            text = "Change",
-                                            color = AppTheme.colors.primary,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = onNavigateToSettings,
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Settings")
-                                }
-
-                                Button(
-                                    onClick = {
-                                        authRepository.signOut()
-                                        Toast.makeText(context, "Signed out", Toast.LENGTH_SHORT).show()
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.error),
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Sign Out")
-                                }
-                            }
                         }
                     }
+                )
+                error?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.error)
+                }
+                Spacer(Modifier.height(Spacing.xxs))
+                if (loading) {
+                    Row(Modifier.fillMaxWidth().height(48.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(color = AppTheme.colors.primary, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    }
+                } else {
+                    PrimaryButton(
+                        text = if (isSignUp) "Create account" else "Sign in",
+                        onClick = ::submit,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                GhostButton(
+                    text = if (isSignUp) "Already have an account? Sign in" else "New here? Create an account",
+                    onClick = { isSignUp = !isSignUp; error = null },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (BuildConfig.DEBUG) {
+                    SecondaryButton(
+                        text = "Demo sign in (debug build)",
+                        enabled = !loading,
+                        onClick = {
+                            scope.launch {
+                                loading = true
+                                error = null
+                                val result = authRepository.signInAsDemo()
+                                loading = false
+                                result.onFailure { err -> error = err.localizedMessage }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
-        } else {
-            // Unauthenticated / Auth Screen View
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                item {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_studymate_logo),
-                        contentDescription = "StudyMate Logo",
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                    )
+        }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "Welcome to StudyMate",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.Black,
-                            color = AppTheme.colors.textPrimary
-                        )
-                    )
-
-                    Text(
-                        text = "Sign in to track lecture progress, save custom timestamps, and access all 26 revision materials.",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = AppTheme.colors.textSecondary),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                    )
-                }
-
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            TabRow(
-                                selectedTabIndex = authMode,
-                                containerColor = AppTheme.colors.surfaceVariant,
-                                contentColor = AppTheme.colors.primary,
-                                modifier = Modifier.clip(RoundedCornerShape(10.dp))
-                            ) {
-                                Tab(
-                                    selected = authMode == 0,
-                                    onClick = { authMode = 0; authError = null },
-                                    text = { Text("Sign In", fontWeight = FontWeight.Bold) }
-                                )
-                                Tab(
-                                    selected = authMode == 1,
-                                    onClick = { authMode = 1; authError = null },
-                                    text = { Text("Create Account", fontWeight = FontWeight.Bold) }
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            if (authError != null) {
-                                Surface(
-                                    color = AppTheme.colors.error.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = authError!!,
-                                        color = AppTheme.colors.error,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(10.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(12.dp))
-                            }
-
-                            if (authMode == 1) {
-                                OutlinedTextField(
-                                    value = nameInput,
-                                    onValueChange = { nameInput = it },
-                                    label = { Text("Full Name") },
-                                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-                            }
-
-                            OutlinedTextField(
-                                value = emailInput,
-                                onValueChange = { emailInput = it },
-                                label = { Text("Email Address") },
-                                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            OutlinedTextField(
-                                value = passwordInput,
-                                onValueChange = { passwordInput = it },
-                                label = { Text("Password") },
-                                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                                visualTransformation = PasswordVisualTransformation(),
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Button(
-                                onClick = {
-                                    if (emailInput.isBlank() || passwordInput.isBlank()) {
-                                        authError = "Please enter email and password."
-                                        return@Button
-                                    }
-                                    scope.launch {
-                                        isAuthLoading = true
-                                        authError = null
-                                        val result = if (authMode == 0) {
-                                            authRepository.signIn(emailInput, passwordInput)
-                                        } else {
-                                            authRepository.signUp(emailInput, passwordInput, nameInput)
-                                        }
-                                        isAuthLoading = false
-                                        result.onSuccess {
-                                            Toast.makeText(context, "Welcome back, ${it.fullName}!", Toast.LENGTH_SHORT).show()
-                                        }.onFailure { err ->
-                                            authError = err.localizedMessage ?: "Authentication failed."
-                                        }
-                                    }
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = AppTheme.colors.primaryButton,
-                                    contentColor = AppTheme.colors.onPrimaryButton
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                enabled = !isAuthLoading
-                            ) {
-                                if (isAuthLoading) {
-                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                } else {
-                                    Text(
-                                        text = if (authMode == 0) "Sign In" else "Create Account",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp
-                                    )
-                                }
-                            }
-
-                            if (BuildConfig.DEBUG) {
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // 1-Tap Quick Demo Login Button (Only available in Debug builds)
-                                OutlinedButton(
-                                    onClick = {
-                                        scope.launch {
-                                            isAuthLoading = true
-                                            authError = null
-                                            val result = authRepository.signInAsDemo()
-                                            isAuthLoading = false
-                                            result.onSuccess {
-                                                Toast.makeText(context, "Signed in as Demo Student!", Toast.LENGTH_SHORT).show()
-                                            }.onFailure { err ->
-                                                authError = err.localizedMessage
-                                            }
-                                        }
-                                    },
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = !isAuthLoading
-                                ) {
-                                    Icon(
-                                        Icons.Default.FlashOn,
-                                        contentDescription = null,
-                                        tint = Color(0xFFF59E0B),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "One-Tap Demo Student Sign In (Debug Only)",
-                                        fontWeight = FontWeight.Bold,
-                                        color = AppTheme.colors.textPrimary
-                                    )
-                                }
-                            }
-                        }
+        item(key = "appearance") {
+            val themeMode by themeRepository.themeMode.collectAsState()
+            Column(Modifier.fillMaxWidth()) {
+                SectionHeader("Appearance")
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+                ) {
+                    ThemeMode.entries.forEach { mode ->
+                        FilterPill(mode.title, selected = themeMode == mode, onClick = { themeRepository.setThemeMode(mode) })
                     }
                 }
             }
@@ -707,51 +451,35 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun StatCard(
-    title: String,
+private fun SmTextField(
     value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    accentColor: Color,
-    modifier: Modifier = Modifier
+    onValueChange: (String) -> Unit,
+    label: String,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailing: (@Composable () -> Unit)? = null
 ) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(accentColor.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Black,
-                    color = AppTheme.colors.textPrimary
-                )
-            )
-
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = AppTheme.colors.textSecondary
-                )
-            )
-        }
-    }
+    val c = AppTheme.colors
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        visualTransformation = visualTransformation,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        trailingIcon = trailing,
+        shape = RoundedCornerShape(Radius.control),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = c.primary,
+            unfocusedBorderColor = c.cardBorder,
+            focusedLabelColor = c.primary,
+            unfocusedLabelColor = c.textMuted,
+            cursorColor = c.primary,
+            focusedTextColor = c.textPrimary,
+            unfocusedTextColor = c.textPrimary,
+            focusedContainerColor = c.cardBackground,
+            unfocusedContainerColor = c.cardBackground
+        ),
+        modifier = Modifier.fillMaxWidth()
+    )
 }

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.armorclub.studymate.ui.theme.AppTheme
 
 @Composable
 fun MarkdownView(
@@ -62,7 +63,7 @@ fun MarkdownView(
                         text = trimmed.removePrefix("# "),
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = AppTheme.colors.primary
                         )
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -73,7 +74,7 @@ fun MarkdownView(
                         text = trimmed.removePrefix("## "),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppTheme.colors.textPrimary
                         )
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -84,7 +85,7 @@ fun MarkdownView(
                         text = trimmed.removePrefix("### "),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.secondary
+                            color = AppTheme.colors.textSecondary
                         )
                     )
                     Spacer(modifier = Modifier.height(2.dp))
@@ -136,7 +137,7 @@ private fun BulletItem(text: String, onTimestampClick: (Long) -> Unit) {
         Text(
             text = "•",
             style = MaterialTheme.typography.bodyLarge.copy(
-                color = MaterialTheme.colorScheme.primary,
+                color = AppTheme.colors.primary,
                 fontWeight = FontWeight.Bold
             ),
             modifier = Modifier.padding(end = 8.dp, start = 4.dp)
@@ -156,7 +157,7 @@ private fun ChecklistItem(text: String, isChecked: Boolean) {
         Text(
             text = if (isChecked) "☑" else "☐",
             style = MaterialTheme.typography.bodyLarge.copy(
-                color = if (isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (isChecked) AppTheme.colors.primary else AppTheme.colors.textSecondary,
                 fontSize = 16.sp
             ),
             modifier = Modifier.padding(end = 8.dp)
@@ -164,7 +165,7 @@ private fun ChecklistItem(text: String, isChecked: Boolean) {
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = if (isChecked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                color = if (isChecked) AppTheme.colors.textSecondary else AppTheme.colors.textPrimary
             )
         )
     }
@@ -196,7 +197,7 @@ private fun TimestampedText(text: String, onTimestampClick: (Long) -> Unit) {
                 modifier = Modifier
                     .padding(horizontal = 4.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .background(AppTheme.colors.primaryContainer)
                     .clickable { onTimestampClick(seconds * 1000L) }
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
@@ -204,7 +205,7 @@ private fun TimestampedText(text: String, onTimestampClick: (Long) -> Unit) {
                     text = "▶ $timestampStr",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = AppTheme.colors.onPrimaryContainer
                     )
                 )
             }
@@ -217,7 +218,7 @@ private fun TimestampedText(text: String, onTimestampClick: (Long) -> Unit) {
             text = text,
             style = MaterialTheme.typography.bodyMedium.copy(
                 lineHeight = 22.sp,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppTheme.colors.textPrimary
             )
         )
     }

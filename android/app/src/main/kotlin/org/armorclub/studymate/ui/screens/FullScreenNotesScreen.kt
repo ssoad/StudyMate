@@ -73,6 +73,7 @@ import org.armorclub.studymate.player.PlayerManager
 import org.armorclub.studymate.ui.components.MarkdownView
 import org.armorclub.studymate.util.InstalledNoteApp
 import org.armorclub.studymate.util.NotesShareHelper
+import org.armorclub.studymate.ui.theme.AppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,7 +116,7 @@ fun FullScreenNotesScreen(
                         )
                         Text(
                             text = courseTitle,
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                            style = MaterialTheme.typography.bodySmall.copy(color = AppTheme.colors.textSecondary),
                             maxLines = 1
                         )
                     }
@@ -154,7 +155,7 @@ fun FullScreenNotesScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = AppTheme.colors.background
                 )
             )
         }
@@ -223,7 +224,7 @@ fun FullScreenNotesScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .background(AppTheme.colors.surfaceVariant.copy(alpha = 0.5f))
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -254,20 +255,20 @@ fun FullScreenNotesScreen(
                     if (isSaving) {
                         Text(
                             text = "Saving...",
-                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary)
+                            style = MaterialTheme.typography.labelSmall.copy(color = AppTheme.colors.primary)
                         )
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 Icons.Default.Check,
                                 contentDescription = null,
-                                tint = Color(0xFF10B981),
+                                tint = AppTheme.colors.success,
                                 modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(2.dp))
                             Text(
                                 text = "Saved",
-                                style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF10B981))
+                                style = MaterialTheme.typography.labelSmall.copy(color = AppTheme.colors.success)
                             )
                         }
                     }
@@ -307,12 +308,12 @@ fun FullScreenNotesScreen(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 14.sp,
                                 lineHeight = 22.sp,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = AppTheme.colors.textPrimary
                             ),
-                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            cursorBrush = SolidColor(AppTheme.colors.primary),
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.background)
+                                .background(AppTheme.colors.background)
                                 .padding(16.dp)
                         )
                     }
@@ -332,7 +333,7 @@ private fun InstalledAppsBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.surfaceVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
@@ -348,7 +349,7 @@ private fun InstalledAppsBar(
                 Text(
                     text = "Choose App ↗",
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.colorScheme.primary,
+                        color = AppTheme.colors.primary,
                         fontWeight = FontWeight.SemiBold
                     ),
                     modifier = Modifier.clickable { onOpenAllClick() }
@@ -376,7 +377,7 @@ private fun InstalledAppsBar(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                .background(AppTheme.colors.primary.copy(alpha = 0.12f))
                                 .clickable { onAppClick(app) }
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
@@ -384,7 +385,7 @@ private fun InstalledAppsBar(
                                 text = "📝 ${app.appName}",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = AppTheme.colors.primary
                                 )
                             )
                         }
@@ -394,7 +395,7 @@ private fun InstalledAppsBar(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .background(AppTheme.colors.surfaceVariant)
                                 .clickable { onOpenAllClick() }
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
@@ -402,7 +403,7 @@ private fun InstalledAppsBar(
                                 text = "More Apps...",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = AppTheme.colors.textSecondary
                                 )
                             )
                         }

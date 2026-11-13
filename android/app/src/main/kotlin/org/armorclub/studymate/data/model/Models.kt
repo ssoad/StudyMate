@@ -97,7 +97,8 @@ data class CourseResource(
         get() = fileUrl.endsWith(".png", ignoreCase = true) || fileUrl.endsWith(".jpg", ignoreCase = true) || fileUrl.endsWith(".jpeg", ignoreCase = true) || resourceType == "image"
 
     val isLink: Boolean
-        get() = resourceType == "link" || fileUrl.startsWith("http://") || fileUrl.startsWith("https://") && !fileUrl.contains("/api/storage/files")
+        get() = resourceType == "link" ||
+            ((fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) && !fileUrl.contains("/api/storage/files"))
 
     val fileFormatBadge: String
         get() = when {
@@ -222,3 +223,9 @@ data class CourseEnrollment(
     val isRejected: Boolean get() = status.equals("rejected", ignoreCase = true)
 }
 
+@Serializable
+data class LeaderboardEntry(
+    val id: String,
+    @kotlinx.serialization.SerialName("full_name") val fullName: String? = null,
+    val points: Int = 0
+)

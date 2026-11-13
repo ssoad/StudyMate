@@ -31,6 +31,10 @@ class ProgressRepository(
     private val courseRepository: CourseRepository,
     private val authRepository: AuthRepository
 ) {
+    companion object {
+        const val POINTS_PER_LESSON = 15
+    }
+
     private val json = Json { ignoreUnknownKeys = true; isLenient = true; encodeDefaults = true }
     private val prefs = context.getSharedPreferences("studymate_progress", Context.MODE_PRIVATE)
     private val playbackPrefs = context.getSharedPreferences("studymate_playback", Context.MODE_PRIVATE)
@@ -141,9 +145,15 @@ class ProgressRepository(
         map[courseId] = updated
         _progressMap.value = map
 
-        // Award points if marked completed
+        // Award points the first time a lesson is completed (not on every re-toggle).
         if (!isDone) {
-            authRepository.addPoints(15)
+            val awardKey = "points_awarded_${userId}"
+            val awarded = prefs.getStringSet(awardKey, emptySet()).orEmpty()
+            val lessonKey = "$courseId/$lessonId"
+            if (lessonKey !in awarded) {
+                prefs.edit().putStringSet(awardKey, awarded + lessonKey).apply()
+                authRepository.addPoints(POINTS_PER_LESSON)
+            }
         }
 
         // Sync to Supabase in background

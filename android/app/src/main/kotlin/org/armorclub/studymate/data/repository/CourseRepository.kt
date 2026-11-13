@@ -12,6 +12,7 @@ import org.armorclub.studymate.data.BundledCourses
 import org.armorclub.studymate.data.model.Course
 import org.armorclub.studymate.data.model.CourseLesson
 import org.armorclub.studymate.data.model.CourseResource
+import org.armorclub.studymate.data.model.LeaderboardEntry
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
@@ -148,5 +149,20 @@ class CourseRepository(private val context: Context) {
             Log.e("CourseRepository", "Failed to download resource from $fileUrl", e)
         }
         false
+    }
+
+    /** Top students by points. Only public profile columns are requested. */
+    suspend fun getLeaderboard(limit: Int = 10): List<LeaderboardEntry> = withContext(Dispatchers.IO) {
+        try {
+            val url = "${getBaseUrl()}/rest/v1/profiles?select=id,full_name,points&order=points.desc&limit=$limit"
+            client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+                if (resp.isSuccessful) {
+                    return@withContext json.decodeFromString<List<LeaderboardEntry>>(resp.body?.string().orEmpty())
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("CourseRepository", "Leaderboard unavailable: ${e.message}")
+        }
+        emptyList()
     }
 }

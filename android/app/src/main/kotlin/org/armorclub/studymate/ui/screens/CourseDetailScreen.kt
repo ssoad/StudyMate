@@ -1,14 +1,10 @@
 package org.armorclub.studymate.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,56 +15,37 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.HelpOutline
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.PlayCircle
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -79,36 +56,35 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.runtime.collectAsState
+import org.armorclub.studymate.data.BundledCourses
 import org.armorclub.studymate.data.model.Course
-import org.armorclub.studymate.data.model.CourseLesson
 import org.armorclub.studymate.data.model.CourseResource
-import org.armorclub.studymate.ui.theme.AppTheme
 import org.armorclub.studymate.data.repository.AuthRepository
 import org.armorclub.studymate.data.repository.CourseRepository
 import org.armorclub.studymate.data.repository.EnrollmentRepository
 import org.armorclub.studymate.data.repository.ProgressRepository
+import org.armorclub.studymate.ui.components.Badge
+import org.armorclub.studymate.ui.components.BadgeTone
 import org.armorclub.studymate.ui.components.EnrollmentDialog
+import org.armorclub.studymate.ui.components.GhostButton
+import org.armorclub.studymate.ui.components.Hairline
+import org.armorclub.studymate.ui.components.PrimaryButton
+import org.armorclub.studymate.ui.components.ProgressTrack
+import org.armorclub.studymate.ui.components.SecondaryButton
+import org.armorclub.studymate.ui.components.SectionHeader
+import org.armorclub.studymate.ui.theme.AppTheme
+import org.armorclub.studymate.ui.theme.Radius
+import org.armorclub.studymate.ui.theme.Spacing
 import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CourseDetailScreen(
     courseId: String,
@@ -121,1231 +97,502 @@ fun CourseDetailScreen(
     onViewResource: (title: String, fileUrl: String) -> Unit
 ) {
     val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
     val currentUser by authRepository.currentUser.collectAsState()
     val enrollments by enrollmentRepository.enrollments.collectAsState()
-    val userId = progressRepository.getGuestOrUserId()
-
     val progressMap by progressRepository.progressMap.collectAsState()
+    val userId = progressRepository.getGuestOrUserId()
     val courseProgress = progressMap[courseId] ?: progressRepository.getCourseProgress(userId, courseId)
 
     var course by remember { mutableStateOf<Course?>(null) }
     var isLoading by remember { mutableStateOf(true) }
-
-    val isApproved = course?.let { enrollmentRepository.isCourseApproved(courseId, currentUser, it.price) } ?: false
-    val currentEnrollment = enrollments[courseId]
     var showEnrollmentDialog by remember { mutableStateOf(false) }
-
-    val completedCount = course?.let { progressRepository.getCompletedCount(userId, it) } ?: 0
-    val progressPercent = course?.let { progressRepository.getCourseProgressPercentage(userId, it) } ?: 0
-    val lastLessonId = courseProgress.lastLessonId
-    val lastLesson = course?.sections?.flatMap { it.lessons }?.firstOrNull { it.id == lastLessonId }
-
-    // Accordion expansion state: maps section.id -> Boolean
+    var descriptionExpanded by remember { mutableStateOf(false) }
     val expandedSections = remember { mutableStateMapOf<String, Boolean>() }
-
-    // FAQ expansion state: maps question index -> Boolean
     val expandedFaqs = remember { mutableStateMapOf<Int, Boolean>() }
-
-    // Preview lesson modal state
-    var previewLesson by remember { mutableStateOf<CourseLesson?>(null) }
 
     LaunchedEffect(courseId) {
         isLoading = true
         val c = courseRepository.getCourse(courseId)
         course = c
-        // Expand first 2 sections by default, just like the web app
-        c?.sections?.forEachIndexed { index, section ->
-            expandedSections[section.id] = index < 2
-        }
+        c?.sections?.forEachIndexed { i, s -> expandedSections[s.id] = i == 0 }
         isLoading = false
     }
 
-    fun expandAll() {
-        course?.sections?.forEach { section ->
-            expandedSections[section.id] = true
+    fun shareCourse(c: Course) {
+        val link = "${BundledCourses.FALLBACK_WEB_URL}/courses/${c.id}"
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, c.title)
+            putExtra(Intent.EXTRA_TEXT, "${c.title}\n$link")
+        }
+        context.startActivity(Intent.createChooser(send, "Share course"))
+    }
+
+    fun download(res: CourseResource) {
+        scope.launch {
+            Toast.makeText(context, "Downloading ${res.title}", Toast.LENGTH_SHORT).show()
+            val dest = File(context.getExternalFilesDir(null) ?: context.filesDir, res.displayFileName)
+            val ok = courseRepository.downloadResourceFile(res.fileUrl, dest)
+            Toast.makeText(context, if (ok) "Saved ${dest.name}" else "Download failed. Try again.", Toast.LENGTH_SHORT).show()
         }
     }
 
-    fun collapseAll() {
-        course?.sections?.forEach { section ->
-            expandedSections[section.id] = false
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(AppTheme.colors.background)
+            .statusBarsPadding()
+    ) {
+        // Top bar
+        Row(
+            Modifier.fillMaxWidth().height(56.dp).padding(horizontal = Spacing.xxs),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClick) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back", tint = AppTheme.colors.textPrimary)
+            }
+            Spacer(Modifier.weight(1f))
+            course?.let { c ->
+                IconButton(onClick = { shareCourse(c) }) {
+                    Icon(Icons.Outlined.Share, contentDescription = "Share course", tint = AppTheme.colors.textPrimary)
+                }
+            }
         }
-    }
 
-    fun copyCourseShareLink(c: Course) {
-        val shareText = "Check out ${c.title} on StudyMate: 45+ lectures, notes & complete curriculum!"
-        clipboardManager.setText(AnnotatedString(shareText))
-        Toast.makeText(context, "Course link copied to clipboard!", Toast.LENGTH_SHORT).show()
-    }
+        val c = course
+        if (isLoading || c == null) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = AppTheme.colors.primary, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
+                } else {
+                    Text("This course couldn't be loaded.", color = AppTheme.colors.textSecondary)
+                }
+            }
+            return@Column
+        }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
+        val isApproved = enrollmentRepository.isCourseApproved(courseId, currentUser, c.price)
+        val enrollment = enrollments[courseId]
+        val allLessons = remember(c) { c.sections.flatMap { it.lessons } }
+        val completedCount = allLessons.count { courseProgress.isCompleted(it.id) }
+        val progress = if (allLessons.isEmpty()) 0f else completedCount.toFloat() / allLessons.size
+        val lastLesson = allLessons.firstOrNull { it.id == courseProgress.lastLessonId }
+        val firstLesson = allLessons.firstOrNull()
+        val totalResources = c.totalResourcesCount
+        val hasFreePreview = firstLesson != null &&
+            enrollmentRepository.canAccessLesson(c.id, 0, 0, firstLesson, currentUser, c.price)
+        val allExpanded = c.sections.isNotEmpty() && c.sections.all { expandedSections[it.id] == true }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, bottom = Spacing.xl)
+        ) {
+            // Hero
+            item(key = "hero") {
+                Column {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f)
+                            .clip(RoundedCornerShape(Radius.card))
+                            .background(AppTheme.colors.thumbnailPlaceholder)
+                    ) {
+                        if (c.thumbnailUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = c.thumbnailUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(Spacing.md))
+                    if (c.category.isNotBlank()) {
+                        Text(c.category, style = MaterialTheme.typography.labelMedium, color = AppTheme.colors.primary)
+                        Spacer(Modifier.height(Spacing.xxs))
+                    }
+                    Text(c.title, style = MaterialTheme.typography.headlineSmall, color = AppTheme.colors.textPrimary)
+                    Spacer(Modifier.height(Spacing.xs))
                     Text(
-                        text = course?.title ?: "Course Overview",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = AppTheme.colors.textPrimary
-                        )
+                        listOfNotNull(
+                            c.instructorName.takeIf { it.isNotBlank() },
+                            "${allLessons.size} lessons".takeIf { allLessons.isNotEmpty() },
+                            c.duration.takeIf { it.isNotBlank() }
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppTheme.colors.textSecondary
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = AppTheme.colors.textPrimary
+                    if (c.description.isNotBlank()) {
+                        Spacer(Modifier.height(Spacing.sm))
+                        Text(
+                            c.description,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = AppTheme.colors.textSecondary,
+                            maxLines = if (descriptionExpanded) Int.MAX_VALUE else 4,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (c.description.length > 220) {
+                            Text(
+                                if (descriptionExpanded) "Show less" else "Show more",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = AppTheme.colors.primary,
+                                modifier = Modifier
+                                    .padding(top = Spacing.xxs)
+                                    .clip(RoundedCornerShape(Radius.xs))
+                                    .clickable { descriptionExpanded = !descriptionExpanded }
+                                    .padding(vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Progress + primary action
+            item(key = "cta") {
+                Column(Modifier.padding(top = Spacing.lg)) {
+                    if (isApproved && allLessons.isNotEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "$completedCount of ${allLessons.size} lessons done",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = AppTheme.colors.textSecondary,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text("${(progress * 100).toInt()}%", style = MaterialTheme.typography.titleSmall, color = AppTheme.colors.textPrimary)
+                        }
+                        Spacer(Modifier.height(Spacing.xs))
+                        ProgressTrack(progress)
+                        Spacer(Modifier.height(Spacing.md))
+                    }
+                    when {
+                        isApproved -> {
+                            val target = lastLesson ?: firstLesson
+                            if (target != null) {
+                                PrimaryButton(
+                                    text = when {
+                                        completedCount == 0 && lastLesson == null -> "Start course"
+                                        else -> "Continue: ${target.title}"
+                                    },
+                                    onClick = { onSelectLesson(c.id, target.id) },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                        enrollment?.isPending == true -> {
+                            StatusNote(
+                                icon = Icons.Outlined.Schedule,
+                                tone = BadgeTone.Warning,
+                                title = "Payment under review",
+                                body = "৳${enrollment.amount.toInt()} via ${enrollment.paymentMethod}" +
+                                    (enrollment.transactionId.takeIf { it.isNotBlank() }?.let { " · TrxID $it" } ?: "") +
+                                    ". You'll get access as soon as it's approved."
+                            )
+                            Spacer(Modifier.height(Spacing.sm))
+                            SecondaryButton("View payment details", onClick = { showEnrollmentDialog = true }, modifier = Modifier.fillMaxWidth())
+                        }
+                        enrollment?.isRejected == true -> {
+                            StatusNote(
+                                icon = Icons.Outlined.ErrorOutline,
+                                tone = BadgeTone.Danger,
+                                title = "Payment couldn't be verified",
+                                body = enrollment.adminNotes ?: "Check the transaction ID and sender number, then submit again."
+                            )
+                            Spacer(Modifier.height(Spacing.sm))
+                            PrimaryButton("Resubmit payment", onClick = { showEnrollmentDialog = true }, modifier = Modifier.fillMaxWidth())
+                        }
+                        else -> {
+                            PrimaryButton(
+                                text = if (c.isPaidCourse) "Enroll · ৳" + "%,d".format(c.price?.toInt() ?: 0) else "Enroll for free",
+                                onClick = { showEnrollmentDialog = true },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (hasFreePreview && firstLesson != null) {
+                                Spacer(Modifier.height(Spacing.xs))
+                                SecondaryButton(
+                                    "Watch the free first lesson",
+                                    onClick = { onSelectLesson(c.id, firstLesson.id) },
+                                    icon = Icons.Outlined.PlayCircle,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Curriculum
+            item(key = "curriculum_header") {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Column(Modifier.weight(1f)) {
+                        SectionHeader("Curriculum")
+                        Text(
+                            "${c.sections.size} modules · ${allLessons.size} lessons" +
+                                (if (totalResources > 0) " · $totalResources files" else ""),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppTheme.colors.textSecondary
                         )
                     }
-                },
-                actions = {
-                    course?.let { c ->
-                        IconButton(onClick = { copyCourseShareLink(c) }) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Share",
-                                tint = AppTheme.colors.textPrimary
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppTheme.colors.topAppBarBackground
-                )
-            )
-        },
-        containerColor = AppTheme.colors.background
-    ) { paddingValues ->
-        if (isLoading || course == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = AppTheme.colors.primary)
-            }
-        } else {
-            val c = course!!
-            val firstLesson = c.sections.firstOrNull()?.lessons?.firstOrNull()
-            val totalLectures = c.totalLessonsCount
-            val totalResources = c.resources.size + c.sections.sumOf { s ->
-                s.resources.size + s.lessons.sumOf { it.resources.size }
-            }
-
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // 1. HERO CARD (Udemy & Coursera Style with Preview Video Overlay)
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column {
-                            // 16:9 Thumbnail with interactive Play Video Preview Overlay
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp)
-                                    .background(Color(0xFF0F172A))
-                                    .clickable {
-                                        if (firstLesson != null) {
-                                            previewLesson = firstLesson
-                                        }
-                                    }
-                            ) {
-                                if (c.thumbnailUrl.isNotBlank()) {
-                                    AsyncImage(
-                                        model = c.thumbnailUrl,
-                                        contentDescription = c.title,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(
-                                                Brush.verticalGradient(
-                                                    listOf(Color.Black.copy(alpha = 0.3f), AppTheme.colors.cardBackground)
-                                                )
-                                            )
-                                    )
-                                }
-
-                                // Centered Play Preview Badge (Udemy Video Preview style)
-                                Column(
-                                    modifier = Modifier.align(Alignment.Center),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(54.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White.copy(alpha = 0.95f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            Icons.Default.PlayArrow,
-                                            contentDescription = "Preview Lecture",
-                                            tint = AppTheme.colors.primary,
-                                            modifier = Modifier.size(32.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Surface(
-                                        color = Color.Black.copy(alpha = 0.75f),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Text(
-                                            text = "Watch Preview Lecture",
-                                            color = Color.White,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                }
-
-                                // Category Pill
-                                Surface(
-                                    color = AppTheme.colors.primaryContainer,
-                                    shape = RoundedCornerShape(6.dp),
-                                    modifier = Modifier
-                                        .padding(12.dp)
-                                        .align(Alignment.TopStart)
-                                ) {
-                                    Text(
-                                        text = c.category.uppercase(),
-                                        color = AppTheme.colors.onPrimaryContainer,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-                            }
-
-                            // Card Body Details
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = c.title,
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        fontWeight = FontWeight.Black,
-                                        color = AppTheme.colors.textPrimary
-                                    )
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = c.description,
-                                    style = MaterialTheme.typography.bodySmall.copy(color = AppTheme.colors.textSecondary),
-                                    lineHeight = 18.sp
-                                )
-
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                // Quick Stats Row (Rating, Students, Duration, Modules)
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            Icons.Default.Star,
-                                            contentDescription = null,
-                                            tint = Color(0xFFF59E0B),
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Text(
-                                            "${c.rating}",
-                                            color = AppTheme.colors.textPrimary,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            Icons.Default.Group,
-                                            contentDescription = null,
-                                            tint = AppTheme.colors.primary,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Text(
-                                            "${c.enrolledCount} enrolled",
-                                            color = AppTheme.colors.textSecondary,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            Icons.Default.AccessTime,
-                                            contentDescription = null,
-                                            tint = AppTheme.colors.secondary,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Text(
-                                            c.duration,
-                                            color = AppTheme.colors.textSecondary,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(14.dp))
-                                HorizontalDivider(color = AppTheme.colors.divider)
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                // Instructor Information
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(42.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                Brush.linearGradient(
-                                                    listOf(Color(0xFF6366F1), Color(0xFF0284C7))
-                                                )
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = c.instructorName.take(2).uppercase(),
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(12.dp))
-
-                                    Column {
-                                        Text(
-                                            text = "INSTRUCTOR",
-                                            fontSize = 10.sp,
-                                            color = AppTheme.colors.textMuted,
-                                            fontWeight = FontWeight.Bold,
-                                            letterSpacing = 1.sp
-                                        )
-                                        Text(
-                                            text = c.instructorName,
-                                            color = AppTheme.colors.textPrimary,
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = c.instructorTitle.ifBlank { "Expert Computer Science & ICT Instructor" },
-                                            color = AppTheme.colors.textSecondary,
-                                            fontSize = 11.sp
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                // Real Course Progress Indicator (Matching Web App)
-                                if (completedCount > 0) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Your Progress: $completedCount / ${c.totalLessonsCount} lectures",
-                                            color = Color(0xFF10B981),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = "$progressPercent%",
-                                            color = Color(0xFF38BDF8),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    LinearProgressIndicator(
-                                        progress = { progressPercent / 100f },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .clip(RoundedCornerShape(3.dp)),
-                                        color = Color(0xFF10B981),
-                                        trackColor = Color(0xFF1E293B)
-                                    )
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                }
-
-                                // Primary CTA Section (Exact Web Parity)
-                                val targetLesson = lastLesson ?: firstLesson
-                                if (isApproved) {
-                                    if (targetLesson != null) {
-                                        Button(
-                                            onClick = { onSelectLesson(c.id, targetLesson.id) },
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (completedCount > 0) AppTheme.colors.success else AppTheme.colors.primaryButton,
-                                                contentColor = AppTheme.colors.onPrimaryButton
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(50.dp)
-                                        ) {
-                                            Icon(
-                                                if (completedCount > 0) Icons.Default.PlayCircle else Icons.Default.PlayArrow,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = if (lastLesson != null) "Resume: ${lastLesson.title.take(22)}... 🚀" else "Enter Classroom 🚀",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 15.sp,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-                                } else if (currentEnrollment?.isPending == true) {
-                                    // PENDING VERIFICATION NOTICE
-                                    Column(modifier = Modifier.fillMaxWidth()) {
-                                        Surface(
-                                            color = Color(0xFFF59E0B).copy(alpha = 0.12f),
-                                            shape = RoundedCornerShape(12.dp),
-                                            border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.35f)),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Column(modifier = Modifier.padding(12.dp)) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(
-                                                        Icons.Default.AccessTime,
-                                                        contentDescription = null,
-                                                        tint = Color(0xFFF59E0B),
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    Text(
-                                                        text = "Enrollment Pending Approval",
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = Color(0xFFF59E0B),
-                                                        fontSize = 13.sp
-                                                    )
-                                                }
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
-                                                    text = "Your payment of ৳${currentEnrollment.amount.toInt()} via ${currentEnrollment.paymentMethod} (TrxID: ${currentEnrollment.transactionId}) is being verified by admin.",
-                                                    fontSize = 11.sp,
-                                                    color = AppTheme.colors.textSecondary,
-                                                    lineHeight = 15.sp
-                                                )
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(10.dp))
-                                        OutlinedButton(
-                                            onClick = { showEnrollmentDialog = true },
-                                            shape = RoundedCornerShape(12.dp),
-                                            border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(44.dp)
-                                        ) {
-                                            Text("Update / View Payment Details", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppTheme.colors.textPrimary)
-                                        }
-                                    }
-                                } else if (currentEnrollment?.isRejected == true) {
-                                    // REJECTED NOTICE
-                                    Column(modifier = Modifier.fillMaxWidth()) {
-                                        Surface(
-                                            color = AppTheme.colors.error.copy(alpha = 0.12f),
-                                            shape = RoundedCornerShape(12.dp),
-                                            border = BorderStroke(1.dp, AppTheme.colors.error.copy(alpha = 0.35f)),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Column(modifier = Modifier.padding(12.dp)) {
-                                                Text(
-                                                    text = "Enrollment Rejected",
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = AppTheme.colors.error,
-                                                    fontSize = 13.sp
-                                                )
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
-                                                    text = currentEnrollment.adminNotes ?: "Transaction details could not be verified.",
-                                                    fontSize = 11.sp,
-                                                    color = AppTheme.colors.textSecondary
-                                                )
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(10.dp))
-                                        Button(
-                                            onClick = { showEnrollmentDialog = true },
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = AppTheme.colors.primaryButton,
-                                                contentColor = AppTheme.colors.onPrimaryButton
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(48.dp)
-                                        ) {
-                                            Text("Re-submit Payment Proof", fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                } else {
-                                    // NOT ENROLLED (PAID COURSE)
-                                    Column(modifier = Modifier.fillMaxWidth()) {
-                                        Button(
-                                            onClick = { showEnrollmentDialog = true },
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = AppTheme.colors.primaryButton,
-                                                contentColor = AppTheme.colors.onPrimaryButton
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(50.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.CreditCard,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "Enroll Now (৳${c.price?.toInt() ?: 2500}) 🎓",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 15.sp
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Text(
-                                            text = "💡 Free preview available: First lecture is free to watch before enrolling.",
-                                            fontSize = 10.sp,
-                                            color = Color(0xFF10B981),
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                    if (c.sections.size > 1) {
+                        GhostButton(
+                            if (allExpanded) "Collapse all" else "Expand all",
+                            onClick = { c.sections.forEach { expandedSections[it.id] = !allExpanded } }
+                        )
                     }
                 }
+                Spacer(Modifier.height(Spacing.sm))
+            }
 
-                // 2. "THIS COURSE INCLUDES" PERKS BOX (Udemy Standard)
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "THIS COURSE INCLUDES:",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = AppTheme.colors.primary,
-                                letterSpacing = 1.sp
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
+            itemsIndexed(c.sections, key = { _, s -> "sec_" + s.id }) { sIdx, section ->
+                val isExpanded = expandedSections[section.id] == true
+                val rotation by animateFloatAsState(if (isExpanded) 180f else 0f, label = "chevron")
+                val doneInSection = section.lessons.count { courseProgress.isCompleted(it.id) }
+                val shape = RoundedCornerShape(Radius.card)
 
-                            CoursePerkRow(
-                                icon = Icons.Default.PlayCircle,
-                                text = "$totalLectures on-demand hardware-accelerated video lectures"
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            CoursePerkRow(
-                                icon = Icons.Default.Book,
-                                text = "$totalResources lecture notes, reference PDFs & MCQs"
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            CoursePerkRow(
-                                icon = Icons.Default.AccessTime,
-                                text = "Full lifetime access with offline reading & range seeking"
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            CoursePerkRow(
-                                icon = Icons.Default.School,
-                                text = "Certificate of syllabus completion"
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            CoursePerkRow(
-                                icon = Icons.Default.Shield,
-                                text = "Direct instructor Q&A & classroom notes integration"
-                            )
-                        }
-                    }
-                }
-
-                // 3. CURRICULUM ACCORDION HEADER (With Expand All / Collapse All Buttons!)
-                item {
+                Column(
+                    Modifier
+                        .padding(bottom = Spacing.xs)
+                        .fillMaxWidth()
+                        .clip(shape)
+                        .background(AppTheme.colors.surface)
+                        .border(1.dp, AppTheme.colors.cardBorder, shape)
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { expandedSections[section.id] = !isExpanded }
+                            .padding(Spacing.md),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "Course Curriculum",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Black,
-                                    color = AppTheme.colors.textPrimary
+                        Column(Modifier.weight(1f)) {
+                            if (!section.title.trimStart().startsWith("Module", ignoreCase = true)) {
+                                Text(
+                                    "Module ${sIdx + 1}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = AppTheme.colors.textMuted
                                 )
-                            )
+                            }
+                            Text(section.title, style = MaterialTheme.typography.titleSmall, color = AppTheme.colors.textPrimary)
                             Text(
-                                text = "${c.sections.size} Modules • $totalLectures Lectures • ${c.duration} Total Length",
-                                color = AppTheme.colors.textSecondary,
-                                fontSize = 11.sp
+                                "${section.lessons.size} lessons" + if (isApproved) " · $doneInSection done" else "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isApproved && doneInSection == section.lessons.size && section.lessons.isNotEmpty())
+                                    AppTheme.colors.success else AppTheme.colors.textSecondary
                             )
                         }
-
-                        // Expand All & Collapse All Controls (Exact Web Parity!)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            OutlinedButton(
-                                onClick = { expandAll() },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.primary),
-                                border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
-                                modifier = Modifier.height(32.dp)
-                            ) {
-                                Text("Expand All", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-
-                            OutlinedButton(
-                                onClick = { collapseAll() },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textSecondary),
-                                border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
-                                modifier = Modifier.height(32.dp)
-                            ) {
-                                Text("Collapse", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-
-                // 4. ACCORDION MODULES (Collapsible Section Accordions)
-                itemsIndexed(c.sections, key = { _, s -> "sec_" + s.id }) { sIdx, section ->
-                    val isExpanded = expandedSections[section.id] ?: false
-                    val arrowRotation by animateFloatAsState(
-                        targetValue = if (isExpanded) 180f else 0f,
-                        label = "accordion_arrow"
-                    )
-
-                    val sectionPdfCount = section.resources.size + section.lessons.sumOf { it.resources.size }
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                        border = BorderStroke(
-                            1.dp,
-                            if (isExpanded) AppTheme.colors.primary.copy(alpha = 0.5f) else AppTheme.colors.cardBorder
+                        Icon(
+                            Icons.Outlined.ExpandMore,
+                            contentDescription = if (isExpanded) "Collapse" else "Expand",
+                            tint = AppTheme.colors.textMuted,
+                            modifier = Modifier.rotate(rotation)
                         )
-                    ) {
-                        Column {
-                            // CLICKABLE ACCORDION HEADER
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        expandedSections[section.id] = !isExpanded
-                                    }
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    // Module Number Badge (e.g. 1, 2, 3...)
-                                    Box(
-                                        modifier = Modifier
-                                            .size(34.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(AppTheme.colors.primary.copy(alpha = 0.15f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "${sIdx + 1}",
-                                            color = AppTheme.colors.primary,
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 13.sp
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(12.dp))
-
-                                    Column {
-                                        Text(
-                                            text = section.title,
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = AppTheme.colors.textPrimary
-                                            )
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        val sectionDoneCount = section.lessons.count { courseProgress.isCompleted(it.id) }
-                                        Text(
-                                            text = "${section.lessons.size} Lectures • $sectionDoneCount completed" + if (sectionPdfCount > 0) " • $sectionPdfCount Notes & PDFs" else "",
-                                            fontSize = 11.sp,
-                                            color = if (sectionDoneCount == section.lessons.size && section.lessons.isNotEmpty()) AppTheme.colors.success else AppTheme.colors.textSecondary
-                                        )
-                                    }
-                                }
-
-                                // Animated Chevron Indicator
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                    contentDescription = if (isExpanded) "Collapse" else "Expand",
-                                    tint = if (isExpanded) AppTheme.colors.primary else AppTheme.colors.textMuted,
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .rotate(arrowRotation)
-                                )
-                            }
-
-                            // EXPANDABLE CONTENT (Lessons & Section Materials)
-                            AnimatedVisibility(
-                                visible = isExpanded,
-                                enter = expandVertically() + fadeIn(),
-                                exit = shrinkVertically() + fadeOut()
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(AppTheme.colors.surfaceVariant.copy(alpha = 0.5f))
-                                ) {
-                                    HorizontalDivider(color = AppTheme.colors.divider)
-
-                                    // 1. Attached Module Resources (if any)
-                                    if (section.resources.isNotEmpty()) {
-                                        val canAccessRes = enrollmentRepository.canAccessResource(c.id, null, currentUser, c.price)
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 14.dp, vertical = 10.dp)
-                                        ) {
-                                            Text(
-                                                text = "SECTION MATERIALS",
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = AppTheme.colors.success,
-                                                letterSpacing = 1.sp
-                                            )
-                                            Spacer(modifier = Modifier.height(6.dp))
-                                            section.resources.forEach { res ->
-                                                ResourceRowItem(
-                                                    resource = res,
-                                                    isLocked = !canAccessRes,
-                                                    onRead = { onViewResource(res.title, res.fileUrl) },
-                                                    onDownload = {
-                                                        scope.launch {
-                                                             Toast.makeText(context, "Downloading ${res.title}...", Toast.LENGTH_SHORT).show()
-                                                             val dest = File(context.getExternalFilesDir(null) ?: context.filesDir, res.displayFileName)
-                                                             courseRepository.downloadResourceFile(res.fileUrl, dest)
-                                                             Toast.makeText(context, "Saved to ${dest.name}", Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    },
-                                                    onLockedClick = {
-                                                        showEnrollmentDialog = true
-                                                    }
-                                                )
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                            }
-                                        }
-                                        HorizontalDivider(color = AppTheme.colors.divider)
-                                    }
-
-                                    // 2. Section Lessons List (Udemy Lecture Row)
-                                    section.lessons.forEachIndexed { lIdx, lesson ->
-                                        val canPreview = enrollmentRepository.canAccessLesson(c.id, sIdx, lIdx, lesson, currentUser, c.price)
-                                        val canAccess = isApproved || canPreview
-                                        val hasNotes = lesson.resources.isNotEmpty()
-                                        val isDone = courseProgress.isCompleted(lesson.id)
-
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable {
-                                                    if (canAccess) {
-                                                        onSelectLesson(c.id, lesson.id)
-                                                    } else {
-                                                        showEnrollmentDialog = true
-                                                    }
-                                                }
-                                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                // Play Icon / Completed Icon / Lock Icon
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(28.dp)
-                                                        .clip(CircleShape)
-                                                        .background(
-                                                            if (isDone) Color(0xFF059669).copy(alpha = 0.2f)
-                                                            else if (canPreview) Color(0xFF10B981).copy(alpha = 0.15f)
-                                                            else if (isApproved) AppTheme.colors.primary.copy(alpha = 0.15f)
-                                                            else AppTheme.colors.cardBorder.copy(alpha = 0.5f)
-                                                        ),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    if (isDone) {
-                                                        Icon(
-                                                            Icons.Default.CheckCircle,
-                                                            contentDescription = "Completed",
-                                                            tint = Color(0xFF10B981),
-                                                            modifier = Modifier.size(18.dp)
-                                                        )
-                                                    } else if (canPreview) {
-                                                        Icon(
-                                                            Icons.Default.PlayArrow,
-                                                            contentDescription = "Preview",
-                                                            tint = Color(0xFF10B981),
-                                                            modifier = Modifier.size(16.dp)
-                                                        )
-                                                    } else if (isApproved) {
-                                                        Icon(
-                                                            Icons.Default.PlayArrow,
-                                                            contentDescription = "Play",
-                                                            tint = AppTheme.colors.primary,
-                                                            modifier = Modifier.size(16.dp)
-                                                        )
-                                                    } else {
-                                                        Icon(
-                                                            Icons.Default.Lock,
-                                                            contentDescription = "Locked",
-                                                            tint = AppTheme.colors.textMuted,
-                                                            modifier = Modifier.size(14.dp)
-                                                        )
-                                                    }
-                                                }
-
-                                                Spacer(modifier = Modifier.width(10.dp))
-
-                                                // Lecture Index e.g. 1.1
-                                                Text(
-                                                    text = "${sIdx + 1}.${lIdx + 1}",
-                                                    fontSize = 11.sp,
-                                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                                    color = Color(0xFF64748B),
-                                                    fontWeight = FontWeight.Bold
-                                                )
-
-                                                Spacer(modifier = Modifier.width(8.dp))
-
-                                                // Lecture Title
-                                                Text(
-                                                    text = lesson.title,
-                                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                                        fontWeight = FontWeight.Medium,
-                                                        color = if (canAccess) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary
-                                                    ),
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f)
-                                                )
-                                            }
-
-                                            // Trailing Badges & Actions
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                if (hasNotes) {
-                                                    Surface(
-                                                        color = Color(0xFFEC4899).copy(alpha = 0.15f),
-                                                        shape = RoundedCornerShape(4.dp)
-                                                    ) {
-                                                        Row(
-                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                            verticalAlignment = Alignment.CenterVertically
-                                                        ) {
-                                                            Icon(
-                                                                Icons.Default.PictureAsPdf,
-                                                                contentDescription = null,
-                                                                tint = Color(0xFFF472B6),
-                                                                modifier = Modifier.size(10.dp)
-                                                            )
-                                                            Spacer(modifier = Modifier.width(3.dp))
-                                                            Text(
-                                                                text = "${lesson.resources.size} Note${if (lesson.resources.size > 1) "s" else ""}",
-                                                                color = Color(0xFFF472B6),
-                                                                fontSize = 9.sp,
-                                                                fontWeight = FontWeight.Bold
-                                                            )
-                                                        }
-                                                    }
-                                                }
-
-                                                if (canPreview && !isApproved) {
-                                                    Surface(
-                                                        color = Color(0xFF10B981).copy(alpha = 0.15f),
-                                                        shape = RoundedCornerShape(6.dp),
-                                                        modifier = Modifier.clickable { previewLesson = lesson }
-                                                    ) {
-                                                        Text(
-                                                            text = "Preview",
-                                                            color = Color(0xFF10B981),
-                                                            fontSize = 10.sp,
-                                                            fontWeight = FontWeight.Bold,
-                                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                                        )
-                                                    }
-                                                }
-
-                                                if (isApproved) {
-                                                    IconButton(
-                                                        onClick = { onSelectLesson(c.id, lesson.id) },
-                                                        modifier = Modifier.size(28.dp)
-                                                    ) {
-                                                        Icon(
-                                                            Icons.Default.PlayCircle,
-                                                            contentDescription = "Play",
-                                                            tint = AppTheme.colors.primary,
-                                                            modifier = Modifier.size(18.dp)
-                                                        )
-                                                    }
-                                                } else if (!canPreview) {
-                                                    Icon(
-                                                        Icons.Default.Lock,
-                                                        contentDescription = "Locked",
-                                                        tint = AppTheme.colors.textMuted,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        if (lIdx < section.lessons.size - 1) {
-                                            HorizontalDivider(
-                                                color = AppTheme.colors.divider,
-                                                modifier = Modifier.padding(start = 54.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
-                }
 
-                // 5. FREQUENTLY ASKED QUESTIONS (FAQ) ACCORDION (Web Parity!)
-                item {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                        border = BorderStroke(1.dp, AppTheme.colors.cardBorder)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.HelpOutline,
-                                    contentDescription = null,
-                                    tint = AppTheme.colors.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Frequently Asked Questions",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = AppTheme.colors.textPrimary
+                    AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                        Column(Modifier.fillMaxWidth()) {
+                            Hairline()
+                            if (section.resources.isNotEmpty()) {
+                                val canAccessRes = enrollmentRepository.canAccessResource(c.id, null, currentUser, c.price)
+                                section.resources.forEach { res ->
+                                    ResourceRow(
+                                        resource = res,
+                                        locked = !canAccessRes,
+                                        onOpen = { if (canAccessRes) onViewResource(res.title, res.fileUrl) else showEnrollmentDialog = true },
+                                        onDownload = { download(res) }
                                     )
-                                )
+                                }
+                                Hairline()
                             }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            val faqs = listOf(
-                                "How does manual enrollment work?" to
-                                    "Send the course fee via bKash, Nagad, Rocket, or Bank transfer to our official account. Submit your sender number and Transaction ID. The administrator verifies the transaction and activates full classroom access immediately.",
-                                "How long does approval take?" to
-                                    "Enrollments are reviewed manually around the clock. Approvals typically take between 15 minutes to 1 hour.",
-                                "Can I watch videos offline or stream them fast?" to
-                                    "All lectures are hosted with high-performance HTTP 206 range-seeking streaming with ExoPlayer, allowing instant scrubbing and buffering without lag."
-                            )
-
-                            faqs.forEachIndexed { fIdx, (q, a) ->
-                                val isOpen = expandedFaqs[fIdx] ?: false
-                                val faqArrow by animateFloatAsState(
-                                    targetValue = if (isOpen) 180f else 0f,
-                                    label = "faq_arrow"
-                                )
-
-                                Surface(
-                                    color = AppTheme.colors.surfaceVariant.copy(alpha = 0.5f),
-                                    shape = RoundedCornerShape(10.dp),
-                                    border = BorderStroke(1.dp, AppTheme.colors.cardBorder),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { expandedFaqs[fIdx] = !isOpen }
-                                ) {
-                                    Column(modifier = Modifier.padding(12.dp)) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = q,
-                                                color = AppTheme.colors.textPrimary,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            Icon(
-                                                imageVector = Icons.Default.KeyboardArrowDown,
-                                                contentDescription = null,
-                                                tint = AppTheme.colors.textSecondary,
-                                                modifier = Modifier
-                                                    .size(18.dp)
-                                                    .rotate(faqArrow)
-                                            )
-                                        }
-
-                                        AnimatedVisibility(
-                                            visible = isOpen,
-                                            enter = expandVertically() + fadeIn(),
-                                            exit = shrinkVertically() + fadeOut()
-                                        ) {
-                                            Column {
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Text(
-                                                    text = a,
-                                                    color = AppTheme.colors.textSecondary,
-                                                    fontSize = 12.sp,
-                                                    lineHeight = 18.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                                if (fIdx < faqs.size - 1) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // FREE PREVIEW LECTURE MODAL DIALOG
-            previewLesson?.let { lesson ->
-                Dialog(
-                    onDismissRequest = { previewLesson = null },
-                    properties = DialogProperties(usePlatformDefaultWidth = false)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.85f))
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF131B2E))
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "FREE PREVIEW LECTURE",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = Color(0xFF10B981),
-                                            letterSpacing = 1.sp
-                                        )
-                                        Text(
-                                            text = lesson.title,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                    IconButton(onClick = { previewLesson = null }) {
-                                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                Text(
-                                    text = "Ready to start this lecture in full high-definition video player with complete notes and scrubbing?",
-                                    color = Color(0xFF94A3B8),
-                                    fontSize = 12.sp
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Button(
-                                    onClick = {
-                                        val lId = lesson.id
-                                        previewLesson = null
-                                        onSelectLesson(c.id, lId)
+                            section.lessons.forEachIndexed { lIdx, lesson ->
+                                val canPreview = enrollmentRepository.canAccessLesson(c.id, sIdx, lIdx, lesson, currentUser, c.price)
+                                val canAccess = isApproved || canPreview
+                                val isDone = courseProgress.isCompleted(lesson.id)
+                                val isCurrent = lesson.id == courseProgress.lastLessonId
+                                LessonRow(
+                                    title = lesson.title,
+                                    icon = when {
+                                        isDone -> Icons.Outlined.CheckCircle
+                                        canAccess -> Icons.Outlined.PlayCircle
+                                        else -> Icons.Outlined.Lock
                                     },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = AppTheme.colors.primaryButton,
-                                        contentColor = AppTheme.colors.onPrimaryButton
-                                    )
-                                ) {
-                                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Watch Lecture Now", fontWeight = FontWeight.Bold)
-                                }
+                                    iconTint = when {
+                                        isDone -> AppTheme.colors.success
+                                        isCurrent -> AppTheme.colors.primary
+                                        canAccess -> AppTheme.colors.textSecondary
+                                        else -> AppTheme.colors.textMuted
+                                    },
+                                    titleColor = if (canAccess) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary,
+                                    highlighted = isCurrent && isApproved,
+                                    trailing = {
+                                        when {
+                                            canPreview && !isApproved -> Badge("Free", BadgeTone.Success)
+                                            lesson.resources.isNotEmpty() -> Text(
+                                                "${lesson.resources.size} file${if (lesson.resources.size > 1) "s" else ""}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = AppTheme.colors.textMuted
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        if (canAccess) onSelectLesson(c.id, lesson.id) else showEnrollmentDialog = true
+                                    }
+                                )
                             }
                         }
                     }
                 }
             }
-            // MANUAL ENROLLMENT MODAL DIALOG
-            if (showEnrollmentDialog) {
-                EnrollmentDialog(
-                    course = c,
-                    userId = userId,
-                    enrollmentRepository = enrollmentRepository,
-                    onDismiss = { showEnrollmentDialog = false },
-                    onSuccess = {
-                        Toast.makeText(context, "Enrollment submitted! Verification pending.", Toast.LENGTH_LONG).show()
-                    }
+
+            // FAQ
+            item(key = "faq") {
+                SectionHeader("Questions")
+                val faqs = listOf(
+                    "How does enrollment work?" to
+                        "Send the course fee by bKash, Nagad, Rocket or bank transfer, then submit your sender number and transaction ID. An admin verifies the payment and unlocks the course.",
+                    "How long does approval take?" to
+                        "Payments are checked by hand, usually within an hour.",
+                    "Can I download the notes?" to
+                        "Yes. Once you're enrolled, every PDF and note in the curriculum can be opened in the app or downloaded."
                 )
+                Column {
+                    faqs.forEachIndexed { i, (q, a) ->
+                        val open = expandedFaqs[i] == true
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { expandedFaqs[i] = !open }
+                                .padding(vertical = Spacing.sm)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(q, style = MaterialTheme.typography.titleSmall, color = AppTheme.colors.textPrimary, modifier = Modifier.weight(1f))
+                                Icon(
+                                    Icons.Outlined.ExpandMore,
+                                    contentDescription = null,
+                                    tint = AppTheme.colors.textMuted,
+                                    modifier = Modifier.rotate(if (open) 180f else 0f)
+                                )
+                            }
+                            AnimatedVisibility(open, enter = expandVertically(), exit = shrinkVertically()) {
+                                Text(
+                                    a,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = AppTheme.colors.textSecondary,
+                                    modifier = Modifier.padding(top = Spacing.xs)
+                                )
+                            }
+                        }
+                        if (i < faqs.lastIndex) Hairline()
+                    }
+                }
             }
+        }
+
+        if (showEnrollmentDialog) {
+            EnrollmentDialog(
+                course = c,
+                userId = userId,
+                enrollmentRepository = enrollmentRepository,
+                onDismiss = { showEnrollmentDialog = false },
+                onSuccess = {
+                    Toast.makeText(context, "Payment submitted. We'll notify you once it's approved.", Toast.LENGTH_LONG).show()
+                }
+            )
         }
     }
 }
 
 @Composable
-private fun CoursePerkRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color(0xFF38BDF8),
-            modifier = Modifier.size(15.dp)
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = text,
-            color = Color(0xFFCBD5E1),
-            fontSize = 12.sp
-        )
+private fun StatusNote(icon: ImageVector, tone: BadgeTone, title: String, body: String) {
+    val c = AppTheme.colors
+    val (bg, fg) = when (tone) {
+        BadgeTone.Warning -> c.warningContainer to c.warning
+        BadgeTone.Danger -> c.errorContainer to c.error
+        BadgeTone.Success -> c.successContainer to c.success
+        else -> c.surfaceVariant to c.textSecondary
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.control))
+            .background(bg)
+            .padding(Spacing.sm)
+    ) {
+        Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(Spacing.sm))
+        Column {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = fg)
+            Spacer(Modifier.height(2.dp))
+            Text(body, style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+        }
     }
 }
 
 @Composable
-private fun ResourceRowItem(
-    resource: CourseResource,
-    isLocked: Boolean = false,
-    onRead: () -> Unit,
-    onDownload: () -> Unit,
-    onLockedClick: () -> Unit = {}
+private fun LessonRow(
+    title: String,
+    icon: ImageVector,
+    iconTint: Color,
+    titleColor: Color,
+    highlighted: Boolean,
+    trailing: @Composable () -> Unit,
+    onClick: () -> Unit
 ) {
-    Surface(
-        color = Color(0xFF1E293B).copy(alpha = 0.5f),
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier
+    Row(
+        Modifier
             .fillMaxWidth()
-            .clickable {
-                if (isLocked) onLockedClick() else onRead()
-            }
+            .heightIn(min = 48.dp)
+            .background(if (highlighted) AppTheme.colors.primaryContainer else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PictureAsPdf,
-                    contentDescription = null,
-                    tint = if (isLocked) Color(0xFF64748B) else Color(0xFFEC4899),
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = resource.title,
-                    color = if (isLocked) Color(0xFF94A3B8) else Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(Spacing.sm))
+        Text(
+            title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = titleColor,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(Spacing.xs))
+        trailing()
+    }
+}
 
-            if (isLocked) {
-                IconButton(onClick = onLockedClick, modifier = Modifier.size(28.dp)) {
-                    Icon(
-                        Icons.Default.Lock,
-                        contentDescription = "Locked Note",
-                        tint = AppTheme.colors.textMuted,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = onRead, modifier = Modifier.size(28.dp)) {
-                        Icon(
-                            Icons.Default.Visibility,
-                            contentDescription = "Read",
-                            tint = Color(0xFF38BDF8),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    IconButton(onClick = onDownload, modifier = Modifier.size(28.dp)) {
-                        Icon(
-                            Icons.Default.Download,
-                            contentDescription = "Download",
-                            tint = Color(0xFF10B981),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
+@Composable
+private fun ResourceRow(resource: CourseResource, locked: Boolean, onOpen: () -> Unit, onDownload: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onOpen)
+            .padding(start = Spacing.md, end = Spacing.xxs),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            if (locked) Icons.Outlined.Lock else Icons.Outlined.Description,
+            contentDescription = null,
+            tint = AppTheme.colors.textMuted,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(Spacing.sm))
+        Text(
+            resource.title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (locked) AppTheme.colors.textSecondary else AppTheme.colors.textPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        if (!locked && !resource.isLink) {
+            IconButton(onClick = onDownload) {
+                Icon(Icons.Outlined.Download, contentDescription = "Download ${resource.title}", tint = AppTheme.colors.textSecondary, modifier = Modifier.size(20.dp))
             }
+        } else {
+            Spacer(Modifier.width(Spacing.sm))
         }
     }
 }
