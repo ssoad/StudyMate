@@ -1,4 +1,4 @@
-// StudyMate AI Progressive Web App Service Worker
+// StudyMate Progressive Web App Service Worker
 const CACHE_NAME = 'studymate-pwa-v1';
 const STATIC_ASSETS = [
   '/',

@@ -457,7 +457,8 @@ export const dataService = {
           .select('*, sections:course_sections(*, resources:course_resources(*), lessons:course_lessons(*, resources:course_resources(*))), resources:course_resources(*)')
           .order('created_at', { ascending: false });
 
-        if (!error && data && data.length > 0) {
+        if (error) throw error;
+        if (data) {
           const formatted = data.map((course: any) => ({
             ...course,
             sections: (course.sections || []).sort((a: any, b: any) => a.order_index - b.order_index).map((s: any) => ({
@@ -469,7 +470,9 @@ export const dataService = {
         }
       }
     } catch (e) {
-      console.warn('Supabase courses query failed, falling back:', e);
+      // With a real backend, never substitute demo content for real courses.
+      console.warn('Courses query failed:', e);
+      if (supabase) return [];
     }
 
     const custom = dataService.getLocalCourses();
@@ -496,6 +499,7 @@ export const dataService = {
     } catch (e) {
       console.warn('Failed to load course from Supabase:', e);
     }
+    if (supabase) return null;
 
     const all = [...dataService.getLocalCourses(), ...INITIAL_DEMO_COURSES];
     return all.find((c) => c.id === id) || null;

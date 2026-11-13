@@ -1,6 +1,6 @@
 {
   "id": "studymate-ai-app",
-  "name": "StudyMate AI - Learning Companion",
+  "name": "StudyMate",
   "short_name": "StudyMate",
   "description": "Interactive AI study plans, video courses, exams, and modular learning resources.",
   "start_url": "/?source=pwa",
@@ -12,8 +12,8 @@
     "minimal-ui"
   ],
   "orientation": "any",
-  "background_color": "#090d16",
-  "theme_color": "#4f46e5",
+  "background_color": "#09090b",
+  "theme_color": "#4f5bd5",
   "categories": [
     "education",
     "productivity"

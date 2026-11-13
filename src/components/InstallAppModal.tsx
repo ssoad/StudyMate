@@ -20,7 +20,7 @@ export function InstallAppModal({ isOpen, onClose }: InstallAppModalProps) {
     try {
       const result = await promptInstall();
       if (result === 'accepted') {
-        addToast('StudyMate AI is installing to your device!', 'success');
+        addToast('StudyMate is installing to your device!', 'success');
         onClose();
       } else if (result === 'manual_ios') {
         // Modal will stay open to show iOS instructions
@@ -48,7 +48,7 @@ export function InstallAppModal({ isOpen, onClose }: InstallAppModalProps) {
             </div>
             <div>
               <h3 className="font-bold text-base text-[var(--text-main)] font-[var(--font-heading)] leading-snug">
-                Install StudyMate AI
+                Install StudyMate
               </h3>
               <p className="text-xs text-[var(--text-muted)]">Official Learning Companion App</p>
             </div>
@@ -68,7 +68,7 @@ export function InstallAppModal({ isOpen, onClose }: InstallAppModalProps) {
             <CheckCircle2 size={32} className="mx-auto text-emerald-500" />
             <h4 className="font-bold text-sm text-[var(--text-main)]">App Already Installed!</h4>
             <p className="text-xs text-[var(--text-muted)]">
-              StudyMate AI is running in standalone app mode on your device.
+              StudyMate is running in standalone app mode on your device.
             </p>
           </div>
         ) : isIOS ? (

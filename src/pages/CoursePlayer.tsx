@@ -81,10 +81,7 @@ export function CoursePlayer() {
     : null;
 
   const isAdmin =
-    role === 'admin' ||
-    user?.email === 'admin@studymate.org' ||
-    user?.email === 'admin@studymate.local' ||
-    (user as any)?.app_metadata?.role === 'admin';
+    role === 'admin';
 
   // URL searchParams synchronization
   const [searchParams, setSearchParams] = useSearchParams();
@@ -304,7 +301,8 @@ export function CoursePlayer() {
           const data = JSON.parse(e.data);
           if (data.event === 'infoDelivery' && data.info) {
             if (data.info.currentTime !== undefined) {
-              setCurrentVideoTime(data.info.currentTime);
+              const whole = Math.floor(data.info.currentTime);
+              setCurrentVideoTime((prev) => (Math.floor(prev) === whole ? prev : whole));
             }
             if (data.info.playerState !== undefined) {
               if (data.info.playerState === 1) setIsPlaying(true);
@@ -1486,7 +1484,9 @@ export function CoursePlayer() {
                     onLoadedMetadata={handleVideoLoadedMetadata}
                     onTimeUpdate={(e) => {
                       const t = e.currentTarget.currentTime;
-                      setCurrentVideoTime(t);
+                      // timeupdate fires ~4x/s; only re-render this (large) page when the whole second changes.
+                      const whole = Math.floor(t);
+                      setCurrentVideoTime((prev) => (Math.floor(prev) === whole ? prev : whole));
                       savePlaybackPosition(t);
                     }}
                     onPlay={() => {

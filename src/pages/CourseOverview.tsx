@@ -4,8 +4,6 @@ import {
   Play, 
   BookOpen, 
   Clock, 
-  Star, 
-  Users, 
   FileText, 
   GraduationCap, 
   ChevronDown, 
@@ -129,10 +127,7 @@ export function CourseOverview() {
   const totalLectures = course.sections?.reduce((acc, s) => acc + (s.lessons?.length || 0), 0) || 0;
   const totalResources = (course.resources?.length || 0) + (course.sections?.reduce((acc, s) => acc + s.lessons.reduce((lacc, l) => lacc + (l.resources?.length || 0), 0), 0) || 0);
   const isAdmin =
-    role === 'admin' ||
-    user?.email === 'admin@studymate.org' ||
-    user?.email === 'admin@studymate.local' ||
-    (user as any)?.app_metadata?.role === 'admin';
+    role === 'admin';
   const isApproved = isAdmin || enrollment?.status === 'approved';
   const isPending = enrollment?.status === 'pending';
   const isRejected = enrollment?.status === 'rejected';
@@ -191,18 +186,6 @@ export function CourseOverview() {
 
             {/* STATS ROW */}
             <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 pt-2 text-xs sm:text-sm text-[var(--text-muted)]">
-              <div className="flex items-center gap-1.5 text-amber-500 font-bold">
-                <Star size={15} className="fill-amber-400 text-amber-400" />
-                <span>{course.rating.toFixed(1)}</span>
-                <span className="text-[var(--text-muted)] font-normal hidden sm:inline">(Rating)</span>
-              </div>
-              <span className="hidden sm:inline opacity-30">•</span>
-              <div className="flex items-center gap-1.5">
-                <Users size={15} className="text-indigo-500" />
-                <span className="font-semibold text-[var(--text-main)]">{course.enrolled_count.toLocaleString()}</span>
-                <span>Students</span>
-              </div>
-              <span className="hidden sm:inline opacity-30">•</span>
               <div className="flex items-center gap-1.5">
                 <Clock size={15} className="text-purple-500" />
                 <span>{course.duration}</span>
@@ -274,16 +257,6 @@ export function CourseOverview() {
                   <span className="text-3xl font-black text-[var(--text-main)] font-[var(--font-heading)]">
                     {course.price ? `৳ ${course.price.toLocaleString()} BDT` : 'Free'}
                   </span>
-                  {course.price && course.price > 0 && (
-                    <>
-                      <span className="text-sm text-[var(--text-muted)] line-through">
-                        ৳ {(course.price * 2).toLocaleString()} BDT
-                      </span>
-                      <span className="text-xs font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                        50% OFF
-                      </span>
-                    </>
-                  )}
                 </div>
                 <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
                   <ShieldCheck size={14} className="text-emerald-500" /> One-time payment • Lifetime classroom access

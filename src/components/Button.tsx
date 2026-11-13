@@ -6,27 +6,22 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: React.ReactNode;
 }
 
-export function Button({ 
-  children, 
-  variant = 'primary', 
-  size = 'md', 
+/** Class names for a button look, so links can share it: <Link className={buttonClass('primary')}>. */
+export function buttonClass(variant: ButtonProps['variant'] = 'primary', size: ButtonProps['size'] = 'md', extra = '') {
+  return ['btn', `btn-${variant}`, size !== 'md' ? `btn-${size}` : '', extra].filter(Boolean).join(' ');
+}
+
+export function Button({
+  children,
+  variant = 'primary',
+  size = 'md',
   icon,
   className = '',
-  ...props 
+  type = 'button',
+  ...props
 }: ButtonProps) {
-  
-  const baseClass = 'btn';
-  const variantClass = variant === 'primary' 
-    ? 'btn-primary' 
-    : variant === 'secondary' 
-      ? 'btn-secondary'
-      : '';
-      
   return (
-    <button 
-      className={`${baseClass} ${variantClass} ${className}`}
-      {...props}
-    >
+    <button type={type} className={buttonClass(variant, size, className)} {...props}>
       {icon && <span className="btn-icon">{icon}</span>}
       {children}
     </button>

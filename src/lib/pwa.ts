@@ -25,7 +25,7 @@ export function registerServiceWorker() {
 
     window.addEventListener('appinstalled', () => {
       deferredPrompt = null;
-      console.log('[PWA] StudyMate AI installed successfully');
+      console.log('[PWA] StudyMate installed successfully');
       window.dispatchEvent(new Event('pwa-installed'));
     });
   }

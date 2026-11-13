@@ -17,6 +17,7 @@ import { Button } from './Button';
 import { dataService, type Course, type CourseEnrollment } from '../lib/dataService';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
+import { BANK_ACCOUNT, MOBILE_ACCOUNTS, paymentSteps, type BankAccount, type MobileAccount, type MobileMethod } from '../lib/paymentAccounts';
 
 interface EnrollmentModalProps {
   isOpen: boolean;
@@ -44,62 +45,11 @@ export function EnrollmentModal({ isOpen, onClose, course, onSuccess }: Enrollme
   if (!isOpen) return null;
 
   const paymentAccounts = {
-    bKash: {
-      type: 'Personal (Send Money)',
-      number: '01712-345678',
-      cleanNumber: '01712345678',
-      color: '#E2136E',
-      instructions: [
-        'Open your bKash app or dial *247#',
-        'Choose "Send Money" (Personal)',
-        'Enter receiver number: 01712345678',
-        `Enter Amount: ৳${amount || course.price || 2500}`,
-        'Put Reference: Your Name or Course Name',
-        'Save the Transaction ID (TrxID) and take a screenshot of confirmation'
-      ]
-    },
-    Nagad: {
-      type: 'Personal (Send Money)',
-      number: '01812-345678',
-      cleanNumber: '01812345678',
-      color: '#F7941D',
-      instructions: [
-        'Open your Nagad app or dial *167#',
-        'Choose "Send Money"',
-        'Enter receiver number: 01812345678',
-        `Enter Amount: ৳${amount || course.price || 2500}`,
-        'Enter PIN and complete payment',
-        'Copy the Transaction ID and capture a receipt screenshot'
-      ]
-    },
-    Rocket: {
-      type: 'Personal (Send Money)',
-      number: '01912-345678-9',
-      cleanNumber: '019123456789',
-      color: '#8C3494',
-      instructions: [
-        'Open Rocket App or dial *322#',
-        'Select "Send Money"',
-        'Enter 12-digit number: 019123456789',
-        `Amount: ৳${amount || course.price || 2500}`,
-        'Note the TrxID and take a screenshot of the receipt'
-      ]
-    },
-    Bank: {
-      type: 'Direct Bank Transfer',
-      bankName: 'City Bank Ltd',
-      accountName: 'StudyMate Academy BD',
-      accountNumber: '2301987654001',
-      branch: 'Gulshan Branch, Dhaka',
-      routingNumber: '225261328',
-      instructions: [
-        'Transfer via Internet Banking, BEFTN, NPSB, or branch deposit',
-        'Account Name: StudyMate Academy BD',
-        'Account Number: 2301987654001 (City Bank Ltd)',
-        'Attach the deposit slip or transaction receipt screenshot below'
-      ]
-    }
-  };
+    ...Object.fromEntries(
+      (Object.keys(MOBILE_ACCOUNTS) as MobileMethod[]).map((m) => [m, { ...MOBILE_ACCOUNTS[m], instructions: paymentSteps(m, amount || course.price || 0) }])
+    ),
+    Bank: { ...BANK_ACCOUNT, instructions: paymentSteps('Bank', amount || course.price || 0) },
+  } as Record<MobileMethod, MobileAccount & { instructions: string[] }> & { Bank: BankAccount & { instructions: string[] } };
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);

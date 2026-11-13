@@ -23,16 +23,13 @@ interface QuickSearchModalProps {
 
 export function QuickSearchModal({ isOpen, onClose }: QuickSearchModalProps) {
   const navigate = useNavigate();
-  const { user, role } = useAuthStore();
+  const { role } = useAuthStore();
   const [query, setQuery] = useState('');
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(false);
 
   const isAdmin =
-    role === 'admin' ||
-    user?.email === 'admin@studymate.org' ||
-    user?.email === 'admin@studymate.local' ||
-    (user as any)?.app_metadata?.role === 'admin';
+    role === 'admin';
 
   useEffect(() => {
     if (isOpen) {

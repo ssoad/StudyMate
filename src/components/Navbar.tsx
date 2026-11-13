@@ -57,10 +57,7 @@ export function Navbar() {
   }, [location.pathname]);
 
   const isAdmin =
-    role === 'admin' ||
-    user?.email === 'admin@studymate.org' ||
-    user?.email === 'admin@studymate.local' ||
-    (user as any)?.app_metadata?.role === 'admin';
+    role === 'admin';
 
   useEffect(() => {
     async function loadProfile() {
@@ -173,7 +170,7 @@ export function Navbar() {
             </div>
             {!isCollapsed && (
               <h2 className="text-base font-bold text-[var(--text-main)] font-[var(--font-heading)] truncate">
-                StudyMate AI
+                StudyMate
               </h2>
             )}
           </div>
@@ -323,7 +320,7 @@ export function Navbar() {
         <header className="mobile-header glass-panel">
           <div className="mobile-logo">
             <GraduationCap size={22} />
-            <h3 className="font-bold text-sm font-[var(--font-heading)]">StudyMate AI</h3>
+            <h3 className="font-bold text-sm font-[var(--font-heading)]">StudyMate</h3>
           </div>
           <div className="mobile-header-actions flex items-center gap-1.5">
             {/* Quick Search Button */}
@@ -508,7 +505,7 @@ export function Navbar() {
                 </div>
               ) : (
                 <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-500/20 text-center space-y-2">
-                  <h4 className="font-bold text-sm text-[var(--text-main)]">Sign in to StudyMate AI</h4>
+                  <h4 className="font-bold text-sm text-[var(--text-main)]">Sign in to StudyMate</h4>
                   <p className="text-xs text-[var(--text-muted)]">Access your personalized courses, study plan, and progress.</p>
                   <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="inline-block mt-2">
                     <button className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md">

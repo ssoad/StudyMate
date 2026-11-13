@@ -6,10 +6,7 @@ import {
   Plus, 
   BookOpen, 
   Clock, 
-  Star, 
-  Users, 
   FileText, 
-  Sparkles, 
   GraduationCap, 
   ChevronRight,
   Loader2,
@@ -24,7 +21,8 @@ import { useAuthStore } from '../store/authStore';
 
 export function Courses() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, role } = useAuthStore();
+  const isAdmin = role === 'admin';
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,27 +43,20 @@ export function Courses() {
 
     // Load progress for user if logged in
     if (user) {
+      // Fetch progress for all courses at once instead of one request after another.
+      const entries = await Promise.all(
+        data.map(async (course) => [course.id, await dataService.getUserCourseProgress(user.id, course.id)] as const)
+      );
       const progressEntries: Record<string, UserCourseProgress> = {};
-      for (const course of data) {
-        const prog = await dataService.getUserCourseProgress(user.id, course.id);
-        if (prog) {
-          progressEntries[course.id] = prog;
-        }
-      }
+      for (const [id, prog] of entries) if (prog) progressEntries[id] = prog;
       setUserProgressMap(progressEntries);
     }
 
     setLoading(false);
   };
 
-  const categories = [
-    'All',
-    'Web Development',
-    'Artificial Intelligence',
-    'Computer Science',
-    'Mobile Development',
-    'Exam Preparation',
-  ];
+  // Only categories that actually have courses.
+  const categories = ['All', ...Array.from(new Set(courses.map((c) => c.category).filter(Boolean)))];
 
   // Filtering
   const filteredCourses = courses.filter((course) => {
@@ -88,41 +79,19 @@ export function Courses() {
 
   return (
     <div className="flex flex-col gap-6 sm:gap-8 animate-fade-in pb-12">
-      {/* HERO BANNER */}
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-12 border border-[var(--border)] bg-gradient-to-br from-[var(--surface)] via-[var(--surface-hover)] to-[var(--surface)] shadow-lg">
-        {/* Decorative backdrop glow */}
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/10 blur-3xl pointer-events-none" />
-        
-        <div className="relative z-10 max-w-2xl space-y-3 sm:space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--primary)]/10 text-[var(--primary)] text-xs font-semibold tracking-wide uppercase">
-            <Sparkles size={14} />
-            <span>Interactive Learning Hub</span>
-          </div>
-
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-[var(--text-main)] font-[var(--font-heading)]">
-            Level Up Your Skills With{' '}
-            <span className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-              Video Courses
-            </span>
-          </h1>
-
-          <p className="text-sm sm:text-base text-[var(--text-muted)] leading-relaxed">
-            Learn at your own pace with structured video playlists, downloadable textbooks, cheatsheets, and live progress tracking.
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Courses</h1>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            Video lectures with notes and handouts. Your progress is saved as you go.
           </p>
-
-          <div className="pt-2 flex flex-wrap items-center gap-3">
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={() => setIsModalOpen(true)}
-              icon={<Plus size={20} />}
-              className="shadow-lg shadow-indigo-500/20 hover:scale-[1.02] transition-transform"
-            >
-              Create New Course
-            </Button>
-          </div>
         </div>
-      </div>
+        {isAdmin && (
+          <Button onClick={() => setIsModalOpen(true)} icon={<Plus size={18} />}>
+            New course
+          </Button>
+        )}
+      </header>
 
       {/* CONTINUE LEARNING SECTION (IF ANY ENROLLED) */}
       {inProgressCourses.length > 0 && (
@@ -169,7 +138,7 @@ export function Courses() {
                       </div>
                       <div className="w-full h-2 rounded-full bg-[var(--surface-hover)] overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500"
+                          className="h-full rounded-full bg-[var(--primary)] transition-all duration-500"
                           style={{ width: `${percent}%` }}
                         />
                       </div>
@@ -316,19 +285,14 @@ export function Courses() {
                 <CardBody className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                      <div className="flex items-center text-amber-500 font-bold gap-1">
-                        <Star size={14} className="fill-amber-400 text-amber-400" />
-                        <span>{course.rating.toFixed(1)}</span>
-                      </div>
-                      <span>•</span>
                       <span className="flex items-center gap-1">
                         <Clock size={13} />
                         {course.duration}
                       </span>
                       <span>•</span>
                       <span className="flex items-center gap-1">
-                        <Users size={13} />
-                        {course.enrolled_count.toLocaleString()}
+                        <BookOpen size={13} />
+                        {course.sections?.reduce((n, sec) => n + sec.lessons.length, 0) ?? 0} lessons
                       </span>
                     </div>
 

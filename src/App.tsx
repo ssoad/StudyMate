@@ -1,41 +1,69 @@
-import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { Dashboard } from './pages/Dashboard';
-import { StudyPlan } from './pages/StudyPlan';
-import { Exams } from './pages/Exams';
-import { TakeExam } from './pages/TakeExam';
-import { Leaderboard } from './pages/Leaderboard';
-import { Discussion } from './pages/Discussion';
-
-import { Login } from './pages/Login';
 import { Landing } from './pages/Landing';
-import { Profile } from './pages/Profile';
-import { AdminDashboard } from './pages/AdminDashboard';
-import { AdminEnrollments } from './pages/admin/AdminEnrollments';
-import { AdminStudyPlans } from './pages/admin/AdminStudyPlans';
-import { AdminExams } from './pages/admin/AdminExams';
-import { AdminSettings } from './pages/admin/AdminSettings';
-import { Resources } from './pages/Resources';
-import { AdminResources } from './pages/admin/AdminResources';
-import { AdminUsers } from './pages/admin/AdminUsers';
-import { Courses } from './pages/Courses';
-import { CourseOverview } from './pages/CourseOverview';
-import { CoursePlayer } from './pages/CoursePlayer';
-import { AdminCourses } from './pages/admin/AdminCourses';
+
+// Pages load on demand so the first visit only downloads what it shows.
+const named = <T extends string>(loader: () => Promise<Record<T, React.ComponentType>>, name: T) =>
+  lazy(() => loader().then((m) => ({ default: m[name] })));
+
+const Dashboard = named(() => import('./pages/Dashboard'), 'Dashboard');
+const StudyPlan = named(() => import('./pages/StudyPlan'), 'StudyPlan');
+const Exams = named(() => import('./pages/Exams'), 'Exams');
+const TakeExam = named(() => import('./pages/TakeExam'), 'TakeExam');
+const Leaderboard = named(() => import('./pages/Leaderboard'), 'Leaderboard');
+const Discussion = named(() => import('./pages/Discussion'), 'Discussion');
+const Login = named(() => import('./pages/Login'), 'Login');
+const Profile = named(() => import('./pages/Profile'), 'Profile');
+const Resources = named(() => import('./pages/Resources'), 'Resources');
+const Courses = named(() => import('./pages/Courses'), 'Courses');
+const CourseOverview = named(() => import('./pages/CourseOverview'), 'CourseOverview');
+const CoursePlayer = named(() => import('./pages/CoursePlayer'), 'CoursePlayer');
+const AdminDashboard = named(() => import('./pages/AdminDashboard'), 'AdminDashboard');
+const AdminEnrollments = named(() => import('./pages/admin/AdminEnrollments'), 'AdminEnrollments');
+const AdminStudyPlans = named(() => import('./pages/admin/AdminStudyPlans'), 'AdminStudyPlans');
+const AdminExams = named(() => import('./pages/admin/AdminExams'), 'AdminExams');
+const AdminSettings = named(() => import('./pages/admin/AdminSettings'), 'AdminSettings');
+const AdminResources = named(() => import('./pages/admin/AdminResources'), 'AdminResources');
+const AdminUsers = named(() => import('./pages/admin/AdminUsers'), 'AdminUsers');
+const AdminCourses = named(() => import('./pages/admin/AdminCourses'), 'AdminCourses');
+const BackgroundEvaluator = lazy(() => import('./components/BackgroundEvaluator'));
+
 import { hasSupabaseKeys, supabase } from './lib/supabase';
-import { useAuthStore } from './store/authStore';
+import { useAuthStore, roleFor } from './store/authStore';
 import { useThemeStore } from './store/themeStore';
-import BackgroundEvaluator from './components/BackgroundEvaluator';
 
 function LoginRedirect() {
   const [searchParams] = useSearchParams();
-  const dest = searchParams.get('redirect') || '/';
+  const raw = searchParams.get('redirect') || '/';
+  // Only same-site paths; "//host" or "https://..." would leave the app.
+  const dest = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
   return <Navigate to={dest} replace />;
 }
 
+function PageLoader() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-label="Loading">
+      <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--primary)]" />
+    </div>
+  );
+}
+
+/** Waits for the stored session before deciding, then sends signed-out users to login and back. */
+function RequireAuth({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
+  const { user, role, ready } = useAuthStore();
+  const location = useLocation();
+  if (!ready) return <PageLoader />;
+  if (!user) {
+    const back = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?redirect=${back}`} replace />;
+  }
+  if (admin && role !== 'admin') return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 function App() {
-  const { user, role, setAuth } = useAuthStore();
+  const { user, ready, setAuth } = useAuthStore();
   const { isDark } = useThemeStore();
   const isConfigured = hasSupabaseKeys();
 
@@ -52,9 +80,7 @@ function App() {
     
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
-      const isAdmin = session?.user.email === 'admin@studymate.org' || session?.user.email === 'admin@studymate.local' || session?.user.app_metadata?.role === 'admin';
-      const authRole = isAdmin ? 'admin' : 'user';
-      setAuth(session?.user ?? null, session?.user ? authRole : null);
+      setAuth(session?.user ?? null, roleFor(session?.user));
       if (session?.user) {
         // Verify the stored token with the server; a rejected token (e.g. after the
         // signing secret was rotated) signs the user out instead of failing silently.
@@ -70,9 +96,7 @@ function App() {
 
     // Listen for changes on auth state (sign in, sign out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const isAdmin = session?.user.email === 'admin@studymate.org' || session?.user.email === 'admin@studymate.local' || session?.user.app_metadata?.role === 'admin';
-      const authRole = isAdmin ? 'admin' : 'user';
-      setAuth(session?.user ?? null, session?.user ? authRole : null);
+      setAuth(session?.user ?? null, roleFor(session?.user));
       if (session?.user) {
         supabase!.rpc('update_last_access').then(() => {});
       }
@@ -103,48 +127,53 @@ function App() {
 
   return (
     <BrowserRouter>
-      {user && <BackgroundEvaluator />}
-      <Routes>
-        {/* LOGIN ROUTE */}
-        <Route path="/login" element={user ? <LoginRedirect /> : <Login />} />
-        
-        {/* ROOT / LANDING / DASHBOARD */}
-        <Route path="/" element={user ? <Layout /> : <Landing />}>
-          {user && <Route index element={<Dashboard />} />}
-        </Route>
+      {user && (
+        <Suspense fallback={null}>
+          <BackgroundEvaluator />
+        </Suspense>
+      )}
+      {!ready ? (
+        <PageLoader />
+      ) : (
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/login" element={user ? <LoginRedirect /> : <Login />} />
 
-        {/* APPLICATION ROUTES (WITH SHELL LAYOUT) */}
-        <Route element={<Layout />}>
-          {/* Public Courses Routes (Accessible to everyone) */}
-          <Route path="/courses" element={<Courses />} />
-          <Route path="/courses/:id" element={<CourseOverview />} />
+            <Route path="/" element={user ? <Layout /> : <Landing />}>
+              {user && <Route index element={<Dashboard />} />}
+            </Route>
 
-          {/* Classroom Player - Restricted to approved students & admins */}
-          <Route path="/courses/:id/learn" element={<CoursePlayer />} />
+            <Route element={<Layout />}>
+              {/* Public */}
+              <Route path="/courses" element={<Courses />} />
+              <Route path="/courses/:id" element={<CourseOverview />} />
+              {/* The player gates individual lessons itself (free preview vs enrolled). */}
+              <Route path="/courses/:id/learn" element={<CoursePlayer />} />
 
-          {/* Protected Student Routes */}
-          <Route path="/study-plan" element={user ? <StudyPlan /> : <Navigate to="/login?redirect=/study-plan" replace />} />
-          <Route path="/exams" element={user ? <Exams /> : <Navigate to="/login?redirect=/exams" replace />} />
-          <Route path="/exams/:id" element={user ? <TakeExam /> : <Navigate to="/login" replace />} />
-          <Route path="/leaderboard" element={user ? <Leaderboard /> : <Navigate to="/login" replace />} />
-          <Route path="/discussion" element={user ? <Discussion /> : <Navigate to="/login" replace />} />
-          <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" replace />} />
-          <Route path="/resources" element={user ? <Resources /> : <Navigate to="/login?redirect=/resources" replace />} />
+              {/* Signed-in students */}
+              <Route path="/study-plan" element={<RequireAuth><StudyPlan /></RequireAuth>} />
+              <Route path="/exams" element={<RequireAuth><Exams /></RequireAuth>} />
+              <Route path="/exams/:id" element={<RequireAuth><TakeExam /></RequireAuth>} />
+              <Route path="/leaderboard" element={<RequireAuth><Leaderboard /></RequireAuth>} />
+              <Route path="/discussion" element={<RequireAuth><Discussion /></RequireAuth>} />
+              <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+              <Route path="/resources" element={<RequireAuth><Resources /></RequireAuth>} />
 
-          {/* Protected Admin Routes */}
-          <Route path="/admin" element={user && role === 'admin' ? <AdminDashboard /> : <Navigate to="/" replace />} />
-          <Route path="/admin/enrollments" element={user && role === 'admin' ? <AdminEnrollments /> : <Navigate to="/" replace />} />
-          <Route path="/admin/courses" element={user && role === 'admin' ? <AdminCourses /> : <Navigate to="/" replace />} />
-          <Route path="/admin/study-plans" element={user && role === 'admin' ? <AdminStudyPlans /> : <Navigate to="/" replace />} />
-          <Route path="/admin/exams" element={user && role === 'admin' ? <AdminExams /> : <Navigate to="/" replace />} />
-          <Route path="/admin/settings" element={user && role === 'admin' ? <AdminSettings /> : <Navigate to="/" replace />} />
-          <Route path="/admin/resources" element={user && role === 'admin' ? <AdminResources /> : <Navigate to="/" replace />} />
-          <Route path="/admin/users" element={user && role === 'admin' ? <AdminUsers /> : <Navigate to="/" replace />} />
-        </Route>
+              {/* Admins */}
+              <Route path="/admin" element={<RequireAuth admin><AdminDashboard /></RequireAuth>} />
+              <Route path="/admin/enrollments" element={<RequireAuth admin><AdminEnrollments /></RequireAuth>} />
+              <Route path="/admin/courses" element={<RequireAuth admin><AdminCourses /></RequireAuth>} />
+              <Route path="/admin/study-plans" element={<RequireAuth admin><AdminStudyPlans /></RequireAuth>} />
+              <Route path="/admin/exams" element={<RequireAuth admin><AdminExams /></RequireAuth>} />
+              <Route path="/admin/settings" element={<RequireAuth admin><AdminSettings /></RequireAuth>} />
+              <Route path="/admin/resources" element={<RequireAuth admin><AdminResources /></RequireAuth>} />
+              <Route path="/admin/users" element={<RequireAuth admin><AdminUsers /></RequireAuth>} />
+            </Route>
 
-        {/* CATCH-ALL */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      )}
     </BrowserRouter>
   );
 }

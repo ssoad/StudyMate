@@ -36,10 +36,7 @@ export function Resources() {
   const [submitting, setSubmitting] = useState(false);
 
   const isAdmin =
-    role === 'admin' ||
-    user?.email === 'admin@studymate.org' ||
-    user?.email === 'admin@studymate.local' ||
-    (user as any)?.app_metadata?.role === 'admin';
+    role === 'admin';
 
   useEffect(() => {
     loadResources();
