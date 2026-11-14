@@ -18,6 +18,7 @@ import { Button } from '../components/Button';
 import { CourseModal } from '../components/CourseModal';
 import { dataService, type Course, type UserCourseProgress } from '../lib/dataService';
 import { useAuthStore } from '../store/authStore';
+import { formatLevel } from '../lib/format';
 
 export function Courses() {
   const navigate = useNavigate();
@@ -256,8 +257,8 @@ export function Courses() {
                   </span>
 
                   {/* Level Pill */}
-                  <span className="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-emerald-400 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-white/10 capitalize">
-                    {course.level.replace('_', ' ')}
+                  <span className="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-emerald-400 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-white/10 ">
+                    {formatLevel(course.level)}
                   </span>
 
                   {/* Play Button Overlay */}

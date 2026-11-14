@@ -89,7 +89,7 @@ export default function BackgroundEvaluator() {
   if (!evaluatingTarget) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 bg-[var(--surface)] border border-[var(--border)] shadow-lg rounded-lg p-4 w-72 z-[9999] animate-fade-in">
+    <div className="mobile-safe-bottom fixed bottom-4 right-4 left-4 sm:left-auto bg-[var(--surface)] border border-[var(--border)] shadow-lg rounded-lg p-4 sm:w-72 z-[9999] animate-fade-in">
       <div className="flex items-center gap-3 mb-2">
         <Loader2 size={18} className="animate-spin text-[var(--primary)]" />
         <h4 className="font-bold text-sm text-[var(--text)]">Background AI Evaluator</h4>

@@ -12,9 +12,11 @@ interface ToastState {
   removeToast: (id: string) => void;
 }
 
-export const useToastStore = create<ToastState>((set) => ({
+export const useToastStore = create<ToastState>((set, get) => ({
   toasts: [],
   addToast: (message, type = 'success') => {
+    // Ignore an identical toast that is already showing (double effects, double clicks).
+    if (get().toasts.some((t) => t.message === message && t.type === type)) return;
     const id = Math.random().toString();
     set((state) => ({
       toasts: [...state.toasts, { id, message, type }],

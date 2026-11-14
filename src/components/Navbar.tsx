@@ -23,9 +23,12 @@ import {
   X,
   ChevronRight,
   Search,
-  Download
+  Download,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
+import { useThemeStore } from '../store/themeStore';
 import { useAuthStore } from '../store/authStore';
 import { useSidebarStore } from '../store/sidebarStore';
 import { useAppModalStore } from '../store/appModalStore';
@@ -47,6 +50,20 @@ export function Navbar() {
   const [pendingEnrollmentsCount, setPendingEnrollmentsCount] = useState<number>(0);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isDark, toggleTheme } = useThemeStore();
+
+  // Menu sheet: close on Escape and on navigation, and keep the page behind it from scrolling.
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMobileMenuOpen(false);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [mobileMenuOpen]);
 
   // Suppress mobile top and bottom navigation bars on course player page (/courses/:id/learn)
   const isPlayerPage = location.pathname.includes('/learn');
@@ -124,15 +141,15 @@ export function Navbar() {
   // Mobile Bottom Bar Primary Tabs (4 items + "More" drawer)
   const mobilePrimaryItems = user
     ? [
-        { name: 'Home', path: '/', icon: <LayoutDashboard size={19} /> },
-        { name: 'Courses', path: '/courses', icon: <PlayCircle size={19} /> },
-        { name: 'Study Plan', path: '/study-plan', icon: <BookOpen size={19} /> },
-        { name: 'Resources', path: '/resources', icon: <FileText size={19} /> },
+        { name: 'Home', path: '/', icon: <LayoutDashboard size={22} /> },
+        { name: 'Courses', path: '/courses', icon: <PlayCircle size={22} /> },
+        { name: 'Plan', path: '/study-plan', icon: <BookOpen size={22} /> },
+        { name: 'Resources', path: '/resources', icon: <FileText size={22} /> },
       ]
     : [
-        { name: 'Home', path: '/', icon: <LayoutDashboard size={19} /> },
-        { name: 'Courses', path: '/courses', icon: <PlayCircle size={19} /> },
-        { name: 'Sign In', path: '/login', icon: <LogIn size={19} /> },
+        { name: 'Home', path: '/', icon: <LayoutDashboard size={22} /> },
+        { name: 'Courses', path: '/courses', icon: <PlayCircle size={22} /> },
+        { name: 'Sign in', path: '/login', icon: <LogIn size={22} /> },
       ];
 
   const adminItems = [
@@ -316,76 +333,43 @@ export function Navbar() {
 
       {/* MOBILE TOP HEADER (Suppressed inside classroom player) */}
       {!isPlayerPage && (
-        <header className="mobile-header glass-panel">
-          <div className="mobile-logo">
-            <GraduationCap size={22} />
-            <h3 className="font-bold text-sm font-[var(--font-heading)]">StudyMate</h3>
-          </div>
-          <div className="mobile-header-actions flex items-center gap-1.5">
-            {/* Quick Search Button */}
-            <button
-              type="button"
-              onClick={openSearch}
-              className="p-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors"
-              title="Search (⌘K)"
-            >
-              <Search size={18} />
+        <header className="mobile-header">
+          <Link to="/" className="mobile-logo" aria-label="StudyMate home">
+            <span className="mobile-logo-mark">S</span>
+            <span className="mobile-logo-text">StudyMate</span>
+          </Link>
+          <div className="mobile-header-actions">
+            <button type="button" onClick={openSearch} className="mobile-icon-btn" aria-label="Search">
+              <Search size={20} />
             </button>
-
-            {/* Quick Share Page Link Button */}
-            <button
-              type="button"
-              onClick={handleCopyCurrentUrl}
-              className="p-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-hover)] transition-colors"
-              title="Copy page URL"
-            >
-              {copiedUrl ? <Check size={16} className="text-emerald-500" /> : <Share2 size={16} />}
-            </button>
-
-            {/* Install App button if not in standalone */}
-            {!isInstalled && (
-              <button
-                type="button"
-                onClick={openInstall}
-                className="p-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 border border-indigo-500/20 font-bold text-xs flex items-center gap-1 transition-colors"
-                title="Install App"
-              >
-                <Download size={13} />
-                <span className="text-[11px] font-semibold">App</span>
-              </button>
-            )}
 
             {isAdmin && pendingEnrollmentsCount > 0 && (
               <Link
                 to="/admin/enrollments"
-                className="px-2 py-1 rounded-full bg-amber-500 text-white font-bold text-[10px] flex items-center gap-1 animate-pulse shadow-sm"
-                title={`${pendingEnrollmentsCount} Pending Enrollments`}
+                className="mobile-icon-btn relative"
+                aria-label={`${pendingEnrollmentsCount} pending enrollments`}
               >
-                <CreditCard size={12} />
-                <span>{pendingEnrollmentsCount}</span>
+                <CreditCard size={20} />
+                <span className="mobile-badge">{pendingEnrollmentsCount}</span>
               </Link>
             )}
 
-            <ThemeToggle />
-
             {user ? (
-              <button 
+              <button
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
-                className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center shadow-sm ml-0.5 ring-2 ring-[var(--border)]"
-                title="Open Navigation Menu"
+                className="mobile-avatar"
+                aria-label="Open menu"
               >
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                  <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
                 ) : (
                   userInitials
                 )}
               </button>
             ) : (
-              <Link to="/login">
-                <button className="py-1 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm">
-                  <LogIn size={13} /> <span>Sign In</span>
-                </button>
+              <Link to="/login" className="btn btn-primary btn-sm whitespace-nowrap">
+                Sign in
               </Link>
             )}
           </div>
@@ -394,7 +378,7 @@ export function Navbar() {
 
       {/* MOBILE BOTTOM NAVIGATION (Suppressed inside classroom player) */}
       {!isPlayerPage && (
-        <nav className="mobile-bottom-nav glass-panel">
+        <nav className="mobile-bottom-nav" aria-label="Main">
           {mobilePrimaryItems.map((item) => (
             <NavLink
               key={item.path}
@@ -402,281 +386,191 @@ export function Navbar() {
               className={({ isActive }) => `mobile-nav-item ${isActive ? 'active' : ''}`}
               end={item.path === '/'}
             >
-              {item.icon}
-              <span className="truncate">{item.name}</span>
+              <span className="mobile-nav-icon">{item.icon}</span>
+              <span className="mobile-nav-label">{item.name}</span>
             </NavLink>
           ))}
-
-          {/* 5th Tab: More Button / Drawer Trigger */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}
-            className={`mobile-nav-item relative ${mobileMenuOpen ? 'active' : ''}`}
-            title="More Options & Navigation"
+            className={`mobile-nav-item ${mobileMenuOpen ? 'active' : ''}`}
+            aria-label="More"
           >
-            <Menu size={19} />
-            <span>More</span>
-            {isAdmin && pendingEnrollmentsCount > 0 && (
-              <span className="absolute top-1.5 right-3 w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-            )}
+            <span className="mobile-nav-icon relative">
+              <Menu size={22} />
+              {isAdmin && pendingEnrollmentsCount > 0 && <span className="mobile-dot" />}
+            </span>
+            <span className="mobile-nav-label">More</span>
           </button>
         </nav>
       )}
 
-      {/* MOBILE "MORE" SLIDE-UP DRAWER / BOTTOM SHEET */}
+      {/* MOBILE "MORE" BOTTOM SHEET */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          {/* Backdrop click dismiss */}
-          <div className="absolute inset-0" onClick={() => setMobileMenuOpen(false)} />
-
-          <div className="relative w-full max-w-lg bg-[var(--surface)] border-t sm:border border-[var(--border)] rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[88vh] flex flex-col overflow-hidden animate-slide-up z-10">
-            {/* Drag handle pill on mobile */}
-            <div className="w-12 h-1.5 rounded-full bg-[var(--border)] mx-auto mt-3 mb-1 shrink-0" />
-
-            {/* Drawer Header */}
-            <div className="px-5 py-3 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface)]">
-              <div className="flex items-center gap-2">
-                <GraduationCap size={20} className="text-[var(--primary)]" />
-                <h3 className="font-bold text-base text-[var(--text-main)] font-[var(--font-heading)]">Menu & Navigation</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-1.5 rounded-full hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
-                title="Close Menu"
-              >
+        <div className="menu-sheet-backdrop" onClick={() => setMobileMenuOpen(false)}>
+          <div
+            className="menu-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="menu-sheet-handle" />
+            <div className="flex items-center justify-between px-5 pb-2 pt-1">
+              <h3 className="text-lg font-semibold">Menu</h3>
+              <button type="button" onClick={() => setMobileMenuOpen(false)} className="mobile-icon-btn" aria-label="Close menu">
                 <X size={20} />
               </button>
             </div>
 
-            {/* Drawer Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-6">
-              {/* Install App Banner in Drawer if not installed */}
-              {!isInstalled && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    openInstall();
-                  }}
-                  className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/15 to-indigo-500/15 border border-indigo-500/30 flex items-center justify-between text-left group hover:border-[var(--primary)] transition-all shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-md shrink-0">
-                      <Download size={20} />
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-[var(--text-main)] block">Install StudyMate App</span>
-                      <span className="text-[11px] text-[var(--text-muted)]">Add to Home Screen for offline access</span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-600 text-white shadow-sm">Install</span>
-                </button>
-              )}
-
-              {/* Profile Card if user */}
+            <div className="menu-sheet-body">
               {user ? (
-                <div className="p-3.5 rounded-2xl bg-[var(--surface-hover)] border border-[var(--border)] flex items-center justify-between gap-3 shadow-sm">
-                  <Link
+                <div className="menu-group">
+                  <MenuRow
                     to="/profile"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-3 overflow-hidden flex-1 group"
-                  >
-                    <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center shrink-0 shadow-sm">
-                      {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        userInitials
-                      )}
-                    </div>
-                    <div className="overflow-hidden">
-                      <span className="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors truncate block">
-                        {displayName}
+                    onNavigate={() => setMobileMenuOpen(false)}
+                    leading={
+                      <span className="mobile-avatar !m-0 !h-10 !w-10">
+                        {profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" /> : userInitials}
                       </span>
-                      <span className="text-xs text-[var(--text-muted)] truncate block">
-                        {user.email}
-                      </span>
-                    </div>
-                  </Link>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--primary)]/10 text-[var(--primary)] uppercase tracking-wider shrink-0">
-                    {role === 'admin' ? 'Admin' : 'Student'}
-                  </span>
+                    }
+                    title={displayName}
+                    subtitle={user.email ?? undefined}
+                    value={role === 'admin' ? 'Admin' : undefined}
+                  />
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-500/20 text-center space-y-2">
-                  <h4 className="font-bold text-sm text-[var(--text-main)]">Sign in to StudyMate</h4>
-                  <p className="text-xs text-[var(--text-muted)]">Access your personalized courses, study plan, and progress.</p>
-                  <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="inline-block mt-2">
-                    <button className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md">
-                      <LogIn size={15} /> Sign In / Register
-                    </button>
+                <div className="menu-group p-4 text-center">
+                  <p className="text-sm font-medium">Sign in to save your progress</p>
+                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">Your courses, notes and study plan on every device.</p>
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="btn btn-primary mt-3 w-full">
+                    Sign in
                   </Link>
                 </div>
               )}
 
-              {/* Quick Search Shortcut */}
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  openSearch();
-                }}
-                className="w-full p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border)] text-xs font-semibold text-[var(--text-main)] flex items-center justify-between hover:border-[var(--primary)] transition-colors"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Search size={16} className="text-[var(--primary)]" />
-                  <span>Spotlight Search</span>
-                </div>
-                <span className="text-[10px] font-mono text-[var(--text-muted)] bg-[var(--surface)] px-2 py-0.5 rounded border border-[var(--border)]">⌘K</span>
-              </button>
-
-              {/* Secondary Study Links */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
-                  Explore & Practice
-                </h4>
-                <div className="grid grid-cols-1 gap-1.5">
-                  <NavLink
-                    to="/exams"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={({ isActive }) => `flex items-center justify-between p-3 rounded-xl transition-all border ${
-                      isActive 
-                        ? 'bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/30 font-semibold' 
-                        : 'bg-[var(--surface)] text-[var(--text-main)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
-                        <GraduationCap size={18} />
-                      </div>
-                      <div className="text-left">
-                        <span className="text-sm font-semibold block">Exams & Quizzes</span>
-                        <span className="text-[11px] text-[var(--text-muted)]">Practice exam questions & tests</span>
-                      </div>
-                    </div>
-                    <ChevronRight size={16} className="text-[var(--text-muted)]" />
-                  </NavLink>
-
-                  <NavLink
-                    to="/leaderboard"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={({ isActive }) => `flex items-center justify-between p-3 rounded-xl transition-all border ${
-                      isActive 
-                        ? 'bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/30 font-semibold' 
-                        : 'bg-[var(--surface)] text-[var(--text-main)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
-                        <Trophy size={18} />
-                      </div>
-                      <div className="text-left">
-                        <span className="text-sm font-semibold block">Global Leaderboard</span>
-                        <span className="text-[11px] text-[var(--text-muted)]">Check student ranks & points</span>
-                      </div>
-                    </div>
-                    <ChevronRight size={16} className="text-[var(--text-muted)]" />
-                  </NavLink>
-
-                  <NavLink
-                    to="/discussion"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={({ isActive }) => `flex items-center justify-between p-3 rounded-xl transition-all border ${
-                      isActive 
-                        ? 'bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/30 font-semibold' 
-                        : 'bg-[var(--surface)] text-[var(--text-main)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
-                        <MessageSquare size={18} />
-                      </div>
-                      <div className="text-left">
-                        <span className="text-sm font-semibold block">Community Discussion</span>
-                        <span className="text-[11px] text-[var(--text-muted)]">Ask questions & share insights</span>
-                      </div>
-                    </div>
-                    <ChevronRight size={16} className="text-[var(--text-muted)]" />
-                  </NavLink>
-                </div>
-              </div>
-
-              {/* Admin Verification & Management Portal */}
-              {isAdmin && (
-                <div className="space-y-2 pt-2 border-t border-[var(--border)]">
-                  <div className="flex items-center justify-between px-1">
-                    <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
-                      <ShieldCheck size={14} /> Admin Verification Portal
-                    </h4>
-                    {pendingEnrollmentsCount > 0 && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">
-                        {pendingEnrollmentsCount} Pending
-                      </span>
-                    )}
+              {user && (
+                <>
+                  <p className="menu-group-title">Practice</p>
+                  <div className="menu-group">
+                    <MenuRow to="/exams" onNavigate={() => setMobileMenuOpen(false)} icon={<GraduationCap size={18} />} title="Exams" />
+                    <MenuRow to="/leaderboard" onNavigate={() => setMobileMenuOpen(false)} icon={<Trophy size={18} />} title="Leaderboard" />
+                    <MenuRow to="/discussion" onNavigate={() => setMobileMenuOpen(false)} icon={<MessageSquare size={18} />} title="Discussion" />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                    {adminItems.map((item) => (
-                      <NavLink
-                        key={item.path}
-                        to={item.path}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={({ isActive }) => `flex items-center justify-between p-2.5 rounded-xl transition-all border text-xs ${
-                          isActive 
-                            ? 'bg-amber-500/10 text-amber-500 border-amber-500/30 font-semibold' 
-                            : 'bg-[var(--surface)] text-[var(--text-main)] border-[var(--border)] hover:bg-[var(--surface-hover)]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 overflow-hidden">
-                          <span className="shrink-0 text-[var(--text-muted)]">{item.icon}</span>
-                          <span className="truncate font-medium">{item.name}</span>
-                        </div>
-                        {item.badge && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white shrink-0 ml-1">
-                            {item.badge}
-                          </span>
-                        )}
-                      </NavLink>
-                    ))}
-                  </div>
-                </div>
+                </>
               )}
 
-              {/* Quick Tools & Settings */}
-              <div className="pt-2 border-t border-[var(--border)] space-y-3">
-                <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-1">
-                  Quick Tools
-                </h4>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleCopyCurrentUrl}
-                    className="flex-1 py-2.5 px-3 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] text-xs font-semibold text-[var(--text-main)] flex items-center justify-center gap-2 hover:border-[var(--primary)] transition-colors"
-                  >
-                    {copiedUrl ? <Check size={16} className="text-emerald-500" /> : <Share2 size={16} />}
-                    <span>{copiedUrl ? 'Copied Page URL!' : 'Copy Page Link'}</span>
-                  </button>
-                  <div className="p-1 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]">
-                    <ThemeToggle />
+              {isAdmin && (
+                <>
+                  <p className="menu-group-title">Admin</p>
+                  <div className="menu-group">
+                    {adminItems.map((item) => (
+                      <MenuRow
+                        key={item.path}
+                        to={item.path}
+                        onNavigate={() => setMobileMenuOpen(false)}
+                        icon={item.icon}
+                        title={item.name}
+                        value={item.badge ? String(item.badge) : undefined}
+                      />
+                    ))}
                   </div>
-                </div>
+                </>
+              )}
 
-                {user && (
-                  <button
-                    type="button"
+              <p className="menu-group-title">App</p>
+              <div className="menu-group">
+                {!isInstalled && (
+                  <MenuRow
+                    icon={<Download size={18} />}
+                    title="Get the app"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      openInstall();
+                    }}
+                  />
+                )}
+                <MenuRow
+                  icon={<Search size={18} />}
+                  title="Search"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    openSearch();
+                  }}
+                />
+                <MenuRow
+                  icon={copiedUrl ? <Check size={18} /> : <Share2 size={18} />}
+                  title={copiedUrl ? 'Link copied' : 'Copy page link'}
+                  onClick={handleCopyCurrentUrl}
+                />
+                <MenuRow
+                  icon={isDark ? <Moon size={18} /> : <Sun size={18} />}
+                  title="Dark mode"
+                  onClick={toggleTheme}
+                  trailing={<span className={`menu-switch ${isDark ? 'on' : ''}`} aria-hidden="true" />}
+                  ariaPressed={isDark}
+                />
+              </div>
+
+              {user && (
+                <div className="menu-group mt-5">
+                  <MenuRow
+                    icon={<LogOut size={18} />}
+                    title="Sign out"
+                    destructive
                     onClick={() => {
                       setMobileMenuOpen(false);
                       handleSignOut();
                     }}
-                    className="w-full py-2.5 px-3 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <LogOut size={16} /> Sign Out of Account
-                  </button>
-                )}
-              </div>
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
     </>
+  );
+}
+
+interface MenuRowProps {
+  title: string;
+  subtitle?: string;
+  value?: string;
+  icon?: React.ReactNode;
+  leading?: React.ReactNode;
+  trailing?: React.ReactNode;
+  destructive?: boolean;
+  ariaPressed?: boolean;
+  to?: string;
+  onNavigate?: () => void;
+  onClick?: () => void;
+}
+
+/** One row of the mobile menu sheet: icon tile, label, optional value, chevron for links. */
+function MenuRow({ title, subtitle, value, icon, leading, trailing, destructive, ariaPressed, to, onNavigate, onClick }: MenuRowProps) {
+  const content = (
+    <>
+      {leading ?? (icon && <span className={`menu-row-icon ${destructive ? 'danger' : ''}`}>{icon}</span>)}
+      <span className="min-w-0 flex-1">
+        <span className={`block truncate text-[0.95rem] ${destructive ? 'text-[var(--error)]' : 'text-[var(--text-main)]'}`}>{title}</span>
+        {subtitle && <span className="block truncate text-xs text-[var(--text-muted)]">{subtitle}</span>}
+      </span>
+      {value && <span className="shrink-0 text-sm text-[var(--text-muted)]">{value}</span>}
+      {trailing}
+      {to && <ChevronRight size={18} className="shrink-0 text-[var(--text-muted)]" />}
+    </>
+  );
+  if (to) {
+    return (
+      <NavLink to={to} onClick={onNavigate} className={({ isActive }) => `menu-row ${isActive ? 'active' : ''}`}>
+        {content}
+      </NavLink>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className="menu-row" aria-pressed={ariaPressed}>
+      {content}
+    </button>
   );
 }

@@ -26,6 +26,7 @@ import { EnrollmentModal } from '../components/EnrollmentModal';
 import { dataService, type Course, type CourseLesson, type CourseEnrollment } from '../lib/dataService';
 import { getYouTubeEmbedUrl, extractVideoId } from '../lib/youtube';
 import { useAuthStore } from '../store/authStore';
+import { formatLevel } from '../lib/format';
 import { useToastStore } from '../store/toastStore';
 
 export function CourseOverview() {
@@ -138,13 +139,13 @@ export function CourseOverview() {
   return (
     <div className="animate-fade-in pb-20 space-y-8">
       {/* BREADCRUMB */}
-      <nav className="flex items-center justify-between gap-3 text-xs text-[var(--text-muted)] flex-wrap">
-        <div className="flex items-center gap-2">
+      <nav className="flex items-center justify-between gap-3 text-xs text-[var(--text-muted)]" aria-label="Breadcrumb">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <Link to="/" className="hover:text-[var(--text-main)] transition-colors">Home</Link>
           <span>/</span>
           <Link to="/courses" className="hover:text-[var(--text-main)] transition-colors">Courses</Link>
           <span>/</span>
-          <span className="text-[var(--text-main)] font-semibold truncate max-w-xs">{course.title}</span>
+          <span className="min-w-0 truncate font-semibold text-[var(--text-main)]">{course.title}</span>
         </div>
         <button
           type="button"
@@ -166,8 +167,8 @@ export function CourseOverview() {
               <span className="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-500 text-xs font-bold uppercase tracking-wider">
                 {course.category}
               </span>
-              <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-semibold capitalize">
-                {course.level.replace('_', ' ')}
+              <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-semibold ">
+                {formatLevel(course.level)}
               </span>
               {isApproved && (
                 <span className="px-3 py-1 rounded-full bg-blue-500/10 text-blue-500 text-xs font-bold flex items-center gap-1">

@@ -26,7 +26,7 @@ export function OfflineIndicator() {
   }
 
   return (
-    <aside aria-label="Network status banner" className="fixed top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-slide-down max-w-sm w-[92%] sm:w-auto">
+    <aside aria-label="Network status banner" className="offline-banner fixed top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-slide-down max-w-sm w-[92%] sm:w-auto">
       {!isOnline ? (
         <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-amber-500/90 text-white font-semibold text-xs shadow-xl backdrop-blur-md border border-amber-400/40 pointer-events-auto justify-center">
           <WifiOff size={15} className="shrink-0 animate-pulse" />
