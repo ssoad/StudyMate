@@ -143,21 +143,31 @@ class AuthRepository(
             }
 
             val authResp = json.decodeFromString<AuthTokenResponse>(respBody)
-            val token = authResp.accessToken ?: "dummy_token"
+            val token = authResp.accessToken
+                ?: return@withContext Result.failure(Exception("Sign-in response had no session. Try again."))
             val userId = authResp.user?.id ?: "user_${System.currentTimeMillis()}"
-            val name = authResp.user?.userMetadata?.get("full_name") ?: cleanEmail.substringBefore('@')
-            val role = authResp.user?.appMetadata?.get("role") ?: "student"
+            val name = authResp.user?.userMeta("full_name")?.takeIf { it.isNotBlank() } ?: cleanEmail.substringBefore('@')
+            val role = authResp.user?.appMeta("role") ?: "student"
 
             val profile = UserProfile(
                 id = userId,
                 email = cleanEmail,
                 fullName = name,
                 role = role,
-                points = 120
+                points = 0 // replaced below with the server value
             )
 
-            persistUser(token, profile)
-            Result.success(profile)
+            // Load real name/points before switching the UI to signed-in; once it switches,
+            // the caller's (sign-in form's) coroutine scope is cancelled.
+            val row = fetchProfileRow(userId, token)
+            val withServerData = profile.copy(
+                fullName = row?.fullName?.takeIf { it.isNotBlank() } ?: profile.fullName,
+                points = row?.points ?: profile.points
+            )
+            persistUser(token, withServerData)
+            Result.success(withServerData)
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("AuthRepository", "Sign in error", e)
             Result.failure(e)
@@ -210,7 +220,8 @@ class AuthRepository(
             }
 
             val authResp = json.decodeFromString<AuthTokenResponse>(respBody)
-            val token = authResp.accessToken ?: "signup_token"
+            val token = authResp.accessToken
+                ?: return@withContext Result.failure(Exception("Account created. Sign in to continue."))
             val userId = authResp.user?.id ?: "user_${System.currentTimeMillis()}"
 
             val profile = UserProfile(
@@ -218,11 +229,13 @@ class AuthRepository(
                 email = cleanEmail,
                 fullName = cleanName.ifBlank { cleanEmail.substringBefore('@') },
                 role = "student",
-                points = 100
+                points = 0
             )
 
             persistUser(token, profile)
             Result.success(profile)
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("AuthRepository", "Sign up error", e)
             Result.failure(e)
@@ -280,11 +293,43 @@ class AuthRepository(
                 if (resp.code == 401) {
                     Log.i("AuthRepository", "Stored session rejected by server; signing out")
                     withContext(Dispatchers.Main) { signOut() }
+                    return@withContext
                 }
             }
+            refreshProfile()
         } catch (e: Exception) {
             Log.w("AuthRepository", "Session check skipped: ${e.message}")
         }
+    }
+
+    private fun fetchProfileRow(userId: String, token: String): org.armorclub.studymate.data.model.ProfileRow? = try {
+        val baseUrl = courseRepository.getBaseUrl().trimEnd('/')
+        val request = Request.Builder()
+            .url("$baseUrl/rest/v1/profiles?id=eq.$userId&select=full_name,points")
+            .get()
+            .addHeader("apikey", BundledCourses.SUPABASE_ANON_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .build()
+        httpClient.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) null
+            else json.decodeFromString<List<org.armorclub.studymate.data.model.ProfileRow>>(resp.body?.string().orEmpty()).firstOrNull()
+        }
+    } catch (e: Exception) {
+        Log.w("AuthRepository", "Profile fetch skipped: ${e.message}")
+        null
+    }
+
+    /** Loads the signed-in user's real name and points from the server. Network errors are ignored. */
+    suspend fun refreshProfile() = withContext(Dispatchers.IO) {
+        val current = _currentUser.value ?: return@withContext
+        val token = getAuthToken() ?: return@withContext
+        val row = fetchProfileRow(current.id, token) ?: return@withContext
+        val updated = current.copy(
+            fullName = row.fullName?.takeIf { it.isNotBlank() } ?: current.fullName,
+            points = row.points ?: current.points
+        )
+        prefs.edit().putString("user_name", updated.fullName).putInt("user_points", updated.points).apply()
+        _currentUser.value = updated
     }
 
     fun addPoints(pointsDelta: Int) {

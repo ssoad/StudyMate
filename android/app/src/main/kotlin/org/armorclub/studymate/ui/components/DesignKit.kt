@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.Icons
 import androidx.compose.ui.graphics.SolidColor
@@ -489,6 +490,179 @@ fun SearchField(
                 tint = AppTheme.colors.textMuted,
                 modifier = Modifier.size(20.dp).clip(RoundedCornerShape(50)).clickable { onValueChange("") }
             )
+        }
+    }
+}
+
+// ---------------------------------------------------------------- Grouped settings lists
+
+/**
+ * A titled group of rows on one rounded surface, as used by the Account and Settings screens.
+ * Put [SettingsRow]s inside; dividers are drawn between them automatically via [SettingsRow.divider].
+ */
+@Composable
+fun SettingsGroup(
+    title: String? = null,
+    modifier: Modifier = Modifier,
+    footer: String? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier.fillMaxWidth().padding(top = Spacing.lg)) {
+        if (title != null) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelMedium,
+                color = AppTheme.colors.textMuted,
+                modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xs)
+            )
+        }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radius.card))
+                .background(AppTheme.colors.cardBackground)
+                .border(1.dp, AppTheme.colors.cardBorder, RoundedCornerShape(Radius.card)),
+            content = content
+        )
+        if (footer != null) {
+            Text(
+                footer,
+                style = MaterialTheme.typography.bodySmall,
+                color = AppTheme.colors.textMuted,
+                modifier = Modifier.padding(start = Spacing.xs, end = Spacing.xs, top = Spacing.xs)
+            )
+        }
+    }
+}
+
+/** Tint for the small rounded icon tile at the start of a [SettingsRow]. */
+enum class RowTint { Accent, Neutral, Success, Warning, Danger }
+
+/**
+ * One row in a [SettingsGroup]: icon tile, title (+ optional subtitle), an optional value on the
+ * right and a chevron when it navigates. [divider] draws the separator above the row.
+ */
+@Composable
+fun SettingsRow(
+    title: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    value: String? = null,
+    tint: RowTint = RowTint.Accent,
+    destructive: Boolean = false,
+    showChevron: Boolean = false,
+    divider: Boolean = false,
+    enabled: Boolean = true,
+    onClick: (() -> Unit)? = null,
+    trailing: (@Composable RowScope.() -> Unit)? = null
+) {
+    val c = AppTheme.colors
+    val (tileBg, tileFg) = when {
+        destructive -> c.errorContainer to c.error
+        else -> when (tint) {
+            RowTint.Accent -> c.primaryContainer to c.onPrimaryContainer
+            RowTint.Neutral -> c.surfaceVariant to c.textSecondary
+            RowTint.Success -> c.successContainer to c.success
+            RowTint.Warning -> c.warningContainer to c.warning
+            RowTint.Danger -> c.errorContainer to c.error
+        }
+    }
+    Column(modifier) {
+        if (divider) {
+            Box(Modifier.padding(start = 60.dp).fillMaxWidth().height(1.dp).background(c.divider))
+        }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .then(if (onClick != null && enabled) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(Radius.control - 2.dp))
+                    .background(tileBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = tileFg, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = when {
+                        destructive -> c.error
+                        !enabled -> c.textMuted
+                        else -> c.textPrimary
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (subtitle != null) {
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = c.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            if (value != null) {
+                Spacer(Modifier.width(Spacing.xs))
+                Text(value, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary, maxLines = 1)
+            }
+            if (trailing != null) {
+                Spacer(Modifier.width(Spacing.xs))
+                trailing()
+            }
+            if (showChevron) {
+                Spacer(Modifier.width(Spacing.xxs))
+                Icon(
+                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = c.textMuted,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+/** Equal-width segmented choice, e.g. the theme picker. */
+@Composable
+fun <T> SegmentedChoice(
+    options: List<T>,
+    selected: T,
+    label: (T) -> String,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val c = AppTheme.colors
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.control))
+            .background(c.surfaceVariant)
+            .padding(3.dp)
+    ) {
+        options.forEach { option ->
+            val isSel = option == selected
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(Radius.control - 3.dp))
+                    .background(if (isSel) c.cardBackground else Color.Transparent)
+                    .then(if (isSel) Modifier.border(1.dp, c.cardBorder, RoundedCornerShape(Radius.control - 3.dp)) else Modifier)
+                    .clickable { onSelect(option) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    label(option),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isSel) c.textPrimary else c.textSecondary,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

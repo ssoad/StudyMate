@@ -1,6 +1,33 @@
 package org.armorclub.studymate.ui.screens
 
 import android.widget.Toast
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import org.armorclub.studymate.data.BundledCourses
+import org.armorclub.studymate.ui.components.Hairline
+import org.armorclub.studymate.ui.components.RowTint
+import org.armorclub.studymate.ui.components.SettingsGroup
+import org.armorclub.studymate.ui.components.SettingsRow
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -126,6 +153,7 @@ fun ProfileScreen(
                 themeRepository = themeRepository,
                 currentUser = user,
                 onSelectCourse = onSelectCourse,
+                onOpenSettings = onNavigateToSettings,
                 onSignOut = { authRepository.signOut() }
             )
         } else {
@@ -136,6 +164,7 @@ fun ProfileScreen(
 
 private data class CourseProgressRow(val course: Course, val done: Int, val total: Int)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SignedInContent(
     userName: String,
@@ -148,6 +177,7 @@ private fun SignedInContent(
     themeRepository: ThemeRepository,
     currentUser: org.armorclub.studymate.data.model.UserProfile,
     onSelectCourse: (String) -> Unit,
+    onOpenSettings: () -> Unit,
     onSignOut: () -> Unit
 ) {
     val context = LocalContext.current
@@ -155,11 +185,12 @@ private fun SignedInContent(
     val progressMap by progressRepository.progressMap.collectAsState()
     val enrollments by enrollmentRepository.enrollments.collectAsState()
     val themeMode by themeRepository.themeMode.collectAsState()
+    var showThemeSheet by remember { mutableStateOf(false) }
+    var confirmSignOut by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { courses = courseRepository.getCourses() }
 
     val userId = progressRepository.getGuestOrUserId()
-    // Recomputed when progress or enrollments change.
     val rows = remember(courses, progressMap, enrollments) {
         courses.mapNotNull { c ->
             val total = c.sections.sumOf { it.lessons.size }
@@ -172,131 +203,242 @@ private fun SignedInContent(
     val enrolledCount = remember(courses, enrollments) {
         courses.count { enrollmentRepository.isCourseApproved(it.id, currentUser, it.price) }
     }
+    val isAdmin = role == "admin"
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, bottom = Spacing.xl)
     ) {
-        item(key = "identity") {
-            Row(
-                Modifier.padding(top = Spacing.sm),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                InitialsAvatar(userName, size = 56.dp)
-                Spacer(Modifier.width(Spacing.md))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        userName,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = AppTheme.colors.textPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        email,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AppTheme.colors.textSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Badge(
-                    if (role == "admin") "Admin" else "Student",
-                    tone = if (role == "admin") BadgeTone.Accent else BadgeTone.Neutral
-                )
-            }
-        }
-
-        item(key = "stats") {
-            Row(
+        // Profile card
+        item(key = "profile") {
+            Column(
                 Modifier
                     .fillMaxWidth()
-                    .padding(top = Spacing.lg),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    .padding(top = Spacing.sm)
+                    .clip(RoundedCornerShape(Radius.card))
+                    .background(AppTheme.colors.cardBackground)
+                    .border(1.dp, AppTheme.colors.cardBorder, RoundedCornerShape(Radius.card))
             ) {
-                StatTile("Points", points.toString(), Modifier.weight(1f))
-                StatTile("Lessons done", lessonsDone.toString(), Modifier.weight(1f))
-                StatTile("Enrolled", enrolledCount.toString(), Modifier.weight(1f))
+                Row(Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
+                    InitialsAvatar(userName, size = 60.dp)
+                    Spacer(Modifier.width(Spacing.md))
+                    Column(Modifier.weight(1f)) {
+                        Text(userName, style = MaterialTheme.typography.titleLarge, color = AppTheme.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(email, style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(Spacing.xxs))
+                        Badge(if (isAdmin) "Admin" else "Student", tone = if (isAdmin) BadgeTone.Accent else BadgeTone.Neutral)
+                    }
+                }
+                Hairline()
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                    StatCell("Points", points.toString(), Modifier.weight(1f))
+                    VerticalHairline()
+                    StatCell("Lessons done", lessonsDone.toString(), Modifier.weight(1f))
+                    VerticalHairline()
+                    StatCell("Enrolled", enrolledCount.toString(), Modifier.weight(1f))
+                }
             }
         }
 
-        item(key = "courses-header") { SectionHeader("Your courses") }
-        if (rows.isEmpty()) {
-            item(key = "courses-empty") {
-                Text(
-                    "Courses you enroll in or start will show up here.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppTheme.colors.textSecondary
+        // Courses
+        item(key = "courses") {
+            SettingsGroup(title = "Your courses") {
+                if (rows.isEmpty()) {
+                    SettingsRow(
+                        title = "Browse courses",
+                        subtitle = "Courses you enroll in or start show up here",
+                        icon = Icons.Outlined.School,
+                        showChevron = true,
+                        onClick = { courses.firstOrNull()?.let { onSelectCourse(it.id) } }
+                    )
+                } else {
+                    rows.forEachIndexed { i, row ->
+                        CourseProgressItem(row, divider = i > 0, onClick = { onSelectCourse(row.course.id) })
+                    }
+                }
+            }
+        }
+
+        // Preferences
+        item(key = "prefs") {
+            SettingsGroup(title = "Preferences") {
+                SettingsRow(
+                    title = "Appearance",
+                    icon = Icons.Outlined.Palette,
+                    value = themeMode.title,
+                    showChevron = true,
+                    onClick = { showThemeSheet = true }
+                )
+                SettingsRow(
+                    title = "Settings",
+                    subtitle = "Storage, offline cache and app info",
+                    icon = Icons.Outlined.Settings,
+                    tint = RowTint.Neutral,
+                    showChevron = true,
+                    divider = true,
+                    onClick = onOpenSettings
                 )
             }
-        } else {
-            items(rows, key = { "course-${it.course.id}" }) { row ->
-                SmCard(
-                    modifier = Modifier.padding(bottom = Spacing.sm),
-                    onClick = { onSelectCourse(row.course.id) }
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            row.course.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = AppTheme.colors.textPrimary,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
+        }
+
+        // Support
+        item(key = "support") {
+            SettingsGroup(title = "Support") {
+                SettingsRow(
+                    title = "Share StudyMate",
+                    icon = Icons.Outlined.Share,
+                    tint = RowTint.Neutral,
+                    showChevron = true,
+                    onClick = {
+                        context.startActivity(
+                            Intent.createChooser(
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, "Prepare for AD (ICT) with StudyMate: ${BundledCourses.FALLBACK_WEB_URL}")
+                                },
+                                "Share StudyMate"
+                            )
                         )
-                        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = AppTheme.colors.textMuted)
                     }
-                    Spacer(Modifier.height(Spacing.xs))
-                    Text(
-                        "${row.done} of ${row.total} lessons done",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppTheme.colors.textSecondary
-                    )
-                    Spacer(Modifier.height(Spacing.xs))
-                    ProgressTrack(if (row.total == 0) 0f else row.done.toFloat() / row.total)
-                }
+                )
+                SettingsRow(
+                    title = "Open website",
+                    icon = Icons.Outlined.Language,
+                    tint = RowTint.Neutral,
+                    value = Uri.parse(BundledCourses.FALLBACK_WEB_URL).host,
+                    showChevron = true,
+                    divider = true,
+                    onClick = {
+                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BundledCourses.FALLBACK_WEB_URL))) }
+                    }
+                )
             }
         }
 
-        item(key = "appearance") {
-            SectionHeader("Appearance")
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
-            ) {
-                ThemeMode.entries.forEach { mode ->
-                    FilterPill(
-                        text = mode.title,
-                        selected = themeMode == mode,
-                        onClick = { themeRepository.setThemeMode(mode) }
-                    )
-                }
-            }
-        }
-
+        // Session
         item(key = "session") {
-            SectionHeader("Session")
-            ListRow(
-                title = "Sign out",
-                titleColor = AppTheme.colors.error,
-                showDivider = false,
-                onClick = {
-                    onSignOut()
-                    Toast.makeText(context, "Signed out", Toast.LENGTH_SHORT).show()
-                },
-                leading = {
-                    Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null, tint = AppTheme.colors.error, modifier = Modifier.size(20.dp))
-                }
+            SettingsGroup {
+                SettingsRow(
+                    title = "Sign out",
+                    icon = Icons.AutoMirrored.Outlined.Logout,
+                    destructive = true,
+                    onClick = { confirmSignOut = true }
+                )
+            }
+            Text(
+                "StudyMate ${BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppTheme.colors.textMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.lg)
             )
         }
+    }
+
+    if (showThemeSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showThemeSheet = false },
+            containerColor = AppTheme.colors.surfaceElevated
+        ) {
+            Column(Modifier.padding(start = Spacing.gutter, end = Spacing.gutter, bottom = Spacing.xl)) {
+                Text("Appearance", style = MaterialTheme.typography.titleMedium, color = AppTheme.colors.textPrimary)
+                Spacer(Modifier.height(Spacing.sm))
+                ThemeMode.entries.forEach { mode ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(Radius.control))
+                            .clickable {
+                                themeRepository.setThemeMode(mode)
+                                showThemeSheet = false
+                            }
+                            .padding(vertical = Spacing.sm, horizontal = Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(mode.title, style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.textPrimary)
+                            Text(mode.description, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textSecondary)
+                        }
+                        RadioButton(
+                            selected = themeMode == mode,
+                            onClick = {
+                                themeRepository.setThemeMode(mode)
+                                showThemeSheet = false
+                            },
+                            colors = RadioButtonDefaults.colors(selectedColor = AppTheme.colors.primary, unselectedColor = AppTheme.colors.textMuted)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (confirmSignOut) {
+        AlertDialog(
+            onDismissRequest = { confirmSignOut = false },
+            containerColor = AppTheme.colors.surfaceElevated,
+            title = { Text("Sign out?", color = AppTheme.colors.textPrimary) },
+            text = { Text("Your progress is saved to your account. Notes stay on this device.", color = AppTheme.colors.textSecondary) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmSignOut = false
+                    onSignOut()
+                    Toast.makeText(context, "Signed out", Toast.LENGTH_SHORT).show()
+                }) { Text("Sign out", color = AppTheme.colors.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmSignOut = false }) { Text("Cancel", color = AppTheme.colors.textSecondary) }
+            }
+        )
     }
 }
 
 @Composable
-private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
-    SmCard(modifier = modifier, padding = Spacing.sm) {
+private fun StatCell(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier.padding(vertical = Spacing.sm), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, style = MaterialTheme.typography.titleLarge, color = AppTheme.colors.textPrimary, maxLines = 1)
         Text(label, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textSecondary, maxLines = 1)
+    }
+}
+
+@Composable
+private fun VerticalHairline() {
+    Box(Modifier.fillMaxHeight().padding(vertical = Spacing.sm).width(1.dp).background(AppTheme.colors.divider))
+}
+
+@Composable
+private fun CourseProgressItem(row: CourseProgressRow, divider: Boolean, onClick: () -> Unit) {
+    val progress = if (row.total == 0) 0f else row.done.toFloat() / row.total
+    Column {
+        if (divider) Box(Modifier.padding(start = Spacing.md).fillMaxWidth().height(1.dp).background(AppTheme.colors.divider))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .width(72.dp)
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(Radius.xs))
+                    .background(AppTheme.colors.thumbnailPlaceholder)
+            ) {
+                if (row.course.thumbnailUrl.isNotBlank()) {
+                    AsyncImage(model = row.course.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                }
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            Column(Modifier.weight(1f)) {
+                Text(row.course.title, style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${row.done} of ${row.total} lessons · ${(progress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textSecondary)
+                Spacer(Modifier.height(6.dp))
+                ProgressTrack(progress)
+            }
+            Spacer(Modifier.width(Spacing.xs))
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = AppTheme.colors.textMuted, modifier = Modifier.size(20.dp))
+        }
     }
 }
 

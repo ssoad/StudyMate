@@ -2,6 +2,9 @@ package org.armorclub.studymate.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 @Serializable
 data class Course(
@@ -182,13 +185,25 @@ data class AuthTokenResponse(
     val msg: String? = null
 )
 
+/** The signed-in user's row from /rest/v1/profiles (only the fields the app reads). */
+@Serializable
+data class ProfileRow(
+    @SerialName("full_name") val fullName: String? = null,
+    val points: Int? = null
+)
+
 @Serializable
 data class AuthUserData(
     val id: String,
     val email: String,
-    @SerialName("user_metadata") val userMetadata: Map<String, String?>? = null,
-    @SerialName("app_metadata") val appMetadata: Map<String, String?>? = null
-)
+    // Metadata can hold arrays and nested objects (e.g. "providers": ["email"]),
+    // so keep it as raw JSON and read single string fields on demand.
+    @SerialName("user_metadata") val userMetadata: JsonObject? = null,
+    @SerialName("app_metadata") val appMetadata: JsonObject? = null
+) {
+    fun userMeta(key: String): String? = (userMetadata?.get(key) as? JsonPrimitive)?.contentOrNull
+    fun appMeta(key: String): String? = (appMetadata?.get(key) as? JsonPrimitive)?.contentOrNull
+}
 
 @Serializable
 data class UserCourseProgress(

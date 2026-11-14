@@ -1,6 +1,18 @@
 package org.armorclub.studymate.ui.screens
 
 import android.text.format.Formatter
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material3.TextButton
+import org.armorclub.studymate.data.repository.ThemeMode
+import org.armorclub.studymate.ui.components.RowTint
+import org.armorclub.studymate.ui.components.SegmentedChoice
+import org.armorclub.studymate.ui.components.SettingsGroup
+import org.armorclub.studymate.ui.components.SettingsRow
+import androidx.compose.ui.Alignment
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -136,113 +148,106 @@ fun SettingsScreen(
             contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, bottom = Spacing.xl)
         ) {
             item(key = "appearance") {
-                SectionHeader("Appearance")
-                SmCard(padding = 0.dp) {
-                    org.armorclub.studymate.data.repository.ThemeMode.entries.forEachIndexed { i, mode ->
-                        ListRow(
-                            title = mode.title,
-                            subtitle = mode.description,
-                            showDivider = i < org.armorclub.studymate.data.repository.ThemeMode.entries.lastIndex,
-                            onClick = { themeRepository.setThemeMode(mode) },
-                            modifier = Modifier.padding(horizontal = Spacing.md),
-                            trailing = {
-                                if (themeMode == mode) {
-                                    Icon(Icons.Outlined.Check, contentDescription = "Selected", tint = AppTheme.colors.primary, modifier = Modifier.size(20.dp))
-                                }
-                            }
+                SettingsGroup(title = "Appearance", footer = themeMode.description) {
+                    Column(Modifier.padding(Spacing.md)) {
+                        SegmentedChoice(
+                            options = ThemeMode.entries,
+                            selected = themeMode,
+                            label = { it.title },
+                            onSelect = { themeRepository.setThemeMode(it) }
                         )
                     }
                 }
             }
 
             item(key = "storage") {
-                SectionHeader("Storage")
-                SmCard {
-                    Text("Offline cache", style = MaterialTheme.typography.titleSmall, color = AppTheme.colors.textPrimary)
-                    Text(
-                        cacheBytes?.let { "Using ${Formatter.formatShortFileSize(context, it)}. Videos you've watched replay from here without data." }
-                            ?: "Calculating…",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppTheme.colors.textSecondary
-                    )
-                    Spacer(Modifier.height(Spacing.sm))
-                    SecondaryButton(
-                        text = if (clearing) "Clearing…" else "Clear cache",
-                        enabled = !clearing && (cacheBytes ?: 0L) > 0L,
-                        onClick = ::clearCache
+                SettingsGroup(
+                    title = "Storage",
+                    footer = "Videos you watch are cached so they replay without using data. Up to 256 MB."
+                ) {
+                    SettingsRow(
+                        title = "Offline cache",
+                        icon = Icons.Outlined.Storage,
+                        tint = RowTint.Neutral,
+                        value = cacheBytes?.let { Formatter.formatShortFileSize(context, it) } ?: "…",
+                        trailing = {
+                            TextButton(
+                                onClick = ::clearCache,
+                                enabled = !clearing && (cacheBytes ?: 0L) > 0L
+                            ) { Text(if (clearing) "Clearing…" else "Clear", color = AppTheme.colors.primary) }
+                        }
                     )
                 }
             }
 
             if (showDeveloper) {
                 item(key = "developer") {
-                    SectionHeader("Developer")
-                    SmCard {
-                        Text("Server", style = MaterialTheme.typography.titleSmall, color = AppTheme.colors.textPrimary)
-                        Text(
-                            "Where the app loads courses and signs in.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = AppTheme.colors.textSecondary
-                        )
-                        Spacer(Modifier.height(Spacing.sm))
-                        OutlinedTextField(
-                            value = serverUrl,
-                            onValueChange = { serverUrl = it; testResult = null },
-                            label = { Text("Base URL") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(Radius.control),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = AppTheme.colors.primary,
-                                unfocusedBorderColor = AppTheme.colors.cardBorder,
-                                focusedLabelColor = AppTheme.colors.primary,
-                                unfocusedLabelColor = AppTheme.colors.textMuted,
-                                focusedTextColor = AppTheme.colors.textPrimary,
-                                unfocusedTextColor = AppTheme.colors.textPrimary,
-                                cursorColor = AppTheme.colors.primary
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(Spacing.xs))
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                            FilterPill("Local", selected = serverUrl == BundledCourses.DEFAULT_BASE_URL, onClick = { serverUrl = BundledCourses.DEFAULT_BASE_URL; testResult = null })
-                            FilterPill("Production", selected = serverUrl == BundledCourses.FALLBACK_WEB_URL, onClick = { serverUrl = BundledCourses.FALLBACK_WEB_URL; testResult = null })
-                        }
-                        Spacer(Modifier.height(Spacing.sm))
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                            PrimaryButton("Save", onClick = {
-                                courseRepository.setBaseUrl(serverUrl.trim())
-                                Toast.makeText(context, "Server saved", Toast.LENGTH_SHORT).show()
-                            })
-                            SecondaryButton(if (testing) "Testing…" else "Test", enabled = !testing, onClick = ::testConnection)
-                        }
-                        if (testing) {
-                            Spacer(Modifier.height(Spacing.xs))
-                            CircularProgressIndicator(color = AppTheme.colors.primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                        }
-                        testResult?.let { (ok, msg) ->
-                            Spacer(Modifier.height(Spacing.xs))
-                            Text(msg, style = MaterialTheme.typography.bodySmall, color = if (ok) AppTheme.colors.success else AppTheme.colors.error)
+                    SettingsGroup(title = "Developer", footer = "Where the app loads courses and signs in.") {
+                        Column(Modifier.padding(Spacing.md)) {
+                            OutlinedTextField(
+                                value = serverUrl,
+                                onValueChange = { serverUrl = it; testResult = null },
+                                label = { Text("Server URL") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(Radius.control),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = AppTheme.colors.primary,
+                                    unfocusedBorderColor = AppTheme.colors.cardBorder,
+                                    focusedLabelColor = AppTheme.colors.primary,
+                                    unfocusedLabelColor = AppTheme.colors.textMuted,
+                                    focusedTextColor = AppTheme.colors.textPrimary,
+                                    unfocusedTextColor = AppTheme.colors.textPrimary,
+                                    cursorColor = AppTheme.colors.primary
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(Modifier.height(Spacing.sm))
+                            SegmentedChoice(
+                                options = listOf(BundledCourses.DEFAULT_BASE_URL, BundledCourses.FALLBACK_WEB_URL),
+                                selected = serverUrl,
+                                label = { if (it == BundledCourses.DEFAULT_BASE_URL) "Local" else "Production" },
+                                onSelect = { serverUrl = it; testResult = null }
+                            )
+                            Spacer(Modifier.height(Spacing.sm))
+                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+                                PrimaryButton("Save", onClick = {
+                                    courseRepository.setBaseUrl(serverUrl.trim())
+                                    Toast.makeText(context, "Server saved", Toast.LENGTH_SHORT).show()
+                                })
+                                SecondaryButton(if (testing) "Testing…" else "Test", enabled = !testing, onClick = ::testConnection)
+                            }
+                            testResult?.let { (ok, msg) ->
+                                Spacer(Modifier.height(Spacing.xs))
+                                Text(msg, style = MaterialTheme.typography.bodySmall, color = if (ok) AppTheme.colors.success else AppTheme.colors.error)
+                            }
                         }
                     }
                 }
             }
 
             item(key = "about") {
-                SectionHeader("About")
-                SmCard(
-                    modifier = Modifier.combinedClickable(
-                        onClick = {},
-                        onLongClick = {
-                            showDeveloper = !showDeveloper
-                            Toast.makeText(context, if (showDeveloper) "Developer options shown" else "Developer options hidden", Toast.LENGTH_SHORT).show()
-                        }
+                SettingsGroup(title = "About") {
+                    SettingsRow(
+                        title = "Version",
+                        icon = Icons.Outlined.Info,
+                        tint = RowTint.Neutral,
+                        value = BuildConfig.VERSION_NAME + if (BuildConfig.DEBUG) " (debug)" else "",
+                        modifier = Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                showDeveloper = !showDeveloper
+                                Toast.makeText(context, if (showDeveloper) "Developer options shown" else "Developer options hidden", Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     )
-                ) {
-                    Text("StudyMate", style = MaterialTheme.typography.titleSmall, color = AppTheme.colors.textPrimary)
-                    Text(
-                        "Version ${BuildConfig.VERSION_NAME}" + if (BuildConfig.DEBUG) " · debug build" else "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppTheme.colors.textSecondary
+                    SettingsRow(
+                        title = "Website",
+                        icon = Icons.Outlined.Language,
+                        tint = RowTint.Neutral,
+                        value = Uri.parse(BundledCourses.FALLBACK_WEB_URL).host,
+                        showChevron = true,
+                        divider = true,
+                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BundledCourses.FALLBACK_WEB_URL))) } }
                     )
                 }
             }
