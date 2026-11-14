@@ -41,6 +41,8 @@ SET LOCAL ROLE web_anon; SELECT pg_temp.act('web_anon', NULL, NULL);
 SELECT pg_temp.check('anon sees active payment method', EXISTS (SELECT 1 FROM payment_methods WHERE label = 'ActiveTest'));
 SELECT pg_temp.check('anon does not see inactive method', NOT EXISTS (SELECT 1 FROM payment_methods WHERE label = 'HiddenTest'));
 SELECT pg_temp.check('anon sees public plan list', (SELECT count(*) FROM list_public_study_plans()) >= 1);
+SELECT pg_temp.check('anon can read a public plan directly', EXISTS (SELECT 1 FROM study_plans WHERE legacy_import));
+SELECT pg_temp.check('anon can read public plan days', EXISTS (SELECT 1 FROM study_plan_days d JOIN study_plans p ON p.id = d.plan_id WHERE p.legacy_import));
 RESET ROLE;
 
 SET LOCAL ROLE authenticated; SELECT pg_temp.act('authenticated', 'aaaaaaaa-0000-0000-0000-00000000000a', 'student');

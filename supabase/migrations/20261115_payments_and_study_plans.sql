@@ -170,10 +170,9 @@ DROP POLICY IF EXISTS plans_read   ON public.study_plans;
 DROP POLICY IF EXISTS plans_insert ON public.study_plans;
 DROP POLICY IF EXISTS plans_update ON public.study_plans;
 DROP POLICY IF EXISTS plans_delete ON public.study_plans;
-CREATE POLICY plans_read ON public.study_plans FOR SELECT USING (
-  visibility = 'public' OR owner_id = app.uid() OR app.is_admin()
-  OR EXISTS (SELECT 1 FROM public.study_plan_members m WHERE m.plan_id = study_plans.id AND m.user_id = app.uid())
-);
+-- Uses the definer helper: anonymous visitors have no access to study_plan_members,
+-- so an inline membership subquery would make every anonymous read fail.
+CREATE POLICY plans_read ON public.study_plans FOR SELECT USING (app.can_view_plan(id));
 CREATE POLICY plans_insert ON public.study_plans FOR INSERT WITH CHECK (app.uid() IS NOT NULL);
 CREATE POLICY plans_update ON public.study_plans FOR UPDATE
   USING (owner_id = app.uid() OR app.is_admin()) WITH CHECK (owner_id = app.uid() OR app.is_admin());
