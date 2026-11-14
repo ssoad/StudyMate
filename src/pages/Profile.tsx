@@ -1,188 +1,185 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useAuthStore } from '../store/authStore';
-import { dataService, type UserProfile } from '../lib/dataService';
+import React, { useEffect, useRef, useState } from 'react';
+import { Camera, Loader2 } from 'lucide-react';
 import { Button } from '../components/Button';
-import { Card, CardBody } from '../components/Card';
-import { Camera, User, Mail, Save, Loader2 } from 'lucide-react';
+import { dataService, type UserProfile } from '../lib/dataService';
+import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
+
+const NAME_MAX = 60;
+const BIO_MAX = 300;
+const AVATAR_MAX_MB = 5;
+
+/** Tell the navbar (and anything else showing the profile) to reload it. */
+function announceProfileChange() {
+  window.dispatchEvent(new Event('profile-updated'));
+}
 
 export function Profile() {
   const { user, role } = useAuthStore();
-  const { addToast } = useToastStore();
+  const addToast = useToastStore((s) => s.addToast);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [formData, setFormData] = useState({
-    full_name: '',
-    bio: ''
-  });
+  const [name, setName] = useState('');
+  const [bio, setBio] = useState('');
 
   useEffect(() => {
-    async function loadProfile() {
-      if (!user) return;
-      const { data } = await dataService.getUserProfile(user.id);
-      if (data) {
-        setProfile(data);
-        setFormData({
-          full_name: data.full_name || '',
-          bio: data.bio || ''
-        });
-      }
+    if (!user) return;
+    dataService.getUserProfile(user.id).then(({ data }) => {
+      const p = data as UserProfile | null;
+      setProfile(p);
+      setName(p?.full_name ?? '');
+      setBio(p?.bio ?? '');
       setLoading(false);
-    }
-    loadProfile();
+    });
   }, [user]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const dirty = (profile?.full_name ?? '') !== name.trim() || (profile?.bio ?? '') !== bio.trim();
 
-  const handleSave = async () => {
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user) return;
-    setSaving(true);
-    const { error } = await dataService.updateProfile(user.id, {
-      full_name: formData.full_name,
-      bio: formData.bio
-    });
-    
-    if (error) {
-      addToast('Failed to update profile', 'error');
-    } else {
-      addToast('Profile updated successfully', 'success');
-      setProfile(prev => prev ? { ...prev, ...formData } : null);
-    }
-    setSaving(false);
-  };
-
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0 || !user) return;
-    const file = e.target.files[0];
-    
-    setUploading(true);
-    const { url, error } = await dataService.uploadAvatar(user.id, file);
-    
-    if (error || !url) {
-      addToast('Failed to upload avatar', 'error');
-      setUploading(false);
+    const cleanName = name.trim();
+    if (cleanName.length < 2) {
+      addToast('Enter your name (at least 2 characters)', 'error');
       return;
     }
-
-    const { error: updateError } = await dataService.updateProfile(user.id, { avatar_url: url });
-    if (updateError) {
-      addToast('Failed to save avatar URL', 'error');
-    } else {
-      addToast('Avatar updated successfully', 'success');
-      setProfile(prev => prev ? { ...prev, avatar_url: url } : null);
+    setSaving(true);
+    const updates = { full_name: cleanName, bio: bio.trim() };
+    const { error } = await dataService.updateProfile(user.id, updates);
+    setSaving(false);
+    if (error) {
+      addToast(`Couldn't save: ${error.message}`, 'error');
+      return;
     }
+    setProfile((p) => (p ? { ...p, ...updates } : p));
+    setName(updates.full_name);
+    setBio(updates.bio);
+    announceProfileChange();
+    addToast('Profile saved', 'success');
+  };
+
+  const changeAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !user) return;
+    if (!file.type.startsWith('image/')) {
+      addToast('Choose an image (JPG, PNG or WebP)', 'error');
+      return;
+    }
+    if (file.size > AVATAR_MAX_MB * 1024 * 1024) {
+      addToast(`Image must be under ${AVATAR_MAX_MB} MB`, 'error');
+      return;
+    }
+    setUploading(true);
+    const { url, error } = await dataService.uploadAvatar(user.id, file);
+    if (error || !url) {
+      setUploading(false);
+      addToast(`Couldn't upload: ${error?.message ?? 'unknown error'}`, 'error');
+      return;
+    }
+    const { error: updateError } = await dataService.updateProfile(user.id, { avatar_url: url });
     setUploading(false);
+    if (updateError) {
+      addToast(`Couldn't save photo: ${updateError.message}`, 'error');
+      return;
+    }
+    setProfile((p) => (p ? { ...p, avatar_url: url } : p));
+    announceProfileChange();
+    addToast('Photo updated', 'success');
+  };
+
+  const removeAvatar = async () => {
+    if (!user) return;
+    const { error } = await dataService.updateProfile(user.id, { avatar_url: '' });
+    if (error) addToast(`Couldn't remove photo: ${error.message}`, 'error');
+    else {
+      setProfile((p) => (p ? { ...p, avatar_url: '' } : p));
+      announceProfileChange();
+    }
   };
 
   if (loading) {
-    return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-[var(--primary)]" /></div>;
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="animate-spin text-[var(--primary)]" />
+      </div>
+    );
   }
 
-  const userEmail = user?.email || 'Student';
-  const initial = (profile?.full_name || userEmail).charAt(0).toUpperCase();
+  const initials =
+    (name || user?.email || '?')
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join('') || '?';
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col gap-6 sm:gap-8 animate-fade-in pb-8">
-      <div>
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-[var(--font-heading)] text-[var(--text-main)] mb-1">
-          Profile Setup
-        </h1>
-        <p className="text-sm sm:text-base text-[var(--text-muted)]">Manage your personal information and avatar.</p>
-      </div>
+    <div className="mx-auto max-w-2xl space-y-6 pb-8">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Profile</h1>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">How you appear on the leaderboard, in discussions and on plans you share.</p>
+      </header>
 
-      <Card glass>
-        <CardBody className="p-4 sm:p-8 flex flex-col md:flex-row gap-6 sm:gap-8 items-start">
-          
-          {/* Avatar Section */}
-          <div className="flex flex-col items-center gap-4 w-full md:w-auto">
-            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-              <div className="w-32 h-32 rounded-full overflow-hidden bg-[var(--surface-hover)] border-4 border-[var(--border)] shadow-xl flex items-center justify-center transition-all group-hover:border-[var(--primary)]">
-                {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-4xl font-bold text-[var(--text-muted)]">{initial}</span>
-                )}
-                
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  {uploading ? <Loader2 className="animate-spin text-white" /> : <Camera className="text-white" size={32} />}
-                </div>
-              </div>
-            </div>
-            
-            <input 
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              ref={fileInputRef} 
-              onChange={handleAvatarChange}
-            />
-            
-            <div className="text-center">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] block mb-1">Role</span>
-              <span className="px-3 py-1 bg-[var(--primary)]/10 text-[var(--primary)] rounded-full text-sm font-medium border border-[var(--primary)]/20">
-                {role === 'admin' ? 'Administrator' : 'Student'}
-              </span>
-            </div>
-          </div>
-
-          {/* Form Section */}
-          <div className="flex-1 flex flex-col gap-5 w-full">
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold flex items-center gap-2">
-                <Mail size={16} className="text-[var(--text-muted)]" /> Email Address
-              </label>
-              <input 
-                type="email" 
-                value={userEmail} 
-                disabled 
-                className="input-field opacity-60 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold flex items-center gap-2">
-                <User size={16} className="text-[var(--text-muted)]" /> Full Name
-              </label>
-              <input 
-                type="text" 
-                name="full_name"
-                value={formData.full_name} 
-                onChange={handleChange}
-                placeholder="e.g. John Doe"
-                className="input-field focus:ring-2 focus:ring-[var(--primary)]/50"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold flex items-center gap-2">
-                <User size={16} className="text-[var(--text-muted)]" /> Bio
-              </label>
-              <textarea 
-                name="bio"
-                value={formData.bio}
-                onChange={handleChange}
-                placeholder="Tell us a bit about yourself..."
-                rows={4}
-                className="input-field resize-none focus:ring-2 focus:ring-[var(--primary)]/50"
-              />
-            </div>
-
-            <div className="flex justify-end mt-4">
-              <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
-                {saving ? <Loader2 className="animate-spin mr-2" size={18} /> : <Save className="mr-2" size={18} />}
-                {saving ? 'Saving...' : 'Save Profile'}
+      <form onSubmit={save} className="space-y-6 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-[var(--primary-soft)] text-2xl font-semibold text-[var(--primary)]"
+            aria-label="Change photo"
+            disabled={uploading}
+          >
+            {profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" /> : initials}
+            <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+              {uploading ? <Loader2 className="animate-spin" size={22} /> : <Camera size={22} />}
+            </span>
+          </button>
+          <div className="min-w-0 space-y-1">
+            <p className="truncate font-medium">{profile?.full_name || 'Add your name'}</p>
+            <p className="text-sm text-[var(--text-muted)]">{role === 'admin' ? 'Admin' : 'Student'} · {profile?.points ?? 0} points</p>
+            <div className="flex gap-1">
+              <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                {uploading ? 'Uploading…' : 'Change photo'}
               </Button>
+              {profile?.avatar_url && (
+                <Button size="sm" variant="ghost" onClick={removeAvatar} disabled={uploading}>
+                  Remove
+                </Button>
+              )}
             </div>
           </div>
-        </CardBody>
-      </Card>
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" ref={fileInputRef} onChange={changeAvatar} />
+        </div>
+
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium">Name</span>
+          <input className="input" value={name} maxLength={NAME_MAX} autoComplete="name" placeholder="Your full name" onChange={(e) => setName(e.target.value)} required />
+        </label>
+
+        <label className="block space-y-1.5">
+          <span className="flex justify-between text-sm font-medium">
+            Bio <span className="font-normal text-[var(--text-muted)]">{bio.length}/{BIO_MAX}</span>
+          </span>
+          <textarea className="input min-h-[96px]" value={bio} maxLength={BIO_MAX} placeholder="What you're preparing for" onChange={(e) => setBio(e.target.value)} />
+        </label>
+
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium">Email</span>
+          <input className="input cursor-not-allowed opacity-70" value={user?.email ?? ''} disabled />
+          <span className="block text-xs text-[var(--text-muted)]">Your email is your sign-in and can't be changed here.</span>
+        </label>
+
+        <div className="flex justify-end">
+          <Button type="submit" disabled={saving || !dirty}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

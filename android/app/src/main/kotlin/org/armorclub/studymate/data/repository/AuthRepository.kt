@@ -162,7 +162,9 @@ class AuthRepository(
             val row = fetchProfileRow(userId, token)
             val withServerData = profile.copy(
                 fullName = row?.fullName?.takeIf { it.isNotBlank() } ?: profile.fullName,
-                points = row?.points ?: profile.points
+                points = row?.points ?: profile.points,
+                bio = row?.bio,
+                avatarUrl = row?.avatarUrl?.takeIf { it.isNotBlank() }
             )
             persistUser(token, withServerData)
             Result.success(withServerData)
@@ -305,7 +307,7 @@ class AuthRepository(
     private fun fetchProfileRow(userId: String, token: String): org.armorclub.studymate.data.model.ProfileRow? = try {
         val baseUrl = courseRepository.getBaseUrl().trimEnd('/')
         val request = Request.Builder()
-            .url("$baseUrl/rest/v1/profiles?id=eq.$userId&select=full_name,points")
+            .url("$baseUrl/rest/v1/profiles?id=eq.$userId&select=full_name,points,bio,avatar_url")
             .get()
             .addHeader("apikey", BundledCourses.SUPABASE_ANON_KEY)
             .addHeader("Authorization", "Bearer $token")
@@ -326,10 +328,43 @@ class AuthRepository(
         val row = fetchProfileRow(current.id, token) ?: return@withContext
         val updated = current.copy(
             fullName = row.fullName?.takeIf { it.isNotBlank() } ?: current.fullName,
-            points = row.points ?: current.points
+            points = row.points ?: current.points,
+            bio = row.bio,
+            avatarUrl = row.avatarUrl?.takeIf { it.isNotBlank() }
         )
         prefs.edit().putString("user_name", updated.fullName).putInt("user_points", updated.points).apply()
         _currentUser.value = updated
+    }
+
+    /** Saves the signed-in user's name and bio. Returns an error message, or null on success. */
+    suspend fun updateProfile(fullName: String, bio: String): String? = withContext(Dispatchers.IO) {
+        val current = _currentUser.value ?: return@withContext "Sign in first"
+        val token = getAuthToken() ?: return@withContext "Sign in first"
+        val name = fullName.trim()
+        if (name.length < 2) return@withContext "Enter your name (at least 2 characters)"
+        try {
+            val baseUrl = courseRepository.getBaseUrl().trimEnd('/')
+            val body = buildJsonObject {
+                put("full_name", name.take(60))
+                put("bio", bio.trim().take(300))
+            }.toString()
+            val request = Request.Builder()
+                .url("$baseUrl/rest/v1/profiles?id=eq.${current.id}")
+                .patch(body.toRequestBody("application/json".toMediaType()))
+                .addHeader("apikey", BundledCourses.SUPABASE_ANON_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Prefer", "return=minimal")
+                .build()
+            httpClient.newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) return@withContext "Couldn't save (code ${resp.code})"
+            }
+            val updated = current.copy(fullName = name.take(60), bio = bio.trim().take(300))
+            prefs.edit().putString("user_name", updated.fullName).apply()
+            _currentUser.value = updated
+            null
+        } catch (e: Exception) {
+            "Couldn't save: ${e.localizedMessage ?: "network error"}"
+        }
     }
 
     fun addPoints(pointsDelta: Int) {

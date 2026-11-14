@@ -1047,3 +1047,38 @@ html, body {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* Sticky save bar for long editors; sits above the mobile bottom nav. */
+.editor-save-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 90;
+  padding: 0.75rem 1rem calc(0.75rem + var(--safe-bottom, 0px));
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+@media (min-width: 769px) {
+  .editor-save-bar {
+    left: 260px;
+  }
+  .sidebar-collapsed .editor-save-bar {
+    left: 78px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .sidebar-shell:not(.sidebar-force-expanded) .editor-save-bar {
+    left: 78px;
+  }
+}
+
+@media (max-width: 768px) {
+  .editor-save-bar {
+    bottom: calc(var(--mobile-nav-h) + var(--safe-bottom));
+    padding-bottom: 0.75rem;
+  }
+}

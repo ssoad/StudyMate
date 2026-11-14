@@ -1,67 +1,98 @@
+import { supabase } from './supabase';
+
 /**
- * Where students send course fees. The single source of truth for the web app.
- * Keep in sync with android/.../ui/components/EnrollmentDialog.kt (PaymentMethodType).
- *
- * PLACEHOLDER VALUES — replace with the real receiving accounts before relying on them.
+ * Payment methods students use to pay course fees. Managed by admins in
+ * Admin → Payments and stored in the payment_methods table:
+ * rows with course_id = null apply to every course; rows with a course_id apply to
+ * that course only and, when present, replace the global list for it.
  */
-export type MobileMethod = 'bKash' | 'Nagad' | 'Rocket';
-export type PaymentMethod = MobileMethod | 'Bank';
+export type PaymentKind = 'mobile' | 'bank' | 'other';
 
-export interface MobileAccount {
-  type: string;
-  number: string;
-  cleanNumber: string;
-  steps: string[];
+export interface PaymentMethod {
+  id: string;
+  course_id: string | null;
+  label: string;
+  kind: PaymentKind;
+  account_type: string;
+  account_name: string;
+  account_number: string;
+  /** One step per line; "{amount}" is replaced with the course fee. */
+  instructions: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export interface BankAccount {
-  type: string;
-  bankName: string;
-  accountName: string;
-  accountNumber: string;
-  branch: string;
-  routingNumber: string;
-  steps: string[];
-}
+export type PaymentMethodInput = Omit<PaymentMethod, 'id' | 'created_at' | 'updated_at'>;
 
-export const MOBILE_ACCOUNTS: Record<MobileMethod, MobileAccount> = {
-  bKash: {
-    type: 'Personal · Send Money',
-    number: '01712-345678',
-    cleanNumber: '01712345678',
-    steps: ['Open the bKash app or dial *247#', 'Choose Send Money', 'Send {amount} to the number above', 'Copy the Transaction ID (TrxID) and enter it below'],
-  },
-  Nagad: {
-    type: 'Personal · Send Money',
-    number: '01812-345678',
-    cleanNumber: '01812345678',
-    steps: ['Open the Nagad app or dial *167#', 'Choose Send Money', 'Send {amount} to the number above', 'Copy the Transaction ID (TrxID) and enter it below'],
-  },
-  Rocket: {
-    type: 'Personal · Send Money',
-    number: '01912-345678-9',
-    cleanNumber: '019123456789',
-    steps: ['Open the Rocket app or dial *322#', 'Choose Send Money', 'Send {amount} to the 12-digit number above', 'Copy the Transaction ID (TrxID) and enter it below'],
-  },
-};
-
-export const BANK_ACCOUNT: BankAccount = {
-  type: 'Direct bank transfer',
-  bankName: 'City Bank Ltd',
-  accountName: 'StudyMate Academy BD',
-  accountNumber: '2301987654001',
-  branch: 'Gulshan Branch, Dhaka',
-  routingNumber: '225261328',
-  steps: ['Transfer {amount} via internet banking, BEFTN, NPSB or a branch deposit', 'Enter your deposit reference below as the Transaction ID'],
-};
-
-export const PAYMENT_METHODS: PaymentMethod[] = ['bKash', 'Nagad', 'Rocket', 'Bank'];
+const COLUMNS = 'id, course_id, label, kind, account_type, account_name, account_number, instructions, is_active, sort_order, created_at, updated_at';
 
 export function formatTaka(amount: number): string {
   return `৳${Math.round(amount).toLocaleString('en-US')}`;
 }
 
+/** Instruction lines with {amount} filled in. */
 export function paymentSteps(method: PaymentMethod, amount: number): string[] {
-  const steps = method === 'Bank' ? BANK_ACCOUNT.steps : MOBILE_ACCOUNTS[method].steps;
-  return steps.map((s) => s.replace('{amount}', formatTaka(amount)));
+  return method.instructions
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => l.replaceAll('{amount}', formatTaka(amount)));
 }
+
+/** Digits only, for copying into a payment app. */
+export function cleanAccountNumber(n: string): string {
+  return n.replace(/[^0-9A-Za-z]/g, '');
+}
+
+export const paymentService = {
+  /** Active methods for a course: its own methods if it has any, otherwise the global ones. */
+  async forCourse(courseId: string): Promise<PaymentMethod[]> {
+    const { data, error } = await supabase!
+      .from('payment_methods')
+      .select(COLUMNS)
+      .eq('is_active', true)
+      .or(`course_id.is.null,course_id.eq.${courseId}`)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (error || !data) return [];
+    const rows = data as PaymentMethod[];
+    const specific = rows.filter((m) => m.course_id === courseId);
+    return specific.length > 0 ? specific : rows.filter((m) => m.course_id === null);
+  },
+
+  /** Admin: every method, active or not. */
+  async listAll(): Promise<{ data: PaymentMethod[]; error: string | null }> {
+    const { data, error } = await supabase!
+      .from('payment_methods')
+      .select(COLUMNS)
+      .order('course_id', { ascending: true, nullsFirst: true })
+      .order('sort_order', { ascending: true });
+    return { data: (data as PaymentMethod[]) ?? [], error: error?.message ?? null };
+  },
+
+  async create(input: PaymentMethodInput) {
+    return supabase!.from('payment_methods').insert(input).select(COLUMNS).single();
+  },
+
+  async update(id: string, input: Partial<PaymentMethodInput>) {
+    return supabase!
+      .from('payment_methods')
+      .update({ ...input, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select(COLUMNS)
+      .single();
+  },
+
+  async remove(id: string) {
+    return supabase!.from('payment_methods').delete().eq('id', id);
+  },
+};
+
+/** Starting instructions for a new method of each kind (admins can edit them). */
+export const DEFAULT_STEPS: Record<PaymentKind, string> = {
+  mobile: 'Open the app or dial the USSD code\nChoose Send Money\nSend {amount} to the number above\nCopy the Transaction ID (TrxID) and enter it below',
+  bank: 'Transfer {amount} via internet banking, BEFTN, NPSB or a branch deposit\nEnter your deposit reference below as the Transaction ID',
+  other: 'Send {amount} using the details above\nEnter your payment reference below',
+};

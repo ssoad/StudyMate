@@ -17,7 +17,8 @@ import {
   FileText
 } from 'lucide-react';
 import { Button } from '../components/Button';
-import { dataService, type Course, type UserCourseProgress, type StudyDay } from '../lib/dataService';
+import { dataService, type Course, type UserCourseProgress } from '../lib/dataService';
+import { studyPlanService, type PlanDay } from '../lib/studyPlans';
 import { useAuthStore } from '../store/authStore';
 import { useAppModalStore } from '../store/appModalStore';
 import { useToastStore } from '../store/toastStore';
@@ -32,8 +33,9 @@ export function Dashboard() {
   const [points, setPoints] = useState(0);
   const [recentDiscussions, setRecentDiscussions] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState({ totalTopics: 0, pendingExams: 0 });
-  const [nextTopic, setNextTopic] = useState<StudyDay | null>(null);
-  const [studyDays, setStudyDays] = useState<StudyDay[]>([]);
+  const [nextTopic, setNextTopic] = useState<PlanDay | null>(null);
+  const [nextDone, setNextDone] = useState(false);
+  const [planInfo, setPlanInfo] = useState<{ id: string; title: string; total: number; done: number } | null>(null);
   const [activeCourse, setActiveCourse] = useState<Course | null>(null);
   const [activeProgress, setActiveProgress] = useState<UserCourseProgress | null>(null);
   const [enrolledCount, setEnrolledCount] = useState(0);
@@ -56,12 +58,16 @@ export function Dashboard() {
         const stats = await dataService.getDashboardStats();
         setDashboardStats(stats);
 
-        const { data: days } = await dataService.getStudyDays();
-        if (days && days.length > 0) {
-          setStudyDays(days);
-          // Find first uncompleted study day, fallback to days[0]
-          const pending = days.find((d: StudyDay) => d.status !== 'Complete');
-          setNextTopic(pending || days[0]);
+        // Next unfinished day across the user's own and followed study plans.
+        const next = await studyPlanService.nextUp(user.id);
+        if (next) {
+          setNextTopic(next.day);
+          setNextDone(false);
+          setPlanInfo({ id: next.plan.id, title: next.plan.title, total: next.plan.day_count, done: next.plan.done_count });
+        } else {
+          const library = await studyPlanService.library(user.id);
+          const first = library[0];
+          if (first) setPlanInfo({ id: first.id, title: first.title, total: first.day_count, done: first.done_count });
         }
 
         // 4. Courses & In-progress tracking
@@ -100,23 +106,18 @@ export function Dashboard() {
     fetchDashboardData();
   }, [user]);
 
-  const handleToggleTopic = async (day: StudyDay) => {
-    const newStatus = day.status === 'Complete' ? 'Pending' : 'Complete';
-    setStudyDays((prev) => prev.map((d) => (d.id === day.id ? { ...d, status: newStatus } : d)));
-    if (nextTopic && nextTopic.id === day.id) {
-      setNextTopic({ ...nextTopic, status: newStatus });
-    }
-
-    const { error } = await dataService.updateStudyDay(day.id, { status: newStatus });
-    if (error) {
-      addToast('Failed to update status', 'error');
+  const handleToggleTopic = async (day: PlanDay) => {
+    if (!user) return;
+    const nowDone = !nextDone;
+    setNextDone(nowDone);
+    setPlanInfo((p) => (p ? { ...p, done: p.done + (nowDone ? 1 : -1) } : p));
+    const err = await studyPlanService.setDayDone(user.id, day.id, nowDone);
+    if (err) {
+      setNextDone(!nowDone);
+      setPlanInfo((p) => (p ? { ...p, done: p.done + (nowDone ? -1 : 1) } : p));
+      addToast(`Couldn't update: ${err}`, 'error');
     } else {
-      addToast(
-        newStatus === 'Complete'
-          ? 'Topic marked as complete! (+10 Points)'
-          : 'Topic marked as pending',
-        'success'
-      );
+      addToast(nowDone ? 'Day marked done' : 'Day marked not done', 'success');
     }
   };
 
@@ -138,9 +139,9 @@ export function Dashboard() {
   );
 
   // Calculate syllabus completion
-  const completedDaysCount = studyDays.filter((d) => d.status === 'Complete').length;
-  const studyPlanPercent =
-    studyDays.length > 0 ? Math.round((completedDaysCount / studyDays.length) * 100) : 0;
+  const completedDaysCount = planInfo?.done ?? 0;
+  const totalPlanDays = planInfo?.total ?? 0;
+  const studyPlanPercent = totalPlanDays > 0 ? Math.round((completedDaysCount / totalPlanDays) * 100) : 0;
 
   return (
     <div className="flex flex-col gap-6 sm:gap-8 animate-fade-in pb-12 max-w-7xl mx-auto">
@@ -254,7 +255,7 @@ export function Dashboard() {
                 {studyPlanPercent}%
               </span>
               <span className="text-xs font-semibold text-[var(--text-muted)]">
-                ({completedDaysCount}/{studyDays.length || 0})
+                ({completedDaysCount}/{totalPlanDays})
               </span>
             </div>
           )}
@@ -400,9 +401,9 @@ export function Dashboard() {
                     type="button"
                     onClick={() => handleToggleTopic(nextTopic)}
                     className="mt-1 text-[var(--text-muted)] hover:text-emerald-500 transition-colors shrink-0"
-                    title={nextTopic.status === 'Complete' ? 'Mark as Pending' : 'Mark as Complete'}
+                    aria-label={nextDone ? 'Mark day not done' : 'Mark day done'}
                   >
-                    {nextTopic.status === 'Complete' ? (
+                    {nextDone ? (
                       <CheckCircle2 size={22} className="text-emerald-500 fill-emerald-500/10" />
                     ) : (
                       <Circle size={22} />
@@ -432,7 +433,7 @@ export function Dashboard() {
                 <div className="text-right shrink-0">
                   <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)] flex items-center gap-1">
                     <Clock size={12} />
-                    <span>{nextTopic.hours || 2}h Goal</span>
+                    <span>{nextTopic.hours}h goal</span>
                   </span>
                 </div>
               </div>
@@ -452,20 +453,28 @@ export function Dashboard() {
               <div className="flex items-center justify-between pt-2 border-t border-[var(--border)] text-xs text-[var(--text-muted)]">
                 <span className="flex items-center gap-1.5">
                   <Target size={13} className="text-emerald-500" />
-                  <span>Target: {nextTopic.mcq_target || 30} MCQs</span>
+                  <span>Target: {nextTopic.mcq_target} MCQs</span>
                 </span>
-                <Link to="/study-plan">
-                  <Button size="sm" variant="secondary" className="text-xs">
-                    Start Today's Session
-                  </Button>
+                <Link to={planInfo ? `/study-plan/${planInfo.id}` : '/study-plan'} className="btn btn-secondary btn-sm">
+                  Open plan
                 </Link>
               </div>
             </div>
           ) : (
             <div className="p-8 text-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] space-y-2">
               <BookOpen size={32} className="mx-auto text-[var(--text-muted)] opacity-50" />
-              <p className="text-sm font-semibold text-[var(--text-main)]">All study topics completed!</p>
-              <p className="text-xs text-[var(--text-muted)]">Check out the full syllabus to review past weeks.</p>
+              {planInfo ? (
+                <>
+                  <p className="text-sm font-semibold text-[var(--text-main)]">You've finished every day in your plans</p>
+                  <p className="text-xs text-[var(--text-muted)]">Pick a new plan or review past weeks.</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-[var(--text-main)]">No study plan yet</p>
+                  <p className="text-xs text-[var(--text-muted)]">Add a plan to get a topic for each day.</p>
+                  <Link to="/study-plan?tab=browse" className="btn btn-primary btn-sm mt-2">Browse plans</Link>
+                </>
+              )}
             </div>
           )}
 

@@ -25,7 +25,8 @@ import {
   Search,
   Download,
   Moon,
-  Sun
+  Sun,
+  Wallet
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useThemeStore } from '../store/themeStore';
@@ -84,6 +85,9 @@ export function Navbar() {
       }
     }
     loadProfile();
+    // The Profile page announces edits so the avatar and name here stay current.
+    window.addEventListener('profile-updated', loadProfile);
+    return () => window.removeEventListener('profile-updated', loadProfile);
   }, [user]);
 
   // Real-time polling for pending enrollments (every 8 seconds for admins)
@@ -127,7 +131,7 @@ export function Navbar() {
     ? [
         { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
         { name: 'Courses', path: '/courses', icon: <PlayCircle size={20} /> },
-        { name: 'Study Plan', path: '/study-plan', icon: <BookOpen size={20} /> },
+        { name: 'Study plans', path: '/study-plan', icon: <BookOpen size={20} /> },
         { name: 'Resources', path: '/resources', icon: <FileText size={20} /> },
         { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} /> },
         { name: 'Leaderboard', path: '/leaderboard', icon: <Trophy size={20} /> },
@@ -136,6 +140,7 @@ export function Navbar() {
     : [
         { name: 'Home', path: '/', icon: <LayoutDashboard size={20} /> },
         { name: 'Courses', path: '/courses', icon: <PlayCircle size={20} /> },
+        { name: 'Study plans', path: '/study-plan', icon: <BookOpen size={20} /> },
       ];
 
   // Mobile Bottom Bar Primary Tabs (4 items + "More" drawer)
@@ -161,6 +166,7 @@ export function Navbar() {
       badge: pendingEnrollmentsCount > 0 ? pendingEnrollmentsCount : null,
     },
     { name: 'Manage Courses', path: '/admin/courses', icon: <PlayCircle size={18} /> },
+    { name: 'Payments', path: '/admin/payments', icon: <Wallet size={18} /> },
     { name: 'Manage Study Plans', path: '/admin/study-plans', icon: <FileText size={18} /> },
     { name: 'Review Resources', path: '/admin/resources', icon: <CheckSquare size={18} /> },
     { name: 'Manage Exams', path: '/admin/exams', icon: <CheckSquare size={18} /> },

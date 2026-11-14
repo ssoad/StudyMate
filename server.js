@@ -55,6 +55,21 @@ const MIME_TYPES = {
   '.ttf': 'font/ttf',
 };
 
+// Uploads: only ordinary document/media types. Anything a browser could execute
+// (html, svg, js, ...) is refused so a user upload can never run as a page on this domain.
+const UPLOAD_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf',
+  '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.csv', '.txt', '.md', '.epub',
+  '.mp4', '.webm', '.mp3', '.m4a', '.wav', '.ogg', '.zip', '.vtt', '.srt',
+]);
+// Served stored files: only these open inline; everything else is a download.
+const INLINE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf', '.mp4', '.webm', '.mp3', '.m4a', '.wav', '.ogg']);
+Object.assign(MIME_TYPES, {
+  '.webp': 'image/webp', '.webm': 'video/webm', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4',
+  '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.csv': 'text/csv; charset=utf-8', '.md': 'text/plain; charset=utf-8',
+  '.vtt': 'text/vtt; charset=utf-8', '.srt': 'text/plain; charset=utf-8',
+});
+
 function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -446,6 +461,11 @@ const server = http.createServer(async (req, res) => {
       : `file_${Date.now()}`;
 
     const ext = path.extname(rawFilename).toLowerCase() || '.bin';
+    if (!UPLOAD_EXTENSIONS.has(ext)) {
+      sendJson(res, 415, { error: `File type ${ext} is not allowed` });
+      req.destroy();
+      return;
+    }
     const base = path.basename(rawFilename, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeFilename = `${Date.now()}_${base}${ext}`;
 
@@ -485,7 +505,8 @@ const server = http.createServer(async (req, res) => {
                 const fileMatch = headerText.match(/filename=["']?([^"';\r\n]+)["']?/i);
                 if (fileMatch) {
                   const orig = path.basename(fileMatch[1]);
-                  const origExt = path.extname(orig).toLowerCase() || ext;
+                  let origExt = path.extname(orig).toLowerCase() || ext;
+                  if (!UPLOAD_EXTENSIONS.has(origExt)) origExt = ext;
                   const origBase = path.basename(orig, origExt).replace(/[^a-zA-Z0-9_-]/g, '_');
                   finalName = `${Date.now()}_${origBase}${origExt}`;
                 }
@@ -569,7 +590,19 @@ const server = http.createServer(async (req, res) => {
 
     const stat = fs.statSync(filePath);
     const ext = path.extname(filePath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const inline = INLINE_EXTENSIONS.has(ext);
+    // Files uploaded before the type allowlist may include html/svg: never render those as pages.
+    const contentType = inline ? (MIME_TYPES[ext] || 'application/octet-stream') : (
+      ['.html', '.htm', '.svg', '.js', '.mjs', '.xml', '.xhtml'].includes(ext) ? 'application/octet-stream' : (MIME_TYPES[ext] || 'application/octet-stream')
+    );
+    // Sandbox everything except PDFs (Chrome's PDF viewer refuses sandboxed documents;
+    // PDFs can't run page scripts on this origin anyway).
+    const safetyHeaders = ext === '.pdf'
+      ? { 'X-Content-Type-Options': 'nosniff' }
+      : {
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Security-Policy': "sandbox; default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'",
+        };
 
     // Support HTTP Range Requests (Essential for Video Scrubbing & Streaming)
     const range = req.headers.range;
@@ -593,6 +626,7 @@ const server = http.createServer(async (req, res) => {
         'Content-Length': chunkSize,
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=86400',
+        ...safetyHeaders,
       });
       if (req.method === 'HEAD') {
         res.end();
@@ -607,8 +641,9 @@ const server = http.createServer(async (req, res) => {
       'Content-Type': contentType,
       'Content-Length': stat.size,
       'Accept-Ranges': 'bytes',
-      'Content-Disposition': `inline; filename="${encodeURIComponent(path.basename(filePath))}"`,
+      'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${encodeURIComponent(path.basename(filePath))}"`,
       'Cache-Control': 'public, max-age=86400',
+      ...safetyHeaders,
     });
 
     if (req.method === 'HEAD') {

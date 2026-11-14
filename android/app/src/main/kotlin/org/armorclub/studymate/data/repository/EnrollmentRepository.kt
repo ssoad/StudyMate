@@ -134,6 +134,30 @@ class EnrollmentRepository(
         return false
     }
 
+    /**
+     * Active payment methods for a course: the course's own methods if it has any,
+     * otherwise the ones that apply to all courses. Empty when none are configured or offline.
+     */
+    suspend fun paymentMethodsFor(courseId: String): List<org.armorclub.studymate.data.model.PaymentMethodRow> = withContext(Dispatchers.IO) {
+        try {
+            val base = courseRepository.getBaseUrl().trimEnd('/')
+            val url = "$base/rest/v1/payment_methods?select=id,course_id,label,kind,account_type,account_name,account_number,instructions,sort_order" +
+                "&is_active=eq.true&or=(course_id.is.null,course_id.eq.$courseId)&order=sort_order.asc"
+            val request = Request.Builder().url(url).get()
+                .addHeader("apikey", org.armorclub.studymate.data.BundledCourses.SUPABASE_ANON_KEY)
+                .build()
+            httpClient.newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) return@withContext emptyList()
+                val rows = json.decodeFromString<List<org.armorclub.studymate.data.model.PaymentMethodRow>>(resp.body?.string().orEmpty())
+                val specific = rows.filter { it.courseId == courseId }
+                if (specific.isNotEmpty()) specific else rows.filter { it.courseId == null }
+            }
+        } catch (e: Exception) {
+            Log.w("EnrollmentRepository", "Payment methods unavailable: ${e.message}")
+            emptyList()
+        }
+    }
+
     suspend fun fetchRemoteEnrollments(userId: String) = withContext(Dispatchers.IO) {
         if (userId.isBlank()) return@withContext
 

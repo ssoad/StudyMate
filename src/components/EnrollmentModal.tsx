@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   X, 
   CreditCard, 
@@ -7,7 +7,6 @@ import {
   Check, 
   Upload, 
   Clock, 
-  ShieldCheck, 
   Loader2,
   Smartphone,
   Building2,
@@ -17,7 +16,7 @@ import { Button } from './Button';
 import { dataService, type Course, type CourseEnrollment } from '../lib/dataService';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
-import { BANK_ACCOUNT, MOBILE_ACCOUNTS, paymentSteps, type BankAccount, type MobileAccount, type MobileMethod } from '../lib/paymentAccounts';
+import { cleanAccountNumber, paymentService, paymentSteps, type PaymentMethod } from '../lib/paymentAccounts';
 
 interface EnrollmentModalProps {
   isOpen: boolean;
@@ -30,7 +29,8 @@ export function EnrollmentModal({ isOpen, onClose, course, onSuccess }: Enrollme
   const { user } = useAuthStore();
   const { addToast } = useToastStore();
 
-  const [paymentMethod, setPaymentMethod] = useState<'bKash' | 'Nagad' | 'Rocket' | 'Bank'>('bKash');
+  const [methods, setMethods] = useState<PaymentMethod[] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [senderNumber, setSenderNumber] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [amount, setAmount] = useState<number>(course.price ?? 2500);
@@ -42,14 +42,24 @@ export function EnrollmentModal({ isOpen, onClose, course, onSuccess }: Enrollme
   const [submitting, setSubmitting] = useState(false);
   const [submittedData, setSubmittedData] = useState<CourseEnrollment | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    paymentService.forCourse(course.id).then((list) => {
+      if (cancelled) return;
+      setMethods(list);
+      setSelectedId((prev) => prev ?? list[0]?.id ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, course.id]);
+
   if (!isOpen) return null;
 
-  const paymentAccounts = {
-    ...Object.fromEntries(
-      (Object.keys(MOBILE_ACCOUNTS) as MobileMethod[]).map((m) => [m, { ...MOBILE_ACCOUNTS[m], instructions: paymentSteps(m, amount || course.price || 0) }])
-    ),
-    Bank: { ...BANK_ACCOUNT, instructions: paymentSteps('Bank', amount || course.price || 0) },
-  } as Record<MobileMethod, MobileAccount & { instructions: string[] }> & { Bank: BankAccount & { instructions: string[] } };
+  const selected = methods?.find((m) => m.id === selectedId) ?? null;
+  // Label stored on the enrollment so admins can see where the student paid.
+  const paymentMethod = selected?.label ?? 'Other';
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -230,123 +240,79 @@ export function EnrollmentModal({ isOpen, onClose, course, onSuccess }: Enrollme
                 </div>
               </div>
 
-              {/* PAYMENT METHOD SELECTOR TABS */}
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider block">
-                  Select Payment Option
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {(['bKash', 'Nagad', 'Rocket', 'Bank'] as const).map((method) => {
-                    const isSelected = paymentMethod === method;
-                    return (
-                      <button
-                        key={method}
-                        type="button"
-                        onClick={() => setPaymentMethod(method)}
-                        className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 ${
-                          isSelected
-                            ? 'border-indigo-500 bg-indigo-500/10 shadow-sm ring-1 ring-indigo-500'
-                            : 'border-[var(--border)] bg-[var(--surface-hover)] hover:bg-[var(--surface)] text-[var(--text-muted)]'
-                        }`}
-                      >
-                        {method === 'Bank' ? (
-                          <Building2 size={20} className={isSelected ? 'text-indigo-500' : ''} />
-                        ) : (
-                          <Smartphone size={20} className={isSelected ? 'text-indigo-500' : ''} />
-                        )}
-                        <span className={`text-xs font-bold ${isSelected ? 'text-[var(--text-main)]' : ''}`}>
-                          {method}
-                        </span>
-                      </button>
-                    );
-                  })}
+              {/* PAYMENT METHOD */}
+              {methods === null ? (
+                <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+                  <Loader2 size={16} className="animate-spin" /> Loading payment options…
                 </div>
-              </div>
-
-              {/* PAYMENT ACCOUNT DETAILS BOX */}
-              <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-indigo-500 uppercase tracking-wide flex items-center gap-1.5">
-                    <ShieldCheck size={14} /> Official {paymentMethod} Account
-                  </span>
-                  <span className="text-[11px] text-[var(--text-muted)]">
-                    {paymentAccounts[paymentMethod].type}
-                  </span>
+              ) : methods.length === 0 ? (
+                <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-hover)] p-4 text-sm">
+                  <p className="font-medium">Payment details aren't set up yet</p>
+                  <p className="mt-1 text-[var(--text-muted)]">
+                    {course.payment_instructions || 'Contact the course admin for how to pay, then submit your payment reference below.'}
+                  </p>
                 </div>
-
-                {paymentMethod === 'Bank' ? (
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[var(--text-muted)]">Bank Name:</span>
-                      <span className="font-bold text-[var(--text-main)]">{paymentAccounts.Bank.bankName}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[var(--text-muted)]">Account Name:</span>
-                      <span className="font-bold text-[var(--text-main)]">{paymentAccounts.Bank.accountName}</span>
-                    </div>
-                    <div className="flex items-center justify-between bg-[var(--surface)] p-2 rounded-xl border border-[var(--border)]">
-                      <span className="text-[var(--text-muted)]">Account Number:</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-[var(--text-main)] text-sm">
-                          {paymentAccounts.Bank.accountNumber}
-                        </span>
+              ) : (
+                <div className="space-y-3">
+                  <label className="block text-xs font-medium text-[var(--text-muted)]">Pay with</label>
+                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Payment method">
+                    {methods.map((m) => {
+                      const isSelected = m.id === selectedId;
+                      return (
                         <button
+                          key={m.id}
                           type="button"
-                          onClick={() => handleCopy(paymentAccounts.Bank.accountNumber, 'bank_acc')}
-                          className="p-1 hover:bg-[var(--surface-hover)] rounded text-indigo-500"
-                          title="Copy account number"
+                          role="radio"
+                          aria-checked={isSelected}
+                          onClick={() => setSelectedId(m.id)}
+                          className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
+                            isSelected
+                              ? 'border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--text-main)]'
+                              : 'border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]'
+                          }`}
                         >
-                          {copiedKey === 'bank_acc' ? <Check size={14} /> : <Copy size={14} />}
+                          {m.kind === 'bank' ? <Building2 size={16} /> : <Smartphone size={16} />}
+                          {m.label}
                         </button>
+                      );
+                    })}
+                  </div>
+
+                  {selected && (
+                    <div className="space-y-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-hover)] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          {selected.account_type && <p className="text-xs text-[var(--text-muted)]">{selected.account_type}</p>}
+                          <p className="break-all font-mono text-lg font-semibold">{selected.account_number}</p>
+                          {selected.account_name && <p className="text-xs text-[var(--text-muted)]">{selected.account_name}</p>}
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleCopy(cleanAccountNumber(selected.account_number), selected.id)}
+                          icon={copiedKey === selected.id ? <Check size={14} /> : <Copy size={14} />}
+                        >
+                          {copiedKey === selected.id ? 'Copied' : 'Copy'}
+                        </Button>
                       </div>
+                      {paymentSteps(selected, amount || course.price || 0).length > 0 && (
+                        <ol className="list-decimal space-y-1 pl-5 text-xs text-[var(--text-muted)]">
+                          {paymentSteps(selected, amount || course.price || 0).map((step, idx) => (
+                            <li key={idx}>{step}</li>
+                          ))}
+                        </ol>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[var(--text-muted)]">Branch & Routing:</span>
-                      <span className="font-medium text-[var(--text-main)]">
-                        {paymentAccounts.Bank.branch} (Routing: {paymentAccounts.Bank.routingNumber})
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between bg-[var(--surface)] p-3 rounded-2xl border border-[var(--border)]">
-                    <div>
-                      <span className="text-[10px] text-[var(--text-muted)] uppercase block font-semibold">
-                        Send Money To:
-                      </span>
-                      <span className="font-mono text-base font-extrabold text-[var(--text-main)] tracking-wider">
-                        {paymentAccounts[paymentMethod].number}
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => handleCopy(paymentAccounts[paymentMethod].cleanNumber, paymentMethod)}
-                      icon={copiedKey === paymentMethod ? <Check size={14} /> : <Copy size={14} />}
-                      className="text-xs"
-                    >
-                      {copiedKey === paymentMethod ? 'Copied!' : 'Copy Number'}
-                    </Button>
-                  </div>
-                )}
+                  )}
 
-                {/* Step-by-step instructions */}
-                <div className="pt-2 border-t border-indigo-500/10">
-                  <p className="text-[11px] font-semibold text-[var(--text-muted)] mb-1.5">How to pay:</p>
-                  <ol className="text-[11px] text-[var(--text-muted)] list-decimal pl-4 space-y-1">
-                    {paymentAccounts[paymentMethod].instructions.map((step, idx) => (
-                      <li key={idx}>{step}</li>
-                    ))}
-                  </ol>
+                  {course.payment_instructions && (
+                    <p className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+                      {course.payment_instructions}
+                    </p>
+                  )}
                 </div>
-
-                {course.payment_instructions && (
-                  <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-600 dark:text-amber-400">
-                    <p className="font-bold">Course-specific Note:</p>
-                    <p>{course.payment_instructions}</p>
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* INPUT FIELDS */}
               <div className="space-y-4">

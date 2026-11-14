@@ -168,8 +168,8 @@ data class UserProfile(
     @SerialName("full_name") val fullName: String = "StudyMate Student",
     @SerialName("avatar_url") val avatarUrl: String? = null,
     val role: String = "student",
-    val points: Int = 120,
-    val bio: String? = "Preparing for Assistant Director (ICT) Exam"
+    val points: Int = 0,
+    val bio: String? = null
 )
 
 @Serializable
@@ -185,11 +185,34 @@ data class AuthTokenResponse(
     val msg: String? = null
 )
 
+/** A payment account admins configure in Admin -> Payments (table payment_methods). */
+@Serializable
+data class PaymentMethodRow(
+    val id: String,
+    @SerialName("course_id") val courseId: String? = null,
+    val label: String,
+    val kind: String = "mobile",
+    @SerialName("account_type") val accountType: String = "",
+    @SerialName("account_name") val accountName: String = "",
+    @SerialName("account_number") val accountNumber: String,
+    val instructions: String = "",
+    @SerialName("sort_order") val sortOrder: Int = 0
+) {
+    /** Instruction lines with {amount} filled in. */
+    fun steps(amountLabel: String): List<String> =
+        instructions.lines().map { it.trim() }.filter { it.isNotEmpty() }.map { it.replace("{amount}", amountLabel) }
+
+    /** Digits/letters only, for pasting into a payment app. */
+    val cleanNumber: String get() = accountNumber.filter { it.isLetterOrDigit() }
+}
+
 /** The signed-in user's row from /rest/v1/profiles (only the fields the app reads). */
 @Serializable
 data class ProfileRow(
     @SerialName("full_name") val fullName: String? = null,
-    val points: Int? = null
+    val points: Int? = null,
+    val bio: String? = null,
+    @SerialName("avatar_url") val avatarUrl: String? = null
 )
 
 @Serializable

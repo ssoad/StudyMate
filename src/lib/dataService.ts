@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { uploadFile } from './uploads';
 
 // Columns clients may read from profiles (password_hash / last_accessed_ip are server-only).
 const PROFILE_COLUMNS = 'id, email, full_name, avatar_url, points, bio, last_accessed_at, created_at';
@@ -124,24 +125,6 @@ export interface UserCourseProgress {
   updated_at?: string;
 }
 
-export interface StudyDay {
-  id: string;
-  week: number;
-  day: number;
-  phase: string;
-  subject: string;
-  module: string;
-  detailed_topics: string;
-  hours: number;
-  mcq_target: number;
-  written_target: number;
-  pyq_target: number;
-  practice_checklist: string;
-  daily_deliverable: string;
-  status: string;
-  notes: string;
-  source: string;
-}
 
 export interface Exam {
   id: string;
@@ -221,7 +204,7 @@ export const dataService = {
       { count: discussionsCount }
     ] = await Promise.all([
       supabase!.from('profiles').select('id', { count: 'exact', head: true }),
-      supabase!.from('study_days').select('*', { count: 'exact', head: true }),
+      supabase!.from('study_plans').select('id', { count: 'exact', head: true }),
       supabase!.from('discussions').select('*', { count: 'exact', head: true }),
     ]);
     return {
@@ -236,7 +219,7 @@ export const dataService = {
       { count: topicsCount },
       { count: pendingExamsCount }
     ] = await Promise.all([
-      supabase!.from('study_days').select('*', { count: 'exact', head: true }),
+      supabase!.from('study_plans').select('id', { count: 'exact', head: true }),
       supabase!.from('exams').select('*', { count: 'exact', head: true }),
       // For a real app, pending exams would join with submissions where user_id = userId
     ]);
@@ -246,22 +229,6 @@ export const dataService = {
     };
   },
 
-  // Study Days (replaces Topics)
-  getStudyDays: async () => {
-    return await supabase!.from('study_days').select('*').order('day', { ascending: true });
-  },
-  addStudyDay: async (studyDay: Omit<StudyDay, 'id'>) => {
-    return await supabase!.from('study_days').insert(studyDay);
-  },
-  updateStudyDay: async (id: string, updates: Partial<StudyDay>) => {
-    return await supabase!.from('study_days').update(updates).eq('id', id);
-  },
-  deleteStudyDay: async (id: string) => {
-    return await supabase!.from('study_days').delete().eq('id', id);
-  },
-  importStudyDays: async (studyDays: Omit<StudyDay, 'id'>[]) => {
-    return await supabase!.from('study_days').insert(studyDays);
-  },
 
   // Exams
   getExams: async () => {
@@ -301,13 +268,9 @@ export const dataService = {
   updateProfile: async (userId: string, updates: Partial<UserProfile>) => {
     return await supabase!.from('profiles').update(updates).eq('id', userId);
   },
-  uploadAvatar: async (userId: string, file: File) => {
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${userId}/${Date.now()}.${fileExt}`;
-    const { error: uploadError } = await supabase!.storage.from('avatars').upload(filePath, file, { upsert: true });
-    if (uploadError) return { url: null, error: uploadError };
-    const { data } = supabase!.storage.from('avatars').getPublicUrl(filePath);
-    return { url: data.publicUrl, error: null };
+  uploadAvatar: async (_userId: string, file: File) => {
+    if (!file.type.startsWith('image/')) return { url: null, error: new Error('Choose an image file') };
+    return uploadFile(file);
   },
 
   // System Settings
@@ -366,13 +329,8 @@ export const dataService = {
   getSubmissionAnswers: async (submissionId: string) => {
     return await supabase!.from('exam_answers').select('*, exam_questions(*)').eq('submission_id', submissionId);
   },
-  uploadAnswerFile: async (file: File, submissionId: string, questionId: string) => {
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${submissionId}/${questionId}_${Date.now()}.${fileExt}`;
-    const { error: uploadError } = await supabase!.storage.from('exam-files').upload(filePath, file);
-    if (uploadError) return { url: null, error: uploadError };
-    const { data } = supabase!.storage.from('exam-files').getPublicUrl(filePath);
-    return { url: data.publicUrl, error: null };
+  uploadAnswerFile: async (file: File, _submissionId: string, _questionId: string) => {
+    return uploadFile(file);
   },
   
   // Study Resources
@@ -389,25 +347,7 @@ export const dataService = {
   },
   
   uploadStudyResourceFile: async (file: File) => {
-    // Try local self-hosted storage endpoint first
-    try {
-      const res = await fetch('/api/storage/upload', {
-        method: 'POST',
-        headers: { 'x-filename': encodeURIComponent(file.name), ...(await authHeader()) },
-        body: file,
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.url) return { url: json.url, error: null };
-      }
-    } catch {}
-
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const { error: uploadError } = await supabase!.storage.from('study-resources').upload(filePath, file);
-    if (uploadError) return { url: null, error: uploadError };
-    const { data } = supabase!.storage.from('study-resources').getPublicUrl(filePath);
-    return { url: data.publicUrl, error: null };
+    return uploadFile(file);
   },
   
   submitStudyResource: async (resource: Omit<StudyResource, 'id' | 'created_at' | 'status' | 'uploader'>) => {
@@ -753,35 +693,7 @@ export const dataService = {
   },
 
   uploadCourseResourceFile: async (file: File) => {
-    // Try local self-hosted storage endpoint first
-    try {
-      const res = await fetch('/api/storage/upload', {
-        method: 'POST',
-        headers: { 'x-filename': encodeURIComponent(file.name), ...(await authHeader()) },
-        body: file,
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.url) return { url: json.url, error: null };
-      }
-    } catch {}
-
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-    
-    try {
-      const { error } = await supabase!.storage.from('course-resources').upload(filePath, file);
-      if (error) {
-        const res = await supabase!.storage.from('study-resources').upload(filePath, file);
-        if (res.error) return { url: null, error: res.error };
-        const pub = supabase!.storage.from('study-resources').getPublicUrl(filePath);
-        return { url: pub.data.publicUrl, error: null };
-      }
-      const pub = supabase!.storage.from('course-resources').getPublicUrl(filePath);
-      return { url: pub.data.publicUrl, error: null };
-    } catch (e) {
-      return { url: null, error: e };
-    }
+    return uploadFile(file);
   },
 
   addCourseResource: async (resource: Omit<CourseResource, 'id' | 'created_at'>): Promise<{ data: CourseResource | null; error: any }> => {

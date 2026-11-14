@@ -8,7 +8,10 @@ const named = <T extends string>(loader: () => Promise<Record<T, React.Component
   lazy(() => loader().then((m) => ({ default: m[name] })));
 
 const Dashboard = named(() => import('./pages/Dashboard'), 'Dashboard');
-const StudyPlan = named(() => import('./pages/StudyPlan'), 'StudyPlan');
+const StudyPlans = named(() => import('./pages/StudyPlans'), 'StudyPlans');
+const StudyPlanDetail = named(() => import('./pages/StudyPlanDetail'), 'StudyPlanDetail');
+const StudyPlanEditor = named(() => import('./pages/StudyPlanEditor'), 'StudyPlanEditor');
+const StudyPlanJoin = named(() => import('./pages/StudyPlanJoin'), 'StudyPlanJoin');
 const Exams = named(() => import('./pages/Exams'), 'Exams');
 const TakeExam = named(() => import('./pages/TakeExam'), 'TakeExam');
 const Leaderboard = named(() => import('./pages/Leaderboard'), 'Leaderboard');
@@ -27,6 +30,7 @@ const AdminSettings = named(() => import('./pages/admin/AdminSettings'), 'AdminS
 const AdminResources = named(() => import('./pages/admin/AdminResources'), 'AdminResources');
 const AdminUsers = named(() => import('./pages/admin/AdminUsers'), 'AdminUsers');
 const AdminCourses = named(() => import('./pages/admin/AdminCourses'), 'AdminCourses');
+const AdminPayments = named(() => import('./pages/admin/AdminPayments'), 'AdminPayments');
 const BackgroundEvaluator = lazy(() => import('./components/BackgroundEvaluator'));
 
 import { hasSupabaseKeys, supabase } from './lib/supabase';
@@ -151,7 +155,12 @@ function App() {
               <Route path="/courses/:id/learn" element={<CoursePlayer />} />
 
               {/* Signed-in students */}
-              <Route path="/study-plan" element={<RequireAuth><StudyPlan /></RequireAuth>} />
+              {/* Study plans: browsing, public plans and share links work signed out. */}
+              <Route path="/study-plan" element={<StudyPlans />} />
+              <Route path="/study-plan/new" element={<RequireAuth><StudyPlanEditor /></RequireAuth>} />
+              <Route path="/study-plan/join/:code" element={<StudyPlanJoin />} />
+              <Route path="/study-plan/:id" element={<StudyPlanDetail />} />
+              <Route path="/study-plan/:id/edit" element={<RequireAuth><StudyPlanEditor /></RequireAuth>} />
               <Route path="/exams" element={<RequireAuth><Exams /></RequireAuth>} />
               <Route path="/exams/:id" element={<RequireAuth><TakeExam /></RequireAuth>} />
               <Route path="/leaderboard" element={<RequireAuth><Leaderboard /></RequireAuth>} />
@@ -168,6 +177,7 @@ function App() {
               <Route path="/admin/settings" element={<RequireAuth admin><AdminSettings /></RequireAuth>} />
               <Route path="/admin/resources" element={<RequireAuth admin><AdminResources /></RequireAuth>} />
               <Route path="/admin/users" element={<RequireAuth admin><AdminUsers /></RequireAuth>} />
+              <Route path="/admin/payments" element={<RequireAuth admin><AdminPayments /></RequireAuth>} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

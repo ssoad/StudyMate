@@ -2,6 +2,9 @@ package org.armorclub.studymate.ui.components
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import org.armorclub.studymate.data.model.PaymentMethodRow
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,67 +62,6 @@ import org.armorclub.studymate.ui.theme.AppTheme
 import org.armorclub.studymate.ui.theme.Radius
 import org.armorclub.studymate.ui.theme.Spacing
 
-/**
- * Where students send course fees. Keep in sync with the web app's src/lib/paymentAccounts.ts.
- * PLACEHOLDER VALUES — replace with the real receiving accounts before relying on them.
- */
-enum class PaymentMethodType(
-    val title: String,
-    val typeLabel: String,
-    val accountNumber: String,
-    val cleanNumber: String,
-    /** Steps shown to the student; "{amount}" is replaced with the course fee. */
-    val steps: List<String>
-) {
-    BKASH(
-        title = "bKash",
-        typeLabel = "Personal · Send Money",
-        accountNumber = "01712-345678",
-        cleanNumber = "01712345678",
-        steps = listOf(
-            "Open the bKash app or dial *247#",
-            "Choose Send Money",
-            "Send {amount} to the number above",
-            "Copy the Transaction ID (TrxID) and enter it below"
-        )
-    ),
-    NAGAD(
-        title = "Nagad",
-        typeLabel = "Personal · Send Money",
-        accountNumber = "01812-345678",
-        cleanNumber = "01812345678",
-        steps = listOf(
-            "Open the Nagad app or dial *167#",
-            "Choose Send Money",
-            "Send {amount} to the number above",
-            "Copy the Transaction ID (TrxID) and enter it below"
-        )
-    ),
-    ROCKET(
-        title = "Rocket",
-        typeLabel = "Personal · Send Money",
-        accountNumber = "01912-345678-9",
-        cleanNumber = "019123456789",
-        steps = listOf(
-            "Open the Rocket app or dial *322#",
-            "Choose Send Money",
-            "Send {amount} to the 12-digit number above",
-            "Copy the Transaction ID (TrxID) and enter it below"
-        )
-    ),
-    BANK(
-        title = "Bank",
-        typeLabel = "City Bank · StudyMate Academy BD",
-        accountNumber = "2301987654001",
-        cleanNumber = "2301987654001",
-        steps = listOf(
-            "City Bank Ltd, Gulshan Branch, Dhaka · Routing 225261328",
-            "Transfer {amount} via internet banking, BEFTN, NPSB or a counter deposit",
-            "Enter your deposit reference below as the Transaction ID"
-        )
-    )
-}
-
 private fun taka(amount: Double): String = "৳" + "%,d".format(amount.toInt())
 
 @Composable
@@ -134,7 +76,14 @@ fun EnrollmentDialog(
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
-    var method by remember { mutableStateOf(PaymentMethodType.BKASH) }
+    var methods by remember { mutableStateOf<List<PaymentMethodRow>?>(null) }
+    var selectedId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(course.id) {
+        val list = enrollmentRepository.paymentMethodsFor(course.id)
+        methods = list
+        selectedId = list.firstOrNull()?.id
+    }
+    val method = methods?.firstOrNull { it.id == selectedId }
     var senderNumber by remember { mutableStateOf("") }
     var transactionId by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
@@ -205,36 +154,68 @@ fun EnrollmentDialog(
                 Spacer(Modifier.height(Spacing.md))
                 Text("1. Send the fee", style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
                 Spacer(Modifier.height(Spacing.xs))
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    PaymentMethodType.entries.forEach { m ->
-                        FilterPill(m.title, selected = method == m, onClick = { method = m })
+                val loaded = methods
+                when {
+                    loaded == null -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(color = c.primary, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(Spacing.xs))
+                        Text("Loading payment options…", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
                     }
-                }
-                Spacer(Modifier.height(Spacing.sm))
-                SmCard(padding = Spacing.md) {
-                    Text(method.typeLabel, style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    loaded.isEmpty() -> SmCard(padding = Spacing.md) {
+                        Text("Payment details aren't set up yet", style = MaterialTheme.typography.titleSmall, color = c.textPrimary)
                         Text(
-                            method.accountNumber,
-                            style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
-                            color = c.textPrimary,
-                            modifier = Modifier.weight(1f)
+                            course.paymentInstructions?.takeIf { it.isNotBlank() }
+                                ?: "Contact the course admin for how to pay, then enter your payment reference below.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = c.textSecondary
                         )
-                        GhostButton("Copy", icon = Icons.Outlined.ContentCopy, onClick = {
-                            clipboard.setText(AnnotatedString(method.cleanNumber))
-                            Toast.makeText(context, "${method.title} number copied", Toast.LENGTH_SHORT).show()
-                        })
                     }
-                    Spacer(Modifier.height(Spacing.xs))
-                    method.steps.forEachIndexed { i, step ->
-                        Row(Modifier.padding(vertical = 2.dp)) {
-                            Text("${i + 1}.", style = MaterialTheme.typography.bodySmall, color = c.textMuted, modifier = Modifier.width(18.dp))
-                            Text(step.replace("{amount}", taka(price)), style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+                    else -> {
+                        Row(
+                            Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+                        ) {
+                            loaded.forEach { m ->
+                                FilterPill(m.label, selected = m.id == selectedId, onClick = { selectedId = m.id })
+                            }
                         }
-                    }
-                    course.paymentInstructions?.takeIf { it.isNotBlank() }?.let {
-                        Spacer(Modifier.height(Spacing.xs))
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = c.textPrimary)
+                        if (method != null) {
+                            Spacer(Modifier.height(Spacing.sm))
+                            SmCard(padding = Spacing.md) {
+                                if (method.accountType.isNotBlank()) {
+                                    Text(method.accountType, style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        method.accountNumber,
+                                        style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
+                                        color = c.textPrimary,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    GhostButton("Copy", icon = Icons.Outlined.ContentCopy, onClick = {
+                                        clipboard.setText(AnnotatedString(method.cleanNumber))
+                                        Toast.makeText(context, "${method.label} number copied", Toast.LENGTH_SHORT).show()
+                                    })
+                                }
+                                if (method.accountName.isNotBlank()) {
+                                    Text(method.accountName, style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+                                }
+                                val steps = method.steps(taka(price))
+                                if (steps.isNotEmpty()) {
+                                    Spacer(Modifier.height(Spacing.xs))
+                                    steps.forEachIndexed { i, step ->
+                                        Row(Modifier.padding(vertical = 2.dp)) {
+                                            Text("${i + 1}.", style = MaterialTheme.typography.bodySmall, color = c.textMuted, modifier = Modifier.width(18.dp))
+                                            Text(step, style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        course.paymentInstructions?.takeIf { it.isNotBlank() }?.let {
+                            Spacer(Modifier.height(Spacing.xs))
+                            Text(it, style = MaterialTheme.typography.bodySmall, color = c.warning)
+                        }
                     }
                 }
 
@@ -286,7 +267,7 @@ fun EnrollmentDialog(
                                         enrollmentRepository.submitEnrollment(
                                             courseId = course.id,
                                             userId = userId,
-                                            paymentMethod = method.title,
+                                            paymentMethod = method?.label ?: "Other",
                                             senderNumber = senderNumber.trim(),
                                             transactionId = transactionId,
                                             amount = price,

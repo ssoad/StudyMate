@@ -13,8 +13,8 @@ android {
     applicationId = "org.armorclub.studymate"
     minSdk = 26
     targetSdk = 36
-    versionCode = 3
-    versionName = "1.1.1"
+    versionCode = 4
+    versionName = "1.1.2"
   }
 
   // Release signing comes from android/keystore.properties (gitignored),

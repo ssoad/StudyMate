@@ -54,7 +54,7 @@ export function AdminDashboard() {
         <Card glass className="border border-[var(--border)]">
           <CardBody className="p-5 flex flex-col gap-2">
             <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Study Topics</h3>
+              <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Study Plans</h3>
               <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
                 <BookOpen size={18} />
               </div>
@@ -66,7 +66,7 @@ export function AdminDashboard() {
                 {stats.topics.toLocaleString()}
               </h2>
             )}
-            <p className="text-xs text-[var(--text-muted)]">Curriculum syllabus modules</p>
+            <p className="text-xs text-[var(--text-muted)]">Study plans (all users)</p>
           </CardBody>
         </Card>
 
@@ -103,7 +103,7 @@ export function AdminDashboard() {
           </CardHeader>
           <CardBody className="p-5 flex flex-col justify-between flex-1 gap-4">
             <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-              Create curriculum topics, attach books, upload PDFs, and generate complete study guides with AI.
+              See every plan, publish official plans, and review what students share publicly.
             </p>
             <Button onClick={() => window.location.href = '/admin/study-plans'} variant="secondary" className="w-full justify-center text-xs">
               Manage Study Plans

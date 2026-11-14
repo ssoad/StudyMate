@@ -1,6 +1,9 @@
 package org.armorclub.studymate.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.Edit
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -154,6 +157,7 @@ fun ProfileScreen(
                 currentUser = user,
                 onSelectCourse = onSelectCourse,
                 onOpenSettings = onNavigateToSettings,
+                onSaveProfile = { name, bio -> authRepository.updateProfile(name, bio) },
                 onSignOut = { authRepository.signOut() }
             )
         } else {
@@ -178,9 +182,11 @@ private fun SignedInContent(
     currentUser: org.armorclub.studymate.data.model.UserProfile,
     onSelectCourse: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onSaveProfile: suspend (name: String, bio: String) -> String?,
     onSignOut: () -> Unit
 ) {
     val context = LocalContext.current
+    var showEditProfile by remember { mutableStateOf(false) }
     var courses by remember { mutableStateOf<List<Course>>(emptyList()) }
     val progressMap by progressRepository.progressMap.collectAsState()
     val enrollments by enrollmentRepository.enrollments.collectAsState()
@@ -220,7 +226,17 @@ private fun SignedInContent(
                     .border(1.dp, AppTheme.colors.cardBorder, RoundedCornerShape(Radius.card))
             ) {
                 Row(Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-                    InitialsAvatar(userName, size = 60.dp)
+                    val avatar = currentUser.avatarUrl?.takeIf { it.isNotBlank() }
+                    if (avatar != null) {
+                        AsyncImage(
+                            model = courseRepository.resolveResourceUrl(avatar),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(60.dp).clip(CircleShape)
+                        )
+                    } else {
+                        InitialsAvatar(userName, size = 60.dp)
+                    }
                     Spacer(Modifier.width(Spacing.md))
                     Column(Modifier.weight(1f)) {
                         Text(userName, style = MaterialTheme.typography.titleLarge, color = AppTheme.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -229,6 +245,20 @@ private fun SignedInContent(
                         Badge(if (isAdmin) "Admin" else "Student", tone = if (isAdmin) BadgeTone.Accent else BadgeTone.Neutral)
                     }
                 }
+                currentUser.bio?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppTheme.colors.textSecondary,
+                        modifier = Modifier.padding(start = Spacing.md, end = Spacing.md, bottom = Spacing.sm)
+                    )
+                }
+                SecondaryButton(
+                    text = "Edit profile",
+                    icon = Icons.Outlined.Edit,
+                    onClick = { showEditProfile = true },
+                    modifier = Modifier.fillMaxWidth().padding(start = Spacing.md, end = Spacing.md, bottom = Spacing.md)
+                )
                 Hairline()
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                     StatCell("Points", points.toString(), Modifier.weight(1f))
@@ -373,6 +403,15 @@ private fun SignedInContent(
         }
     }
 
+    if (showEditProfile) {
+        EditProfileSheet(
+            initialName = currentUser.fullName,
+            initialBio = currentUser.bio.orEmpty(),
+            onSave = onSaveProfile,
+            onDismiss = { showEditProfile = false }
+        )
+    }
+
     if (confirmSignOut) {
         AlertDialog(
             onDismissRequest = { confirmSignOut = false },
@@ -390,6 +429,81 @@ private fun SignedInContent(
                 TextButton(onClick = { confirmSignOut = false }) { Text("Cancel", color = AppTheme.colors.textSecondary) }
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditProfileSheet(
+    initialName: String,
+    initialBio: String,
+    onSave: suspend (String, String) -> String?,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var name by rememberSaveable { mutableStateOf(initialName) }
+    var bio by rememberSaveable { mutableStateOf(initialBio) }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(onDismissRequest = { if (!saving) onDismiss() }, containerColor = AppTheme.colors.surfaceElevated) {
+        Column(
+            Modifier
+                .padding(start = Spacing.gutter, end = Spacing.gutter, bottom = Spacing.xl)
+                .imePadding()
+        ) {
+            Text("Edit profile", style = MaterialTheme.typography.titleMedium, color = AppTheme.colors.textPrimary)
+            Spacer(Modifier.height(Spacing.md))
+            SmTextField(value = name, onValueChange = { name = it.take(60); error = null }, label = "Name")
+            Spacer(Modifier.height(Spacing.sm))
+            OutlinedTextField(
+                value = bio,
+                onValueChange = { bio = it.take(300) },
+                label = { Text("Bio") },
+                supportingText = { Text("${bio.length}/300") },
+                minLines = 3,
+                shape = RoundedCornerShape(Radius.control),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AppTheme.colors.primary,
+                    unfocusedBorderColor = AppTheme.colors.cardBorder,
+                    focusedLabelColor = AppTheme.colors.primary,
+                    unfocusedLabelColor = AppTheme.colors.textMuted,
+                    focusedTextColor = AppTheme.colors.textPrimary,
+                    unfocusedTextColor = AppTheme.colors.textPrimary,
+                    cursorColor = AppTheme.colors.primary
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+            error?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.error)
+            }
+            Text(
+                "Your photo can be changed on the website.",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppTheme.colors.textMuted,
+                modifier = Modifier.padding(top = Spacing.xs)
+            )
+            Spacer(Modifier.height(Spacing.md))
+            PrimaryButton(
+                text = if (saving) "Saving…" else "Save",
+                enabled = !saving && name.trim().length >= 2,
+                onClick = {
+                    scope.launch {
+                        saving = true
+                        val err = onSave(name, bio)
+                        saving = false
+                        if (err == null) {
+                            Toast.makeText(context, "Profile saved", Toast.LENGTH_SHORT).show()
+                            onDismiss()
+                        } else {
+                            error = err
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
